@@ -7,6 +7,7 @@ import { formatMoney, formatPercent } from "@/lib/utils/format";
 import { StatCard } from "@/components/ui/stat-card";
 import { DonutChart } from "@/components/ui/donut-chart";
 import { BarChart } from "@/components/ui/bar-chart";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DollarSign,
   TrendingUp,
@@ -86,12 +87,6 @@ export default function FinancePage() {
     color: STAGE_COLORS[label] || "#64748b",
   }));
 
-  if (loading) {
-    return (
-      <div className="text-center text-muted-foreground py-20">جاري التحميل...</div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -109,31 +104,37 @@ export default function FinancePage() {
 
       {/* 4 KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          value={formatMoney(arr)}
-          label="ARR السنوي (تقديري)"
-          color="cyan"
-          icon={<DollarSign className="w-4 h-4 text-cyan" />}
-        />
-        <StatCard
-          value={formatMoney(mrr)}
-          label="MRR الشهري"
-          color="green"
-          icon={<TrendingUp className="w-4 h-4 text-cc-green" />}
-        />
-        <StatCard
-          value={formatPercent(closeRate)}
-          label="نسبة الإغلاق"
-          color="purple"
-          progress={closeRate}
-          icon={<Percent className="w-4 h-4 text-cc-purple" />}
-        />
-        <StatCard
-          value={formatMoney(totalPipelineValue)}
-          label="قيمة خط الأنابيب"
-          color="amber"
-          icon={<Target className="w-4 h-4 text-amber" />}
-        />
+        {loading ? (
+          Array.from({ length: 4 }).map((_, index) => <FinanceCardSkeleton key={index} />)
+        ) : (
+          <>
+            <StatCard
+              value={formatMoney(arr)}
+              label="ARR السنوي (تقديري)"
+              color="cyan"
+              icon={<DollarSign className="w-4 h-4 text-cyan" />}
+            />
+            <StatCard
+              value={formatMoney(mrr)}
+              label="MRR الشهري"
+              color="green"
+              icon={<TrendingUp className="w-4 h-4 text-cc-green" />}
+            />
+            <StatCard
+              value={formatPercent(closeRate)}
+              label="نسبة الإغلاق"
+              color="purple"
+              progress={closeRate}
+              icon={<Percent className="w-4 h-4 text-cc-purple" />}
+            />
+            <StatCard
+              value={formatMoney(totalPipelineValue)}
+              label="قيمة خط الأنابيب"
+              color="amber"
+              icon={<Target className="w-4 h-4 text-amber" />}
+            />
+          </>
+        )}
       </div>
 
       {/* Two charts row */}
@@ -143,7 +144,22 @@ export default function FinancePage() {
           <h3 className="text-sm font-bold text-foreground mb-4">
             توزيع القيمة حسب المرحلة
           </h3>
-          {donutSegments.length > 0 ? (
+          {loading ? (
+            <div className="space-y-4">
+              <Skeleton className="mx-auto h-40 w-40 rounded-full" />
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-2.5 w-2.5 rounded-full" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : donutSegments.length > 0 ? (
             <>
               <DonutChart
                 segments={donutSegments}
@@ -179,7 +195,15 @@ export default function FinancePage() {
           <h3 className="text-sm font-bold text-foreground mb-4">
             الإيرادات الشهرية (ألف $)
           </h3>
-          {barData.length > 0 ? (
+          {loading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-[280px] w-full rounded-xl" />
+              <div className="grid grid-cols-2 gap-3">
+                <Skeleton className="h-20 w-full rounded-lg" />
+                <Skeleton className="h-20 w-full rounded-lg" />
+              </div>
+            </div>
+          ) : barData.length > 0 ? (
             <>
               <BarChart data={barData} height={280} />
               <div className="mt-4 grid grid-cols-2 gap-3">
@@ -207,6 +231,23 @@ export default function FinancePage() {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function FinanceCardSkeleton() {
+  return (
+    <div className="bg-card rounded-xl border border-border p-4 border-t-2 border-t-muted">
+      <div className="flex items-start justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-24" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+        <Skeleton className="w-9 h-9 rounded-lg" />
+      </div>
+      <div className="mt-3">
+        <Skeleton className="h-1.5 w-full rounded-full" />
       </div>
     </div>
   );

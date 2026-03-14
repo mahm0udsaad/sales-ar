@@ -10,6 +10,7 @@ import { ColorBadge } from "@/components/ui/color-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -201,21 +202,23 @@ export default function SalesPage() {
 
       {/* ─── Source Distribution Cards ─── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {SOURCE_CARDS.map((sc) => {
-          const count = sourceCounts[sc.key] || 0;
-          const pct = totalDeals > 0 ? Math.round((count / totalDeals) * 100) : 0;
-          return (
-            <StatCard
-              key={sc.key}
-              value={String(count)}
-              label={sc.key}
-              color={sc.color}
-              progress={pct}
-              icon={sc.icon}
-              subtext={formatPercent(pct) + " من الصفقات"}
-            />
-          );
-        })}
+        {loading
+          ? Array.from({ length: 4 }).map((_, index) => <StatCardSkeleton key={index} />)
+          : SOURCE_CARDS.map((sc) => {
+              const count = sourceCounts[sc.key] || 0;
+              const pct = totalDeals > 0 ? Math.round((count / totalDeals) * 100) : 0;
+              return (
+                <StatCard
+                  key={sc.key}
+                  value={String(count)}
+                  label={sc.key}
+                  color={sc.color}
+                  progress={pct}
+                  icon={sc.icon}
+                  subtext={formatPercent(pct) + " من الصفقات"}
+                />
+              );
+            })}
       </div>
 
       {/* ─── Deals Table ─── */}
@@ -236,11 +239,29 @@ export default function SalesPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                  جاري التحميل...
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 6 }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-1.5 flex-1 rounded-full" />
+                      <Skeleton className="h-4 w-8" />
+                    </div>
+                  </TableCell>
+                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-center gap-1">
+                      <Skeleton className="h-7 w-7 rounded-md" />
+                      <Skeleton className="h-7 w-7 rounded-md" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : deals.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
@@ -487,6 +508,24 @@ export default function SalesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function StatCardSkeleton() {
+  return (
+    <div className="bg-card rounded-xl border border-border p-4 border-t-2 border-t-muted">
+      <div className="flex items-start justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-10" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+        <Skeleton className="w-9 h-9 rounded-lg" />
+      </div>
+      <div className="mt-3 space-y-2">
+        <Skeleton className="h-1.5 w-full rounded-full" />
+        <Skeleton className="h-3 w-16" />
+      </div>
     </div>
   );
 }

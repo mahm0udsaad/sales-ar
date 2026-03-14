@@ -5,13 +5,14 @@ import {
   fetchPartnerships, createPartnership, updatePartnership, deletePartnership,
 } from "@/lib/supabase/db";
 import { PARTNERSHIP_TYPES, PARTNERSHIP_STATUSES } from "@/lib/utils/constants";
-import { formatMoney, formatMoneyFull } from "@/lib/utils/format";
+import { formatMoney } from "@/lib/utils/format";
 import { StatCard } from "@/components/ui/stat-card";
 import { ColorBadge } from "@/components/ui/color-badge";
 import { DonutChart } from "@/components/ui/donut-chart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -197,34 +198,65 @@ export default function PartnershipsPage() {
 
       {/* 4 KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          value={String(totalPartnerships)}
-          label="إجمالي الشراكات"
-          color="cyan"
-          icon={<Handshake className="w-4 h-4 text-cyan" />}
-        />
-        <StatCard
-          value={String(activePartnerships)}
-          label="شراكات نشطة"
-          color="green"
-          icon={<Activity className="w-4 h-4 text-cc-green" />}
-        />
-        <StatCard
-          value={String(negotiatingPartnerships)}
-          label="قيد التفاوض"
-          color="amber"
-          icon={<Clock className="w-4 h-4 text-amber" />}
-        />
-        <StatCard
-          value={formatMoney(totalValue)}
-          label="القيمة الإجمالية"
-          color="purple"
-          icon={<DollarSign className="w-4 h-4 text-cc-purple" />}
-        />
+        {loading ? (
+          Array.from({ length: 4 }).map((_, index) => <PartnershipStatSkeleton key={index} />)
+        ) : (
+          <>
+            <StatCard
+              value={String(totalPartnerships)}
+              label="إجمالي الشراكات"
+              color="cyan"
+              icon={<Handshake className="w-4 h-4 text-cyan" />}
+            />
+            <StatCard
+              value={String(activePartnerships)}
+              label="شراكات نشطة"
+              color="green"
+              icon={<Activity className="w-4 h-4 text-cc-green" />}
+            />
+            <StatCard
+              value={String(negotiatingPartnerships)}
+              label="قيد التفاوض"
+              color="amber"
+              icon={<Clock className="w-4 h-4 text-amber" />}
+            />
+            <StatCard
+              value={formatMoney(totalValue)}
+              label="القيمة الإجمالية"
+              color="purple"
+              icon={<DollarSign className="w-4 h-4 text-cc-purple" />}
+            />
+          </>
+        )}
       </div>
 
       {loading ? (
-        <div className="text-center text-muted-foreground py-12">جاري التحميل...</div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="space-y-4">
+            <div className="bg-card rounded-xl border border-border p-5">
+              <Skeleton className="h-4 w-32 mb-4" />
+              <Skeleton className="mx-auto h-40 w-40 rounded-full" />
+            </div>
+            <div className="bg-card rounded-xl border border-border p-5 space-y-3">
+              <Skeleton className="h-4 w-36" />
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                  <Skeleton className="h-2 w-full rounded-full" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-card rounded-xl border border-border p-5 space-y-3">
+            <Skeleton className="h-4 w-28 mb-4" />
+            {Array.from({ length: 5 }).map((_, index) => (
+              <PartnershipCardSkeleton key={index} />
+            ))}
+          </div>
+        </div>
       ) : (
         /* Two-column layout: charts LEFT, cards RIGHT */
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -437,6 +469,43 @@ export default function PartnershipsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function PartnershipStatSkeleton() {
+  return (
+    <div className="bg-card rounded-xl border border-border p-4 border-t-2 border-t-muted">
+      <div className="flex items-start justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-16" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+        <Skeleton className="w-9 h-9 rounded-lg" />
+      </div>
+    </div>
+  );
+}
+
+function PartnershipCardSkeleton() {
+  return (
+    <div className="p-3 rounded-lg border border-border bg-background/50 space-y-2.5">
+      <div className="flex items-start gap-3">
+        <Skeleton className="w-9 h-9 rounded-full shrink-0" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-4 w-28" />
+          <div className="flex items-center gap-1.5">
+            <Skeleton className="h-5 w-14 rounded-full" />
+            <Skeleton className="h-5 w-16 rounded-full" />
+          </div>
+        </div>
+        <Skeleton className="h-6 w-6 rounded-md" />
+      </div>
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-3 w-20" />
+      </div>
+      <Skeleton className="h-3 w-40" />
     </div>
   );
 }

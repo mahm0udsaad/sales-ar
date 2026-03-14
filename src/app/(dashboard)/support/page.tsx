@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectTrigger,
@@ -219,30 +220,36 @@ export default function SupportPage() {
 
       {/* -------- Status Cards -------- */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          value={String(countOpen)}
-          label="مفتوحة"
-          color="red"
-          icon={<Inbox className="w-4 h-4 text-cc-red" />}
-        />
-        <StatCard
-          value={String(countInProgress)}
-          label="قيد الحل"
-          color="amber"
-          icon={<Clock className="w-4 h-4 text-amber" />}
-        />
-        <StatCard
-          value={String(countResolved)}
-          label="محلولة"
-          color="green"
-          icon={<CheckCircle2 className="w-4 h-4 text-cc-green" />}
-        />
-        <StatCard
-          value={String(countUrgent)}
-          label="عاجلة"
-          color="blue"
-          icon={<AlertTriangle className="w-4 h-4 text-cc-blue" />}
-        />
+        {loading ? (
+          Array.from({ length: 4 }).map((_, index) => <SupportStatSkeleton key={index} />)
+        ) : (
+          <>
+            <StatCard
+              value={String(countOpen)}
+              label="مفتوحة"
+              color="red"
+              icon={<Inbox className="w-4 h-4 text-cc-red" />}
+            />
+            <StatCard
+              value={String(countInProgress)}
+              label="قيد الحل"
+              color="amber"
+              icon={<Clock className="w-4 h-4 text-amber" />}
+            />
+            <StatCard
+              value={String(countResolved)}
+              label="محلولة"
+              color="green"
+              icon={<CheckCircle2 className="w-4 h-4 text-cc-green" />}
+            />
+            <StatCard
+              value={String(countUrgent)}
+              label="عاجلة"
+              color="blue"
+              icon={<AlertTriangle className="w-4 h-4 text-cc-blue" />}
+            />
+          </>
+        )}
       </div>
 
       {/* -------- Tickets Table -------- */}
@@ -264,11 +271,25 @@ export default function SupportPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                  جاري التحميل...
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 6 }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell className="text-right"><Skeleton className="mr-auto h-4 w-10" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="mr-auto h-4 w-24" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="mr-auto h-4 w-20" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="mr-auto h-4 w-24" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="mr-auto h-4 w-36" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="mr-auto h-4 w-20" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="mr-auto h-6 w-14 rounded-full" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="mr-auto h-6 w-16 rounded-full" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="mr-auto h-4 w-20" /></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center gap-1">
+                      <Skeleton className="h-7 w-7 rounded-md" />
+                      <Skeleton className="h-7 w-7 rounded-md" />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
             ) : tickets.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
@@ -508,6 +529,20 @@ export default function SupportPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function SupportStatSkeleton() {
+  return (
+    <div className="bg-card rounded-xl border border-border p-4 border-t-2 border-t-muted">
+      <div className="flex items-start justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-10" />
+          <Skeleton className="h-3 w-16" />
+        </div>
+        <Skeleton className="w-9 h-9 rounded-lg" />
+      </div>
     </div>
   );
 }

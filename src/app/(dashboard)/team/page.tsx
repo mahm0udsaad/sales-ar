@@ -8,6 +8,7 @@ import { ColorBadge } from "@/components/ui/color-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -160,32 +161,42 @@ export default function TeamPage() {
 
       {/* KPI row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          value={String(employees.length)}
-          label="إجمالي الفريق"
-          color="cyan"
-          icon={<Users className="w-4 h-4 text-cyan" />}
-        />
-        <StatCard
-          value={String(activeCount)}
-          label="أعضاء نشطين"
-          color="green"
-        />
-        <StatCard
-          value={String(busyCount)}
-          label="مشغول"
-          color="amber"
-        />
-        <StatCard
-          value={String(employees.filter((e) => e.status === "غير نشط").length)}
-          label="غير نشط"
-          color="red"
-        />
+        {loading ? (
+          Array.from({ length: 4 }).map((_, index) => <TeamStatSkeleton key={index} />)
+        ) : (
+          <>
+            <StatCard
+              value={String(employees.length)}
+              label="إجمالي الفريق"
+              color="cyan"
+              icon={<Users className="w-4 h-4 text-cyan" />}
+            />
+            <StatCard
+              value={String(activeCount)}
+              label="أعضاء نشطين"
+              color="green"
+            />
+            <StatCard
+              value={String(busyCount)}
+              label="مشغول"
+              color="amber"
+            />
+            <StatCard
+              value={String(employees.filter((e) => e.status === "غير نشط").length)}
+              label="غير نشط"
+              color="red"
+            />
+          </>
+        )}
       </div>
 
       {/* Team Grid */}
       {loading ? (
-        <div className="text-center text-muted-foreground py-12">جاري التحميل...</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <TeamCardSkeleton key={index} />
+          ))}
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {employees.map((emp) => {
@@ -338,6 +349,46 @@ export default function TeamPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function TeamStatSkeleton() {
+  return (
+    <div className="bg-card rounded-xl border border-border p-4 border-t-2 border-t-muted">
+      <div className="flex items-start justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-10" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+        <Skeleton className="w-9 h-9 rounded-lg" />
+      </div>
+    </div>
+  );
+}
+
+function TeamCardSkeleton() {
+  return (
+    <div className="bg-card rounded-xl border border-border p-5 space-y-4">
+      <div className="flex items-start gap-3">
+        <Skeleton className="w-11 h-11 rounded-full shrink-0" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+        <Skeleton className="h-5 w-14 rounded-full" />
+      </div>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-3 w-14" />
+          <Skeleton className="h-3 w-10" />
+        </div>
+        <Skeleton className="h-1.5 w-full rounded-full" />
+      </div>
+      <div className="flex items-center gap-2 pt-2 border-t border-border">
+        <Skeleton className="h-8 flex-1 rounded-lg" />
+        <Skeleton className="h-8 flex-1 rounded-lg" />
+      </div>
     </div>
   );
 }

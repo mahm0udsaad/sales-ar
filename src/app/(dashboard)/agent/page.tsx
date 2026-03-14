@@ -19,6 +19,7 @@ import {
   MessageSquarePlus,
   Trash2,
   Globe,
+  Database,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -272,9 +273,6 @@ export default function AgentPage() {
             <div className="space-y-6 py-5">
               {messages.map((msg) => {
                 const text = getMessageText(msg);
-                const isSearching = msg.role === "assistant" && msg.parts?.some(
-                  (p) => isToolUIPart(p) && getToolName(p) === "googleSearch" && p.state !== "output-available" && p.state !== "output-error"
-                );
                 return (
                   <div key={msg.id} className="flex gap-3">
                     {/* Avatar */}
@@ -307,35 +305,86 @@ export default function AgentPage() {
                         </span>
                       </div>
 
-                      {/* Web Search Skeleton */}
-                      {isSearching && (
-                        <div className="mb-3 flex items-center gap-3 px-3 py-2.5 rounded-lg bg-cyan/5 border border-cyan/15 animate-pulse">
-                          <Globe className="w-4 h-4 text-cyan animate-spin" style={{ animationDuration: "2s" }} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-cyan">جاري البحث في الويب...</p>
-                            <div className="flex gap-2 mt-1.5">
-                              <div className="h-2 w-24 bg-cyan/10 rounded-full" />
-                              <div className="h-2 w-16 bg-cyan/10 rounded-full" />
-                              <div className="h-2 w-20 bg-cyan/10 rounded-full" />
-                            </div>
-                          </div>
+                      {/* Render parts in order for assistant messages */}
+                      {msg.role === "assistant" ? (
+                        <div className="space-y-2">
+                          {msg.parts?.map((part, i) => {
+                            // Tool invocation parts — show tool-specific skeletons
+                            if (isToolUIPart(part)) {
+                              const name = getToolName(part);
+                              const isDone = part.state === "output-available" || part.state === "output-error";
+
+                              if (name === "webSearch" && !isDone) {
+                                return (
+                                  <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-cyan/5 border border-cyan/15 animate-pulse">
+                                    <Globe className="w-4 h-4 text-cyan animate-spin" style={{ animationDuration: "2s" }} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-medium text-cyan">جاري البحث في الويب...</p>
+                                      <div className="flex gap-2 mt-1.5">
+                                        <div className="h-2 w-24 bg-cyan/10 rounded-full" />
+                                        <div className="h-2 w-16 bg-cyan/10 rounded-full" />
+                                        <div className="h-2 w-20 bg-cyan/10 rounded-full" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              if (name === "webSearch" && isDone) {
+                                return (
+                                  <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan/5 border border-cyan/10 text-[11px] text-cyan/70">
+                                    <Globe className="w-3 h-3" />
+                                    تم البحث في الويب
+                                  </div>
+                                );
+                              }
+
+                              if (name === "queryDatabase" && !isDone) {
+                                return (
+                                  <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-cc-purple/5 border border-cc-purple/15 animate-pulse">
+                                    <Database className="w-4 h-4 text-cc-purple animate-pulse" />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-medium text-cc-purple">جاري الاستعلام من قاعدة البيانات...</p>
+                                      <div className="flex gap-2 mt-1.5">
+                                        <div className="h-2 w-20 bg-cc-purple/10 rounded-full" />
+                                        <div className="h-2 w-28 bg-cc-purple/10 rounded-full" />
+                                        <div className="h-2 w-14 bg-cc-purple/10 rounded-full" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              if (name === "queryDatabase" && isDone) {
+                                return (
+                                  <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cc-purple/5 border border-cc-purple/10 text-[11px] text-cc-purple/70">
+                                    <Database className="w-3 h-3" />
+                                    تم الاستعلام من قاعدة البيانات
+                                  </div>
+                                );
+                              }
+
+                              // Unknown tool — hide
+                              return null;
+                            }
+
+                            // Text parts
+                            if (part.type === "text" && part.text) {
+                              return (
+                                <div key={i} className="prose prose-invert prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground/90 prose-strong:text-foreground prose-td:text-foreground/80 prose-th:text-foreground prose-li:text-foreground/90 [&_table]:w-full [&_table]:text-xs [&_th]:bg-muted [&_th]:px-3 [&_th]:py-1.5 [&_td]:px-3 [&_td]:py-1.5 [&_td]:border-b [&_td]:border-border [&_th]:border-b [&_th]:border-border [&_th]:text-right [&_td]:text-right text-sm leading-relaxed text-foreground/90">
+                                  <MessageContent content={part.text} />
+                                </div>
+                              );
+                            }
+
+                            return null;
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-sm leading-relaxed text-foreground">
+                          <p>{text}</p>
                         </div>
                       )}
-
-                      <div
-                        className={cn(
-                          "text-sm leading-relaxed",
-                          msg.role === "user" ? "text-foreground" : "text-foreground/90"
-                        )}
-                      >
-                        {msg.role === "assistant" ? (
-                          <div className="prose prose-invert prose-sm max-w-none prose-headings:text-foreground prose-p:text-foreground/90 prose-strong:text-foreground prose-td:text-foreground/80 prose-th:text-foreground prose-li:text-foreground/90 [&_table]:w-full [&_table]:text-xs [&_th]:bg-muted [&_th]:px-3 [&_th]:py-1.5 [&_td]:px-3 [&_td]:py-1.5 [&_td]:border-b [&_td]:border-border [&_th]:border-b [&_th]:border-border [&_th]:text-right [&_td]:text-right">
-                            <MessageContent content={text} />
-                          </div>
-                        ) : (
-                          <p>{text}</p>
-                        )}
-                      </div>
 
                       {/* Copy button for assistant messages */}
                       {msg.role === "assistant" && text && (
@@ -361,16 +410,17 @@ export default function AgentPage() {
                 );
               })}
 
-              {/* Loading indicator */}
+              {/* Generic loading — only when no assistant message exists yet */}
               {isLoading && messages[messages.length - 1]?.role === "user" && (
                 <div className="flex gap-3">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan/20 to-cc-purple/20 flex items-center justify-center flex-shrink-0">
                     <Bot className="w-4 h-4 text-cyan" />
                   </div>
-                  <div className="flex items-center gap-1.5 pt-2">
-                    <span className="w-2 h-2 bg-cyan rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-2 h-2 bg-cyan rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-2 h-2 bg-cyan rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  <div className="flex items-center gap-2 pt-2">
+                    <span className="text-xs text-muted-foreground">يفكر</span>
+                    <span className="w-1.5 h-1.5 bg-cyan rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-1.5 h-1.5 bg-cyan rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-1.5 h-1.5 bg-cyan rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                   </div>
                 </div>
               )}
