@@ -1,5 +1,5 @@
 import { createClient } from "./client";
-import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot } from "@/types";
+import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot, Review, Renewal } from "@/types";
 
 export const ORG_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -247,6 +247,110 @@ export async function deletePartnership(id: string): Promise<void> {
   const supabase = createClient();
   const { error } = await supabase
     .from("partnerships")
+    .delete()
+    .eq("id", id)
+    .eq("org_id", ORG_ID);
+  if (error) throw error;
+}
+
+// ─── REVIEWS ─────────────────────────────────────────────────────────────────
+
+export async function fetchReviews(): Promise<Review[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("*")
+    .eq("org_id", ORG_ID)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as Review[];
+}
+
+export async function createReview(
+  review: Omit<Review, "id" | "org_id" | "created_at" | "updated_at">
+): Promise<Review> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("reviews")
+    .insert({ ...review, org_id: ORG_ID })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Review;
+}
+
+export async function updateReview(
+  id: string,
+  review: Partial<Omit<Review, "id" | "org_id">>
+): Promise<Review> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("reviews")
+    .update({ ...review, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("org_id", ORG_ID)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Review;
+}
+
+export async function deleteReview(id: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("reviews")
+    .delete()
+    .eq("id", id)
+    .eq("org_id", ORG_ID);
+  if (error) throw error;
+}
+
+// ─── RENEWALS ────────────────────────────────────────────────────────────────
+
+export async function fetchRenewals(): Promise<Renewal[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("renewals")
+    .select("*")
+    .eq("org_id", ORG_ID)
+    .order("renewal_date", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as Renewal[];
+}
+
+export async function createRenewal(
+  renewal: Omit<Renewal, "id" | "org_id" | "created_at" | "updated_at">
+): Promise<Renewal> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("renewals")
+    .insert({ ...renewal, org_id: ORG_ID })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Renewal;
+}
+
+export async function updateRenewal(
+  id: string,
+  renewal: Partial<Omit<Renewal, "id" | "org_id">>
+): Promise<Renewal> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("renewals")
+    .update({ ...renewal, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("org_id", ORG_ID)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Renewal;
+}
+
+export async function deleteRenewal(id: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("renewals")
     .delete()
     .eq("id", id)
     .eq("org_id", ORG_ID);

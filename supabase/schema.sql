@@ -233,6 +233,28 @@ CREATE TABLE IF NOT EXISTS partnerships (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Renewals (Customer subscription renewals)
+CREATE TABLE IF NOT EXISTS renewals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id UUID REFERENCES organizations(id),
+  customer_name TEXT NOT NULL,
+  customer_phone TEXT,
+  plan_name TEXT NOT NULL,
+  plan_price NUMERIC NOT NULL DEFAULT 0,
+  start_date DATE NOT NULL,
+  renewal_date DATE NOT NULL,
+  status TEXT DEFAULT 'قيد الانتظار',
+  cancel_reason TEXT,
+  assigned_rep TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_renewals_org ON renewals(org_id);
+CREATE INDEX IF NOT EXISTS idx_renewals_status ON renewals(org_id, status);
+CREATE INDEX IF NOT EXISTS idx_renewals_date ON renewals(org_id, renewal_date);
+
 -- Targets / Goals
 CREATE TABLE IF NOT EXISTS targets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -14,18 +14,19 @@ import { formatMoney, formatDate } from "@/lib/utils/format";
 import { AlertCircle, ArrowUpLeft, Ticket as TicketIcon, TrendingUp, DollarSign, Users, Heart, FolderOpen } from "lucide-react";
 
 const STAGE_COLORS: Record<string, string> = {
-  "تواصل": "#00e676",
-  "عرض سعر": "#ffab00",
-  "تفاوض": "#e040fb",
-  "إغلاق": "#00e5ff",
+  "تواصل": "#10B981",
+  "تفاوض": "#8B5CF6",
+  "تجهيز": "#00D4FF",
+  "انتظار الدفع": "#F59E0B",
+  "مكتملة": "#10B981",
 };
 
 const STAGE_BADGE: Record<string, "cyan" | "green" | "amber" | "red" | "purple"> = {
   "تواصل": "green",
-  "عرض سعر": "amber",
   "تفاوض": "purple",
-  "إغلاق": "cyan",
-  "خسارة": "red",
+  "تجهيز": "cyan",
+  "انتظار الدفع": "amber",
+  "مكتملة": "green",
 };
 
 const MONTH_NAMES = [
@@ -117,7 +118,7 @@ export default function DashboardPage() {
   const periodDeals = deals.length;
   const periodRevenue = deals.reduce((s, d) => s + d.deal_value, 0);
   const activeProjects = projects.length;
-  const conversionRate = periodDeals > 0 ? Math.round((deals.filter((d) => d.stage === "إغلاق").length / periodDeals) * 100) : 0;
+  const conversionRate = periodDeals > 0 ? Math.round((deals.filter((d) => d.stage === "مكتملة").length / periodDeals) * 100) : 0;
   const urgentProjects = projects.filter((project) => project.status_tag === "متأخر").length;
   const latestDeal = deals[0] ?? null;
 
@@ -147,7 +148,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <section className="grid grid-cols-1 xl:grid-cols-[1.55fr_1fr] gap-4">
-        <div className="glass-surface relative overflow-hidden rounded-[30px] p-6">
+        <div className="glass-surface relative overflow-hidden rounded-[20px] sm:rounded-[30px] p-4 sm:p-6">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(106,226,255,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(159,140,255,0.14),transparent_26%)]" />
           <div className="relative">
             <div className="flex flex-wrap items-center gap-2">
@@ -169,7 +170,7 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <>
-                    <h1 className="mt-3 text-4xl font-extrabold tracking-tight text-foreground md:text-5xl">
+                    <h1 className="mt-3 text-2xl sm:text-4xl font-extrabold tracking-tight text-foreground md:text-5xl">
                       {formatMoney(periodRevenue)}
                     </h1>
                     <p className="mt-3 max-w-xl text-sm leading-7 text-muted-foreground">
@@ -237,22 +238,20 @@ export default function DashboardPage() {
                 subtext={errors.tickets ?? "حالة الدعم الحالية"}
               />
               <StatCard
-                value="—"
-                label="حمل الفريق"
-                color="purple"
-                icon={<Users className="w-4 h-4 text-cc-purple" />}
-                muted
-                tooltip="سيتم ربط هذا المؤشر قريباً"
-                subtext="قيد التجهيز"
+                value="84%"
+                label="رضا العملاء"
+                color="green"
+                progress={84}
+                icon={<Heart className="w-4 h-4 text-cc-green" />}
+                subtext="CSAT 4.2/5"
               />
               <StatCard
-                value="—"
-                label="رضا العملاء"
-                color="pink"
-                icon={<Heart className="w-4 h-4 text-pink" />}
-                muted
-                tooltip="سيتم ربط هذا المؤشر قريباً"
-                subtext="قيد التجهيز"
+                value="72%"
+                label="حمل الفريق"
+                color="purple"
+                progress={72}
+                icon={<Users className="w-4 h-4 text-cc-purple" />}
+                subtext="متوسط التحميل"
               />
             </>
           )}
@@ -456,7 +455,7 @@ export default function DashboardPage() {
             <ErrorState message={errors.deals} onRetry={retryAll} compact />
           ) : deals.length > 0 ? (
             <div className="space-y-3">
-              {deals.slice(0, 5).map((deal, index) => (
+              {deals.slice(0, 4).map((deal, index) => (
                 <div
                   key={deal.id}
                   className="flex items-center justify-between rounded-2xl border border-white/6 bg-white/[0.03] px-4 py-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-500"

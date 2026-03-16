@@ -196,13 +196,48 @@ export default function SupportPage() {
   }
 
   /* ---------- color helpers ---------- */
-  function priorityColor(p: string) {
-    return (PRIORITY_COLORS[p] as "red" | "amber" | "blue") ?? "blue";
+  const PRIORITY_BADGE: Record<string, "red" | "amber" | "blue"> = {
+    "عاجل": "red",
+    "مرتفع": "amber",
+    "عادي": "blue",
+  };
+
+  const STATUS_BADGE: Record<string, "red" | "amber" | "green"> = {
+    "مفتوح": "red",
+    "قيد الحل": "amber",
+    "محلول": "green",
+  };
+
+  function priorityColor(p: string): "red" | "amber" | "blue" {
+    return PRIORITY_BADGE[p] ?? "blue";
   }
 
-  function statusColor(s: string) {
-    return (TICKET_STATUS_COLORS[s] as "red" | "amber" | "green") ?? "blue";
+  function statusColor(s: string): "red" | "amber" | "green" {
+    return STATUS_BADGE[s] ?? "green";
   }
+
+  function dueDateStatus(dueDate?: string): "overdue" | "today" | "normal" {
+    if (!dueDate) return "normal";
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(dueDate);
+    due.setHours(0, 0, 0, 0);
+    if (due < today) return "overdue";
+    if (due.getTime() === today.getTime()) return "today";
+    return "normal";
+  }
+
+  const DUE_DATE_STYLES = {
+    overdue: "text-cc-red font-bold",
+    today: "text-amber font-bold",
+    normal: "text-muted-foreground",
+  };
+
+  const DUE_DATE_DOT = {
+    overdue: "bg-cc-red",
+    today: "bg-amber",
+    normal: "hidden",
+  };
 
   /* ================================================================ */
   /*  RENDER                                                           */
@@ -253,7 +288,7 @@ export default function SupportPage() {
       </div>
 
       {/* -------- Tickets Table -------- */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
+      <div className="bg-card rounded-xl border border-border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -314,8 +349,13 @@ export default function SupportPage() {
                   <TableCell className="text-right text-xs max-w-[200px] truncate">
                     {ticket.issue}
                   </TableCell>
-                  <TableCell className="text-right text-xs text-muted-foreground">
-                    {ticket.due_date ? formatDate(ticket.due_date) : "—"}
+                  <TableCell className="text-right text-xs">
+                    {ticket.due_date ? (
+                      <span className={`flex items-center gap-1.5 ${DUE_DATE_STYLES[dueDateStatus(ticket.due_date)]}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${DUE_DATE_DOT[dueDateStatus(ticket.due_date)]}`} />
+                        {formatDate(ticket.due_date)}
+                      </span>
+                    ) : "—"}
                   </TableCell>
                   <TableCell className="text-right">
                     <ColorBadge

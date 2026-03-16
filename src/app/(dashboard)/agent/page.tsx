@@ -133,8 +133,39 @@ export default function AgentPage() {
     inputRef.current?.focus();
   };
 
+  const copyText = async (content: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(content);
+        return true;
+      } catch {
+        // Fall through to the DOM-based copy path when clipboard access is denied.
+      }
+    }
+
+    if (typeof document === "undefined") return false;
+
+    const textArea = document.createElement("textarea");
+    textArea.value = content;
+    textArea.setAttribute("readonly", "");
+    textArea.style.position = "fixed";
+    textArea.style.top = "-9999px";
+    textArea.style.opacity = "0";
+
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+      return document.execCommand("copy");
+    } finally {
+      document.body.removeChild(textArea);
+    }
+  };
+
   const copyMessage = async (id: string, content: string) => {
-    await navigator.clipboard.writeText(content);
+    const didCopy = await copyText(content);
+    if (!didCopy) return;
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };

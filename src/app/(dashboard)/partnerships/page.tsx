@@ -18,6 +18,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -34,6 +35,7 @@ import {
   Activity,
   Clock,
   DollarSign,
+  Trash2,
 } from "lucide-react";
 
 /* ---------- helpers ---------- */
@@ -45,17 +47,18 @@ const TYPE_COLOR: Record<string, "cyan" | "purple" | "amber" | "green"> = {
   "تسويقية": "green",
 };
 
-const STATUS_COLOR: Record<string, "green" | "amber" | "red"> = {
+const STATUS_COLOR: Record<string, "green" | "amber" | "red" | "blue"> = {
   "شراكة نشطة": "green",
   "قيد التفاوض": "amber",
   "شراكة مؤجلة": "red",
+  "شراكة مُوقفة": "blue",
 };
 
 const TYPE_CHART_COLORS: Record<string, string> = {
-  "استراتيجية": "#00e5ff",
-  "تقنية": "#e040fb",
-  "تجارية": "#ffab00",
-  "تسويقية": "#00e676",
+  "استراتيجية": "#8B5CF6",
+  "تقنية": "#00D4FF",
+  "تجارية": "#EC4899",
+  "تسويقية": "#F59E0B",
 };
 
 /* ---------- page ---------- */
@@ -66,6 +69,10 @@ export default function PartnershipsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPartnership, setEditingPartnership] = useState<Partnership | null>(null);
   const [saving, setSaving] = useState(false);
+
+  /* delete confirmation */
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   /* form state */
   const [formName, setFormName] = useState("");
@@ -166,14 +173,23 @@ export default function PartnershipsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      await deletePartnership(id);
-      setPartnerships((prev) => prev.filter((p) => p.id !== id));
-    } catch (err) {
-      console.error(err);
+  function confirmDelete(id: string) {
+    setDeleteId(id);
+    setDeleteOpen(true);
+  }
+
+  async function handleDelete() {
+    if (deleteId) {
+      try {
+        await deletePartnership(deleteId);
+        setPartnerships((prev) => prev.filter((p) => p.id !== deleteId));
+      } catch (err) {
+        console.error(err);
+      }
     }
-  };
+    setDeleteOpen(false);
+    setDeleteId(null);
+  }
 
   return (
     <div className="space-y-6">
@@ -345,10 +361,10 @@ export default function PartnershipsPage() {
                       <Button
                         variant="destructive"
                         size="icon-xs"
-                        onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }}
+                        onClick={(e) => { e.stopPropagation(); confirmDelete(p.id); }}
                         title="حذف"
                       >
-                        <span className="text-xs">×</span>
+                        <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
 
@@ -378,6 +394,26 @@ export default function PartnershipsPage() {
         </div>
       )}
 
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>تأكيد الحذف</DialogTitle>
+            <DialogDescription>
+              هل أنت متأكد من حذف هذه الشراكة؟ لا يمكن التراجع عن هذا الإجراء.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              إلغاء
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              حذف الشراكة
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add / Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md">
@@ -385,6 +421,9 @@ export default function PartnershipsPage() {
             <DialogTitle>
               {editingPartnership ? "تعديل الشراكة" : "إضافة شراكة جديدة"}
             </DialogTitle>
+            <DialogDescription>
+              {editingPartnership ? "قم بتحديث بيانات الشراكة" : "أدخل بيانات الشراكة الجديدة"}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">

@@ -15,6 +15,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -39,16 +40,18 @@ import {
 
 /* ---------- helpers ---------- */
 
-const STATUS_COLOR: Record<string, "green" | "amber" | "red"> = {
+const STATUS_COLOR: Record<string, "green" | "amber" | "red" | "blue"> = {
   "في الموعد": "green",
   "متأخر": "red",
   "يكتمل قريباً": "amber",
+  "موقوف": "blue",
 };
 
 const STATUS_BORDER: Record<string, string> = {
   "في الموعد": "border-t-cc-green",
   "متأخر": "border-t-cc-red",
   "يكتمل قريباً": "border-t-amber",
+  "موقوف": "border-t-cc-blue",
 };
 
 function progressBarColor(pct: number): string {
@@ -173,22 +176,28 @@ export default function DevelopmentPage() {
       </div>
 
       {/* Status count cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {loading ? (
-          Array.from({ length: 3 }).map((_, index) => <ProjectStatSkeleton key={index} />)
+          Array.from({ length: 4 }).map((_, index) => <ProjectStatSkeleton key={index} />)
         ) : (
           <>
             <StatCard
-              value={String(overdueCount)}
-              label="متأخرة"
-              color="red"
-              icon={<AlertTriangle className="w-4 h-4 text-cc-red" />}
+              value={String(projects.length)}
+              label="في الفترة"
+              color="cyan"
+              icon={<Code className="w-4 h-4 text-cyan" />}
             />
             <StatCard
               value={String(onTimeCount)}
               label="في الموعد"
               color="green"
               icon={<CheckCircle className="w-4 h-4 text-cc-green" />}
+            />
+            <StatCard
+              value={String(overdueCount)}
+              label="متأخرة"
+              color="red"
+              icon={<AlertTriangle className="w-4 h-4 text-cc-red" />}
             />
             <StatCard
               value={String(soonCount)}
@@ -202,13 +211,13 @@ export default function DevelopmentPage() {
 
       {/* Project Cards Grid */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {Array.from({ length: 6 }).map((_, index) => (
             <ProjectCardSkeleton key={index} />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {projects.map((proj) => {
             const completed = proj.total_tasks - proj.remaining_tasks;
             const statusColor = STATUS_COLOR[proj.status_tag || ""] || "blue";
@@ -308,6 +317,9 @@ export default function DevelopmentPage() {
             <DialogTitle>
               {editingProject ? "تعديل المشروع" : "إضافة مشروع جديد"}
             </DialogTitle>
+            <DialogDescription>
+              {editingProject ? "قم بتحديث بيانات المشروع" : "أدخل بيانات المشروع الجديد"}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">

@@ -1,16 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import type { Deal } from "@/types";
 import { fetchDeals, createDeal, updateDeal, deleteDeal } from "@/lib/supabase/db";
-import { STAGES, SOURCES } from "@/lib/utils/constants";
-import { formatMoneyFull, formatDate, formatPhone, formatPercent } from "@/lib/utils/format";
+import { STAGES, SOURCES, SOURCE_COLORS } from "@/lib/utils/constants";
+import { DEMO_LOST_DEALS } from "@/lib/demo-data";
+import { formatMoney, formatMoneyFull, formatDate, formatPhone, formatPercent } from "@/lib/utils/format";
+import { getKpiStatus, KPI_STATUS_STYLES, KPI_TARGETS } from "@/lib/utils/constants";
 import { StatCard } from "@/components/ui/stat-card";
+import { KPICard } from "@/components/ui/kpi-card";
 import { ColorBadge } from "@/components/ui/color-badge";
+import { BarChart } from "@/components/ui/bar-chart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -35,34 +41,37 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Megaphone,
-  BarChart3,
-  Handshake,
-  Heart,
+  TrendingUp,
   Plus,
   Pencil,
   Trash2,
+  CheckCircle,
+  Clock,
+  Settings,
+  MessageSquare,
+  Phone,
+  Target,
+  BarChart3,
+  RefreshCw,
+  Heart,
+  ArrowLeft,
 } from "lucide-react";
 
 /* ─── Stage badge color mapping ─── */
 const STAGE_BADGE_COLOR: Record<string, "green" | "amber" | "purple" | "cyan" | "red"> = {
   "تواصل": "green",
-  "عرض سعر": "amber",
   "تفاوض": "purple",
-  "إغلاق": "cyan",
-  "خسارة": "red",
+  "تجهيز": "cyan",
+  "انتظار الدفع": "amber",
+  "مكتملة": "green",
 };
 
-/* ─── Source card config (the 4 shown at top) ─── */
-const SOURCE_CARDS: {
-  key: string;
-  color: "cyan" | "green" | "amber" | "purple";
-  icon: React.ReactNode;
-}[] = [
-  { key: "إعلانات", color: "cyan", icon: <Megaphone className="w-4 h-4 text-cyan" /> },
-  { key: "تسويق", color: "green", icon: <BarChart3 className="w-4 h-4 text-cc-green" /> },
-  { key: "شراكة", color: "purple", icon: <Handshake className="w-4 h-4 text-cc-purple" /> },
-  { key: "توصية", color: "amber", icon: <Heart className="w-4 h-4 text-amber" /> },
+/* ─── Stage summary config ─── */
+const STAGE_SUMMARY = [
+  { stage: "مكتملة", color: "green" as const, icon: <CheckCircle className="w-4 h-4 text-cc-green" /> },
+  { stage: "انتظار الدفع", color: "amber" as const, icon: <Clock className="w-4 h-4 text-amber" /> },
+  { stage: "تجهيز", color: "cyan" as const, icon: <Settings className="w-4 h-4 text-cyan" /> },
+  { stage: "تفاوض", color: "purple" as const, icon: <MessageSquare className="w-4 h-4 text-cc-purple" /> },
 ];
 
 /* ─── Empty deal form shape ─── */
@@ -98,12 +107,59 @@ export default function SalesPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  /* ─── Source distribution ─── */
+  /* ─── Computed values ─── */
+  const totalDeals = deals.length;
+  const totalValue = deals.reduce((s, d) => s + d.deal_value, 0);
+  const avgDealValue = totalDeals > 0 ? Math.round(totalValue / totalDeals) : 0;
+
+  const stageCounts = deals.reduce<Record<string, { count: number; value: number }>>((acc, d) => {
+    if (!acc[d.stage]) acc[d.stage] = { count: 0, value: 0 };
+    acc[d.stage].count++;
+    acc[d.stage].value += d.deal_value;
+    return acc;
+  }, {});
+
   const sourceCounts = deals.reduce<Record<string, number>>((acc, d) => {
     if (d.source) acc[d.source] = (acc[d.source] || 0) + 1;
     return acc;
   }, {});
-  const totalDeals = deals.length;
+
+  /* KPI calculations */
+  const closedDeals = deals.filter((d) => d.stage === "مكتملة").length;
+  const winRate = totalDeals > 0 ? Math.round((closedDeals / totalDeals) * 100) : 0;
+  const avgCycleDays = totalDeals > 0 ? Math.round(deals.reduce((s, d) => s + d.cycle_days, 0) / totalDeals) : 0;
+  const pipelineValue = deals.filter((d) => d.stage !== "مكتملة").reduce((s, d) => s + d.deal_value, 0);
+
+  /* Lost deals analysis */
+  const lostReasons = DEMO_LOST_DEALS.reduce<Record<string, { count: number; value: number }>>((acc, d) => {
+    const reason = d.loss_reason || "أخرى";
+    if (!acc[reason]) acc[reason] = { count: 0, value: 0 };
+    acc[reason].count++;
+    acc[reason].value += d.deal_value;
+    return acc;
+  }, {});
+  const totalLostValue = DEMO_LOST_DEALS.reduce((s, d) => s + d.deal_value, 0);
+
+  /* Source ROI data */
+  const sourceData = SOURCES.map((src) => {
+    const srcDeals = deals.filter((d) => d.source === src);
+    const srcWon = srcDeals.filter((d) => d.stage === "مكتملة");
+    return {
+      source: src,
+      count: srcDeals.length,
+      value: srcDeals.reduce((s, d) => s + d.deal_value, 0),
+      won: srcWon.length,
+      winRate: srcDeals.length > 0 ? Math.round((srcWon.length / srcDeals.length) * 100) : 0,
+    };
+  }).filter((s) => s.count > 0);
+
+  /* Funnel data */
+  const funnelStages = ["تواصل", "تفاوض", "تجهيز", "انتظار الدفع", "مكتملة"];
+  const funnelData = funnelStages.map((stage) => ({
+    stage,
+    count: stageCounts[stage]?.count || 0,
+    value: stageCounts[stage]?.value || 0,
+  }));
 
   /* ─── Handlers ─── */
   function openAddModal() {
@@ -193,36 +249,84 @@ export default function SalesPage() {
     <div className="space-y-6">
       {/* ─── Page Header ─── */}
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-bold text-foreground">المبيعات</h1>
-        <Button onClick={openAddModal}>
-          <Plus className="w-4 h-4" data-icon="inline-start" />
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-cyan-dim flex items-center justify-center">
+            <TrendingUp className="w-4 h-4 text-cyan" />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-foreground">المبيعات</h1>
+            <p className="text-xs text-muted-foreground">متابعة الصفقات وخط الأنابيب</p>
+          </div>
+        </div>
+        <Button onClick={openAddModal} className="gap-1.5">
+          <Plus className="w-4 h-4" />
           إضافة صفقة
         </Button>
       </div>
 
-      {/* ─── Source Distribution Cards ─── */}
+      {/* ─── Stage Summary Cards ─── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {loading
-          ? Array.from({ length: 4 }).map((_, index) => <StatCardSkeleton key={index} />)
-          : SOURCE_CARDS.map((sc) => {
-              const count = sourceCounts[sc.key] || 0;
-              const pct = totalDeals > 0 ? Math.round((count / totalDeals) * 100) : 0;
+          ? Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
+          : STAGE_SUMMARY.map((s) => {
+              const data = stageCounts[s.stage] || { count: 0, value: 0 };
+              const pct = totalDeals > 0 ? Math.round((data.count / totalDeals) * 100) : 0;
               return (
                 <StatCard
-                  key={sc.key}
-                  value={String(count)}
-                  label={sc.key}
-                  color={sc.color}
+                  key={s.stage}
+                  value={String(data.count)}
+                  label={s.stage}
+                  color={s.color}
                   progress={pct}
-                  icon={sc.icon}
-                  subtext={formatPercent(pct) + " من الصفقات"}
+                  icon={s.icon}
+                  subtext={formatMoney(data.value)}
                 />
               );
             })}
       </div>
 
+      {/* ─── Financial Summary Row ─── */}
+      {!loading && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-card rounded-xl border border-border p-4 text-center">
+            <p className="text-2xl font-extrabold text-cyan">{formatMoney(totalValue)}</p>
+            <p className="text-xs text-muted-foreground mt-1">إجمالي قيمة الصفقات</p>
+          </div>
+          <div className="bg-card rounded-xl border border-border p-4 text-center">
+            <p className="text-2xl font-extrabold text-cc-green">{totalDeals}</p>
+            <p className="text-xs text-muted-foreground mt-1">عدد الصفقات</p>
+          </div>
+          <div className="bg-card rounded-xl border border-border p-4 text-center">
+            <p className="text-2xl font-extrabold text-cc-purple">{formatMoney(avgDealValue)}</p>
+            <p className="text-xs text-muted-foreground mt-1">متوسط قيمة الصفقة</p>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Source Distribution Cards ─── */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {loading
+          ? Array.from({ length: 6 }).map((_, i) => <StatCardSkeleton key={i} />)
+          : SOURCES.map((src) => {
+              const count = sourceCounts[src] || 0;
+              const pct = totalDeals > 0 ? Math.round((count / totalDeals) * 100) : 0;
+              const rawColor = SOURCE_COLORS[src] || "cyan";
+              const cssVar = rawColor.replace("cc-", "");
+              return (
+                <div key={src} className="bg-card rounded-xl border border-border p-4 border-t-2" style={{ borderTopColor: `var(--${cssVar})` }}>
+                  <p className="text-xl font-bold text-foreground">{count}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{src}</p>
+                  <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full bg-${rawColor}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1">{pct}%</p>
+                </div>
+              );
+            })}
+      </div>
+
       {/* ─── Deals Table ─── */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
+      <div className="bg-card rounded-xl border border-border overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -335,6 +439,183 @@ export default function SalesPage() {
         </Table>
       </div>
 
+      {/* ─── KPI Sub-tabs Section ─── */}
+      <Tabs defaultValue="kpis" className="space-y-6">
+        <TabsList className="bg-card border border-border">
+          <TabsTrigger value="kpis">مؤشرات المبيعات</TabsTrigger>
+          <TabsTrigger value="renewals">التجديدات</TabsTrigger>
+          <TabsTrigger value="satisfaction">رضا العملاء</TabsTrigger>
+        </TabsList>
+
+        {/* Tab 1: Sales KPIs */}
+        <TabsContent value="kpis" className="space-y-6">
+          {/* 4 KPI cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <KPICard
+              label="معدل الإغلاق"
+              value={`${winRate}%`}
+              target={`${KPI_TARGETS.win_rate}%`}
+              status={getKpiStatus(winRate, KPI_TARGETS.win_rate)}
+              icon={<Target className="w-4 h-4" />}
+            />
+            <KPICard
+              label="متوسط دورة البيع"
+              value={`${avgCycleDays} يوم`}
+              target={`${KPI_TARGETS.avg_cycle_days} يوم`}
+              status={getKpiStatus(KPI_TARGETS.avg_cycle_days, avgCycleDays)}
+              icon={<Clock className="w-4 h-4" />}
+            />
+            <KPICard
+              label="قيمة الأنبوب"
+              value={formatMoney(pipelineValue)}
+              target={formatMoney(KPI_TARGETS.pipeline_value)}
+              status={getKpiStatus(pipelineValue, KPI_TARGETS.pipeline_value)}
+              icon={<BarChart3 className="w-4 h-4" />}
+            />
+            <KPICard
+              label="متوسط قيمة الصفقة"
+              value={formatMoney(avgDealValue)}
+              target={formatMoney(KPI_TARGETS.avg_deal_value)}
+              status={getKpiStatus(avgDealValue, KPI_TARGETS.avg_deal_value)}
+              icon={<TrendingUp className="w-4 h-4" />}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Sales Funnel */}
+            <div className="bg-card rounded-xl border border-border p-5">
+              <h3 className="text-sm font-bold text-foreground mb-4">قمع المبيعات</h3>
+              <div className="space-y-3">
+                {funnelData.map((f, i) => {
+                  const maxCount = Math.max(...funnelData.map((x) => x.count), 1);
+                  const widthPct = Math.max((f.count / maxCount) * 100, 8);
+                  const colors = ["bg-cc-green", "bg-cc-purple", "bg-cyan", "bg-amber", "bg-cc-green"];
+                  return (
+                    <div key={f.stage} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{f.stage}</span>
+                        <span className="text-foreground font-medium">{f.count} صفقات — {formatMoney(f.value)}</span>
+                      </div>
+                      <div className="h-6 bg-muted/30 rounded-lg overflow-hidden">
+                        <div
+                          className={`h-full rounded-lg ${colors[i]} transition-all flex items-center justify-center`}
+                          style={{ width: `${widthPct}%` }}
+                        >
+                          {f.count > 0 && <span className="text-[10px] font-bold text-white">{f.count}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Lost Deals Analysis */}
+            <div className="bg-card rounded-xl border border-border p-5">
+              <h3 className="text-sm font-bold text-foreground mb-1">تحليل الصفقات الخاسرة</h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                {DEMO_LOST_DEALS.length} صفقات — {formatMoney(totalLostValue)}
+              </p>
+              <div className="space-y-3">
+                {Object.entries(lostReasons)
+                  .sort((a, b) => b[1].count - a[1].count)
+                  .map(([reason, data]) => {
+                    const pct = Math.round((data.count / DEMO_LOST_DEALS.length) * 100);
+                    return (
+                      <div key={reason} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">{reason}</span>
+                          <span className="text-foreground font-medium">{data.count} ({pct}%) — {formatMoney(data.value)}</span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-cc-red transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+
+          {/* Source ROI */}
+          <div className="bg-card rounded-xl border border-border p-5">
+            <h3 className="text-sm font-bold text-foreground mb-4">أداء المصادر</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border text-muted-foreground">
+                    <th className="py-2 text-right font-medium">المصدر</th>
+                    <th className="py-2 text-right font-medium">الصفقات</th>
+                    <th className="py-2 text-right font-medium">القيمة</th>
+                    <th className="py-2 text-right font-medium">فاز</th>
+                    <th className="py-2 text-right font-medium">معدل الإغلاق</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sourceData.map((s) => (
+                    <tr key={s.source} className="border-b border-border/50">
+                      <td className="py-2.5 font-medium text-foreground">
+                        <span className={`inline-block w-2 h-2 rounded-full bg-${SOURCE_COLORS[s.source] || "cyan"} ml-2`} />
+                        {s.source}
+                      </td>
+                      <td className="py-2.5 text-muted-foreground">{s.count}</td>
+                      <td className="py-2.5 text-cyan font-medium">{formatMoney(s.value)}</td>
+                      <td className="py-2.5 text-cc-green font-medium">{s.won}</td>
+                      <td className="py-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full rounded-full bg-cyan" style={{ width: `${s.winRate}%` }} />
+                          </div>
+                          <span className="text-muted-foreground">{s.winRate}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Tab 2: Renewals link */}
+        <TabsContent value="renewals" className="space-y-6">
+          <div className="bg-card rounded-xl border border-border p-8 text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-cyan-dim mx-auto flex items-center justify-center">
+              <RefreshCw className="w-8 h-8 text-cyan" />
+            </div>
+            <h3 className="text-lg font-bold text-foreground">التجديدات</h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              تابع تجديد العملاء ومعدلات الاحتفاظ وأسباب عدم التجديد من صفحة التجديدات المخصصة
+            </p>
+            <Link href="/renewals">
+              <Button className="gap-2 mt-2">
+                الذهاب إلى التجديدات
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
+        </TabsContent>
+
+        {/* Tab 3: Satisfaction link */}
+        <TabsContent value="satisfaction" className="space-y-6">
+          <div className="bg-card rounded-xl border border-border p-8 text-center space-y-4">
+            <div className="w-16 h-16 rounded-2xl bg-green-dim mx-auto flex items-center justify-center">
+              <Heart className="w-8 h-8 text-cc-green" />
+            </div>
+            <h3 className="text-lg font-bold text-foreground">رضا العملاء</h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              قياس رضا العملاء عبر CSAT وNPS وآرائهم التفصيلية من صفحة رضا العملاء المخصصة
+            </p>
+            <Link href="/satisfaction">
+              <Button className="gap-2 mt-2">
+                الذهاب إلى رضا العملاء
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
+        </TabsContent>
+      </Tabs>
+
       {/* ─── Add / Edit Deal Modal ─── */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-lg">
@@ -371,7 +652,7 @@ export default function SalesPage() {
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="deal_value">القيمة ($)</Label>
+                <Label htmlFor="deal_value">القيمة (ر.س)</Label>
                 <Input
                   id="deal_value"
                   type="number"

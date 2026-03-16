@@ -47,54 +47,54 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 
   /* CommandCenter accent colors */
-  --color-cyan: #6ae2ff;
-  --color-cyan-dim: rgba(106, 226, 255, 0.14);
-  --color-cc-green: #63d89a;
-  --color-green-dim: rgba(99, 216, 154, 0.14);
-  --color-amber: #ffbf69;
-  --color-amber-dim: rgba(255, 191, 105, 0.14);
-  --color-cc-red: #ff7f78;
-  --color-red-dim: rgba(255, 127, 120, 0.14);
-  --color-cc-purple: #9f8cff;
-  --color-purple-dim: rgba(159, 140, 255, 0.14);
+  --color-cyan: #00D4FF;
+  --color-cyan-dim: rgba(0, 212, 255, 0.14);
+  --color-cc-green: #10B981;
+  --color-green-dim: rgba(16, 185, 129, 0.14);
+  --color-amber: #F59E0B;
+  --color-amber-dim: rgba(245, 158, 11, 0.14);
+  --color-cc-red: #EF4444;
+  --color-red-dim: rgba(239, 68, 68, 0.14);
+  --color-cc-purple: #8B5CF6;
+  --color-purple-dim: rgba(139, 92, 246, 0.14);
   --color-cc-blue: #7da6ff;
   --color-blue-dim: rgba(125, 166, 255, 0.14);
-  --color-pink: #ff8fbc;
+  --color-pink: #EC4899;
 }
 
 :root {
-  --background: #07111f;
-  --foreground: #ebf2ff;
-  --card: rgba(10, 22, 38, 0.82);
-  --card-foreground: #ebf2ff;
-  --popover: #0d1d32;
-  --popover-foreground: #ebf2ff;
-  --primary: #6ae2ff;
-  --primary-foreground: #06101b;
-  --secondary: rgba(17, 35, 58, 0.88);
-  --secondary-foreground: #ebf2ff;
-  --muted: rgba(11, 22, 38, 0.9);
-  --muted-foreground: #88a1bf;
-  --accent: rgba(17, 35, 58, 0.9);
-  --accent-foreground: #ebf2ff;
-  --destructive: #ff7f78;
-  --border: rgba(125, 166, 255, 0.12);
-  --input: rgba(125, 166, 255, 0.14);
-  --ring: rgba(106, 226, 255, 0.32);
-  --chart-1: #6ae2ff;
-  --chart-2: #63d89a;
-  --chart-3: #ffbf69;
-  --chart-4: #9f8cff;
+  --background: #07090F;
+  --foreground: #F1F5F9;
+  --card: #111827;
+  --card-foreground: #F1F5F9;
+  --popover: #111827;
+  --popover-foreground: #F1F5F9;
+  --primary: #00D4FF;
+  --primary-foreground: #07090F;
+  --secondary: rgba(17, 24, 39, 0.88);
+  --secondary-foreground: #F1F5F9;
+  --muted: rgba(13, 17, 23, 0.9);
+  --muted-foreground: #94A3B8;
+  --accent: rgba(17, 24, 39, 0.9);
+  --accent-foreground: #F1F5F9;
+  --destructive: #EF4444;
+  --border: #1E2A3A;
+  --input: rgba(30, 42, 58, 0.6);
+  --ring: rgba(0, 212, 255, 0.32);
+  --chart-1: #00D4FF;
+  --chart-2: #10B981;
+  --chart-3: #F59E0B;
+  --chart-4: #8B5CF6;
   --chart-5: #7da6ff;
   --radius: 1rem;
-  --sidebar: rgba(7, 18, 33, 0.8);
-  --sidebar-foreground: #ebf2ff;
-  --sidebar-primary: #6ae2ff;
-  --sidebar-primary-foreground: #06101b;
-  --sidebar-accent: rgba(16, 32, 54, 0.84);
-  --sidebar-accent-foreground: #ebf2ff;
-  --sidebar-border: rgba(125, 166, 255, 0.14);
-  --sidebar-ring: rgba(106, 226, 255, 0.3);
+  --sidebar: #0D1117;
+  --sidebar-foreground: #F1F5F9;
+  --sidebar-primary: #00D4FF;
+  --sidebar-primary-foreground: #07090F;
+  --sidebar-accent: rgba(17, 24, 39, 0.84);
+  --sidebar-accent-foreground: #F1F5F9;
+  --sidebar-border: #1E2A3A;
+  --sidebar-ring: rgba(0, 212, 255, 0.3);
 }
 
 @layer base {
@@ -104,9 +104,9 @@
   body {
     @apply bg-background text-foreground;
     background-image:
-      radial-gradient(circle at top right, rgba(106, 226, 255, 0.16), transparent 24%),
-      radial-gradient(circle at top left, rgba(159, 140, 255, 0.12), transparent 22%),
-      linear-gradient(180deg, #0a1527 0%, #07111f 45%, #050d18 100%);
+      radial-gradient(circle at top right, rgba(0, 212, 255, 0.16), transparent 24%),
+      radial-gradient(circle at top left, rgba(139, 92, 246, 0.12), transparent 22%),
+      linear-gradient(180deg, #0D1117 0%, #07090F 45%, #050810 100%);
     min-height: 100vh;
   }
   html {
@@ -116,18 +116,18 @@
 
 @layer utilities {
   .glass-surface {
-    background: linear-gradient(180deg, rgba(12, 23, 39, 0.9) 0%, rgba(9, 19, 33, 0.78) 100%);
-    border: 1px solid rgba(125, 166, 255, 0.12);
+    background: linear-gradient(180deg, rgba(13, 17, 23, 0.92) 0%, rgba(11, 15, 20, 0.8) 100%);
+    border: 1px solid #1E2A3A;
     box-shadow:
-      0 18px 60px rgba(2, 8, 20, 0.28),
+      0 18px 60px rgba(2, 4, 10, 0.28),
       inset 0 1px 0 rgba(255, 255, 255, 0.04);
     backdrop-filter: blur(18px);
   }
 
   .panel-grid {
     background-image:
-      linear-gradient(rgba(125, 166, 255, 0.06) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(125, 166, 255, 0.06) 1px, transparent 1px);
+      linear-gradient(rgba(30, 42, 58, 0.4) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(30, 42, 58, 0.4) 1px, transparent 1px);
     background-size: 22px 22px;
   }
 }
@@ -138,12 +138,20 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #07111f;
+  background: #07090F;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(125, 166, 255, 0.2);
+  background: rgba(30, 42, 58, 0.8);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(125, 166, 255, 0.3);
+  background: rgba(30, 42, 58, 1);
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }

@@ -14,6 +14,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -32,18 +33,18 @@ const STATUS_COLOR: Record<string, "green" | "amber" | "blue" | "red"> = {
   "نشط": "green",
   "مشغول": "amber",
   "متاح": "blue",
-  "غير نشط": "red",
+  "إجازة": "red",
 };
 
 function workloadColor(pct: number): string {
   if (pct > 85) return "bg-cc-red";
-  if (pct >= 60) return "bg-amber";
+  if (pct >= 70) return "bg-amber";
   return "bg-cc-green";
 }
 
 function workloadTextColor(pct: number): string {
   if (pct > 85) return "text-cc-red";
-  if (pct >= 60) return "text-amber";
+  if (pct >= 70) return "text-amber";
   return "text-cc-green";
 }
 
@@ -55,6 +56,10 @@ export default function TeamPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [saving, setSaving] = useState(false);
+
+  /* delete confirmation */
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   /* form state */
   const [formName, setFormName] = useState("");
@@ -123,14 +128,23 @@ export default function TeamPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteEmployee(id);
-      setEmployees((prev) => prev.filter((e) => e.id !== id));
-    } catch (err) {
-      console.error(err);
+  function confirmDelete(id: string) {
+    setDeleteId(id);
+    setDeleteOpen(true);
+  }
+
+  async function handleDelete() {
+    if (deleteId) {
+      try {
+        await deleteEmployee(deleteId);
+        setEmployees((prev) => prev.filter((e) => e.id !== deleteId));
+      } catch (err) {
+        console.error(err);
+      }
     }
-  };
+    setDeleteOpen(false);
+    setDeleteId(null);
+  }
 
   /* counts */
   const activeCount = employees.filter((e) => e.status === "نشط").length;
@@ -182,8 +196,8 @@ export default function TeamPage() {
               color="amber"
             />
             <StatCard
-              value={String(employees.filter((e) => e.status === "غير نشط").length)}
-              label="غير نشط"
+              value={String(employees.filter((e) => e.status === "إجازة").length)}
+              label="إجازة"
               color="red"
             />
           </>
@@ -258,7 +272,7 @@ export default function TeamPage() {
                     variant="destructive"
                     size="sm"
                     className="flex-1 gap-1 text-xs"
-                    onClick={() => handleDelete(emp.id)}
+                    onClick={() => confirmDelete(emp.id)}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     حذف
@@ -275,6 +289,26 @@ export default function TeamPage() {
         </div>
       )}
 
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>تأكيد الحذف</DialogTitle>
+            <DialogDescription>
+              هل أنت متأكد من حذف هذا العضو؟ لا يمكن التراجع عن هذا الإجراء.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              إلغاء
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              حذف العضو
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add / Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md">
@@ -282,6 +316,9 @@ export default function TeamPage() {
             <DialogTitle>
               {editingEmployee ? "تعديل العضو" : "إضافة عضو جديد"}
             </DialogTitle>
+            <DialogDescription>
+              {editingEmployee ? "قم بتحديث بيانات العضو" : "أدخل بيانات العضو الجديد"}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">

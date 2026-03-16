@@ -139,6 +139,37 @@ export interface Partnership {
   updated_at: string;
 }
 
+export interface Review {
+  id: string;
+  org_id: string;
+  customer_name: string;
+  avatar?: string;
+  stars: number;
+  type: "promoter" | "neutral" | "detractor";
+  category?: string;
+  review_date?: string;
+  comment?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Renewal {
+  id: string;
+  org_id: string;
+  customer_name: string;
+  customer_phone?: string;
+  plan_name: string;
+  plan_price: number;
+  start_date: string;
+  renewal_date: string;
+  status: string;
+  cancel_reason?: string;
+  assigned_rep?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Alert {
   id: string;
   org_id: string;
@@ -175,4 +206,14 @@ export interface ExcelUpload {
   mapping_result?: Record<string, unknown>;
   error_message?: string;
   created_at: string;
+}
+
+export interface AppNotification {
+  id: string;
+  type: "urgent_ticket" | "overdue_project" | "high_workload" | "near_complete" | "negotiating" | "crud_action";
+  icon: string;
+  message: string;
+  section: string;
+  timestamp: string;
+  isRead: boolean;
 }

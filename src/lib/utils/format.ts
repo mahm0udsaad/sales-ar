@@ -1,15 +1,15 @@
 export function formatMoney(value: number): string {
   if (value >= 1_000_000) {
-    return `$${(value / 1_000_000).toFixed(1)}M`;
+    return `${(value / 1_000_000).toFixed(1)}M ر.س`;
   }
   if (value >= 1_000) {
-    return `$${(value / 1_000).toFixed(0)}K`;
+    return `${(value / 1_000).toFixed(0)}K ر.س`;
   }
-  return `$${value.toLocaleString()}`;
+  return `${value.toLocaleString()} ر.س`;
 }
 
 export function formatMoneyFull(value: number): string {
-  return `$${value.toLocaleString("en-US")}`;
+  return `${value.toLocaleString("en-US")} ر.س`;
 }
 
 export function formatPercent(value: number): string {

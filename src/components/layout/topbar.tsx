@@ -1,13 +1,17 @@
 "use client";
 
+import { useRef } from "react";
 import { usePathname } from "next/navigation";
-import { Bell, RefreshCw } from "lucide-react";
+import { Bell, RefreshCw, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTopbarControls } from "@/components/layout/topbar-context";
+import { MONTHS_AR } from "@/lib/utils/constants";
 
 const PAGE_TITLES: Record<string, string> = {
   "/dashboard": "نظرة عامة",
   "/sales": "المبيعات",
+  "/renewals": "التجديدات",
+  "/satisfaction": "رضا العملاء",
   "/support": "الدعم",
   "/development": "التطويرات",
   "/partnerships": "الشراكات",
@@ -20,6 +24,8 @@ const PAGE_TITLES: Record<string, string> = {
 const PAGE_SUBTITLES: Record<string, string> = {
   "/dashboard": "لوحة تنفيذية مركزة على الإشارات الأهم الآن",
   "/sales": "متابعة الصفقات وخط الأنابيب من مكان واحد",
+  "/renewals": "متابعة تجديد العملاء ومعدلات الاحتفاظ",
+  "/satisfaction": "مؤشرات رضا العملاء وتحليل NPS",
   "/support": "رؤية أسرع لحالة التذاكر والاستجابة",
   "/development": "حالة المشاريع الجارية والتقدم الفعلي",
   "/partnerships": "متابعة العلاقات والقيمة الاستراتيجية",
@@ -34,12 +40,18 @@ const TIME_FILTERS = ["اليوم", "الأسبوع", "الشهر", "الكل"];
 interface TopbarProps {
   activeFilter: string;
   onFilterChange: (filter: string) => void;
+  activeMonth: string | null;
+  onMonthChange: (month: string | null) => void;
+  unreadCount?: number;
+  onBellClick?: () => void;
+  onMenuClick?: () => void;
 }
 
-export function Topbar({ activeFilter, onFilterChange }: TopbarProps) {
+export function Topbar({ activeFilter, onFilterChange, activeMonth, onMonthChange, unreadCount = 0, onBellClick, onMenuClick }: TopbarProps) {
   const pathname = usePathname();
   const title = PAGE_TITLES[pathname] || "CommandCenter";
   const subtitle = PAGE_SUBTITLES[pathname] || "Operational command surface";
+  const monthsRef = useRef<HTMLDivElement>(null);
   const {
     controls: { onRefresh, isRefreshing, lastUpdatedAt },
   } = useTopbarControls();
@@ -51,65 +63,138 @@ export function Topbar({ activeFilter, onFilterChange }: TopbarProps) {
       }).format(new Date(lastUpdatedAt))
     : null;
 
+  const showPeriodBadge = activeFilter !== "الكل" || activeMonth !== null;
+
   return (
-    <div className="sticky top-0 z-40 px-6 pt-3">
-      <div className="glass-surface flex items-center justify-between rounded-[26px] px-5 py-4">
-        <div>
-          <div className="mb-1 flex items-center gap-2">
-            <span className="rounded-full border border-cyan/15 bg-cyan-dim px-2.5 py-1 text-[10px] font-semibold tracking-[0.18em] text-cyan uppercase">
-              Command Layer
-            </span>
+    <div className="sticky top-0 z-40 px-3 sm:px-6 pt-3 space-y-2">
+      <div className="glass-surface flex items-center justify-between rounded-[20px] sm:rounded-[26px] px-3 sm:px-5 py-3 sm:py-4 gap-3">
+        {/* Left side: hamburger (mobile) + title */}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          {/* Hamburger — only on mobile/tablet */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden shrink-0 rounded-xl bg-white/[0.03] hover:bg-white/[0.06]"
+            onClick={onMenuClick}
+          >
+            <Menu className="w-5 h-5 text-muted-foreground" />
+          </Button>
+
+          <div className="min-w-0">
+            <div className="mb-1 flex items-center gap-2 flex-wrap">
+              <span className="rounded-full border border-cyan/15 bg-cyan-dim px-2 sm:px-2.5 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-semibold tracking-[0.18em] text-cyan uppercase">
+                Command Layer
+              </span>
+              {showPeriodBadge && (
+                <span className="rounded-full bg-cyan/15 border border-cyan/25 px-2 sm:px-2.5 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-medium text-cyan">
+                  {activeMonth || activeFilter}
+                </span>
+              )}
+            </div>
+            <h2 className="text-base sm:text-xl font-extrabold tracking-tight text-foreground truncate">{title}</h2>
+            <p className="mt-0.5 sm:mt-1 text-[10px] sm:text-xs text-muted-foreground hidden sm:block">{subtitle}</p>
           </div>
-          <h2 className="text-xl font-extrabold tracking-tight text-foreground">{title}</h2>
-          <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
         </div>
 
-        <div className="flex items-center gap-4">
-        {showRefresh && (
-          <div className="flex items-center gap-2 rounded-2xl border border-white/6 bg-white/[0.03] px-3 py-2">
-            {formattedLastUpdated && (
-              <p className="text-[11px] text-muted-foreground">
-                آخر تحديث: {formattedLastUpdated}
-              </p>
+        {/* Right side: controls */}
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          {showRefresh && (
+            <div className="hidden md:flex items-center gap-2 rounded-2xl border border-white/6 bg-white/[0.03] px-3 py-2">
+              {formattedLastUpdated && (
+                <p className="text-[11px] text-muted-foreground">
+                  آخر تحديث: {formattedLastUpdated}
+                </p>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void onRefresh?.()}
+                disabled={Boolean(isRefreshing)}
+                className="gap-1.5"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+                تحديث
+              </Button>
+            </div>
+          )}
+
+          {/* Time filters — hidden on mobile, visible on sm+ */}
+          <div className="hidden sm:flex items-center gap-1 rounded-2xl border border-white/6 bg-white/[0.03] p-1 sm:p-1.5">
+            {TIME_FILTERS.map((filter) => (
+              <button
+                key={filter}
+                onClick={() => {
+                  onFilterChange(filter);
+                  if (filter !== "الكل") onMonthChange(null);
+                }}
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-[10px] sm:text-xs transition-colors ${
+                  activeFilter === filter && !activeMonth
+                    ? "bg-white/[0.08] text-foreground font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {filter}
+              </button>
+            ))}
+          </div>
+
+          {/* Notifications */}
+          <Button variant="ghost" size="icon" className="relative rounded-xl sm:rounded-2xl bg-white/[0.03] hover:bg-white/[0.06]" onClick={onBellClick}>
+            <Bell className="w-4 h-4 text-muted-foreground" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -left-0.5 w-4 h-4 bg-cc-red rounded-full text-[9px] text-white flex items-center justify-center font-bold">
+                {unreadCount}
+              </span>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void onRefresh?.()}
-              disabled={Boolean(isRefreshing)}
-              className="gap-1.5"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
-              تحديث
-            </Button>
-          </div>
-        )}
-
-        {/* Time filters */}
-        <div className="flex items-center gap-1 rounded-2xl border border-white/6 bg-white/[0.03] p-1.5">
-          {TIME_FILTERS.map((filter) => (
-            <button
-              key={filter}
-              onClick={() => onFilterChange(filter)}
-              className={`px-3 py-1.5 rounded-md text-xs transition-colors ${
-                activeFilter === filter
-                  ? "bg-white/[0.08] text-foreground font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {filter}
-            </button>
-          ))}
+          </Button>
         </div>
-
-        {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative rounded-2xl bg-white/[0.03] hover:bg-white/[0.06]">
-          <Bell className="w-4 h-4 text-muted-foreground" />
-          <span className="absolute -top-0.5 -left-0.5 w-4 h-4 bg-cc-red rounded-full text-[9px] text-white flex items-center justify-center font-bold">
-            3
-          </span>
-        </Button>
       </div>
+
+      {/* Mobile time filters — visible only on mobile */}
+      <div className="sm:hidden flex items-center gap-1 rounded-2xl glass-surface p-1.5 overflow-x-auto scrollbar-hide">
+        {TIME_FILTERS.map((filter) => (
+          <button
+            key={filter}
+            onClick={() => {
+              onFilterChange(filter);
+              if (filter !== "الكل") onMonthChange(null);
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap transition-colors shrink-0 ${
+              activeFilter === filter && !activeMonth
+                ? "bg-white/[0.08] text-foreground font-medium"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {filter}
+          </button>
+        ))}
+      </div>
+
+      {/* Month bar */}
+      <div
+        ref={monthsRef}
+        className="glass-surface rounded-2xl px-2 sm:px-3 py-1.5 sm:py-2 flex items-center gap-1 overflow-x-auto scrollbar-hide"
+      >
+        {MONTHS_AR.map((month) => (
+          <button
+            key={month}
+            onClick={() => {
+              if (activeMonth === month) {
+                onMonthChange(null);
+              } else {
+                onMonthChange(month);
+                onFilterChange("الكل");
+              }
+            }}
+            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs whitespace-nowrap transition-colors shrink-0 ${
+              activeMonth === month
+                ? "bg-cyan/15 text-cyan font-medium border border-cyan/25"
+                : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+            }`}
+          >
+            {month}
+          </button>
+        ))}
       </div>
     </div>
   );

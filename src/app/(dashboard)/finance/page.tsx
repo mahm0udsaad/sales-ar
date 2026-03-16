@@ -1,90 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { fetchDeals } from "@/lib/supabase/db";
-import type { Deal } from "@/types";
+import { DEMO_FINANCE } from "@/lib/demo-data";
 import { formatMoney, formatPercent } from "@/lib/utils/format";
 import { StatCard } from "@/components/ui/stat-card";
 import { DonutChart } from "@/components/ui/donut-chart";
 import { BarChart } from "@/components/ui/bar-chart";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
-  DollarSign,
+  Banknote,
   TrendingUp,
   Percent,
-  Target,
+  Flame,
 } from "lucide-react";
 
-const MONTH_NAMES = [
-  "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
-  "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
-];
-
 export default function FinancePage() {
-  const [deals, setDeals] = useState<Deal[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { arr, mrr, profitMargin, burnRate, costs, monthly } = DEMO_FINANCE;
 
-  useEffect(() => {
-    fetchDeals()
-      .then(setDeals)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+  const barData = monthly.map((m) => ({
+    label: m.month.slice(0, 3),
+    values: [
+      { value: m.revenue / 1_000_000, color: "#00D4FF", label: "الإيرادات" },
+      { value: m.expenses / 1_000_000, color: "#EF4444", label: "المصروفات" },
+    ],
+  }));
 
-  /* ── Compute finance metrics from deals ── */
-  const closedDeals = deals.filter((d) => d.stage === "إغلاق");
-  const totalRevenue = closedDeals.reduce((s, d) => s + d.deal_value, 0);
-  const totalPipelineValue = deals.reduce((s, d) => s + d.deal_value, 0);
-
-  // Group by month for bar chart
-  const revenueByMonth: Record<string, number> = {};
-  const pipelineByMonth: Record<string, number> = {};
-  for (const d of deals) {
-    const key = `${d.year ?? 0}-${String(d.month ?? 0).padStart(2, "0")}`;
-    if (d.stage === "إغلاق") {
-      revenueByMonth[key] = (revenueByMonth[key] || 0) + d.deal_value;
-    }
-    pipelineByMonth[key] = (pipelineByMonth[key] || 0) + d.deal_value;
-  }
-
-  const sortedMonths = Object.keys({ ...revenueByMonth, ...pipelineByMonth }).sort();
-
-  const barData = sortedMonths.map((key) => {
-    const m = parseInt(key.split("-")[1]);
-    return {
-      label: (MONTH_NAMES[m - 1] ?? key).slice(0, 3),
-      values: [
-        { value: (revenueByMonth[key] || 0) / 1000, color: "#00e5ff", label: "محققة" },
-        { value: (pipelineByMonth[key] || 0) / 1000, color: "#e040fb", label: "خط الأنابيب" },
-      ],
-    };
-  });
-
-  const months = sortedMonths.length || 1;
-  const mrr = totalRevenue / months;
-  const arr = mrr * 12;
-  const closeRate = deals.length > 0
-    ? Math.round((closedDeals.length / deals.length) * 100)
-    : 0;
-
-  // Stage distribution for donut
-  const stageCounts = deals.reduce((acc, d) => {
-    acc[d.stage] = (acc[d.stage] || 0) + d.deal_value;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const STAGE_COLORS: Record<string, string> = {
-    "تواصل": "#00e676",
-    "عرض سعر": "#ffab00",
-    "تفاوض": "#e040fb",
-    "إغلاق": "#00e5ff",
-    "خسارة": "#ff5252",
-  };
-
-  const donutSegments = Object.entries(stageCounts).map(([label, value]) => ({
-    label,
-    value,
-    color: STAGE_COLORS[label] || "#64748b",
+  const donutSegments = costs.map((c) => ({
+    label: c.label,
+    value: c.value,
+    color: c.color,
   }));
 
   return (
@@ -92,162 +34,100 @@ export default function FinancePage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-lg bg-green-dim flex items-center justify-center">
-          <DollarSign className="w-4 h-4 text-cc-green" />
+          <Banknote className="w-4 h-4 text-cc-green" />
         </div>
         <div>
           <h1 className="text-lg font-bold text-foreground">المالية</h1>
           <p className="text-xs text-muted-foreground">
-            محسوبة من بيانات الصفقات الفعلية
+            مراقبة المؤشرات المالية الرئيسية
           </p>
         </div>
       </div>
 
       {/* 4 KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {loading ? (
-          Array.from({ length: 4 }).map((_, index) => <FinanceCardSkeleton key={index} />)
-        ) : (
-          <>
-            <StatCard
-              value={formatMoney(arr)}
-              label="ARR السنوي (تقديري)"
-              color="cyan"
-              icon={<DollarSign className="w-4 h-4 text-cyan" />}
-            />
-            <StatCard
-              value={formatMoney(mrr)}
-              label="MRR الشهري"
-              color="green"
-              icon={<TrendingUp className="w-4 h-4 text-cc-green" />}
-            />
-            <StatCard
-              value={formatPercent(closeRate)}
-              label="نسبة الإغلاق"
-              color="purple"
-              progress={closeRate}
-              icon={<Percent className="w-4 h-4 text-cc-purple" />}
-            />
-            <StatCard
-              value={formatMoney(totalPipelineValue)}
-              label="قيمة خط الأنابيب"
-              color="amber"
-              icon={<Target className="w-4 h-4 text-amber" />}
-            />
-          </>
-        )}
+        <StatCard
+          value={formatMoney(arr)}
+          label="ARR السنوي"
+          color="cyan"
+          icon={<Banknote className="w-4 h-4 text-cyan" />}
+        />
+        <StatCard
+          value={formatMoney(mrr)}
+          label="MRR الشهري"
+          color="green"
+          icon={<TrendingUp className="w-4 h-4 text-cc-green" />}
+        />
+        <StatCard
+          value={formatPercent(profitMargin)}
+          label="هامش الربح"
+          color="purple"
+          progress={profitMargin}
+          icon={<Percent className="w-4 h-4 text-cc-purple" />}
+        />
+        <StatCard
+          value={formatMoney(burnRate)}
+          label="Burn Rate"
+          color="red"
+          icon={<Flame className="w-4 h-4 text-cc-red" />}
+        />
       </div>
 
       {/* Two charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* LEFT: Pipeline distribution donut */}
+        {/* Revenue vs Expenses bar chart */}
         <div className="bg-card rounded-xl border border-border p-5">
           <h3 className="text-sm font-bold text-foreground mb-4">
-            توزيع القيمة حسب المرحلة
+            الإيرادات والمصروفات (مليون ر.س)
           </h3>
-          {loading ? (
-            <div className="space-y-4">
-              <Skeleton className="mx-auto h-40 w-40 rounded-full" />
-              <div className="space-y-2">
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-2.5 w-2.5 rounded-full" />
-                      <Skeleton className="h-3 w-20" />
-                    </div>
-                    <Skeleton className="h-3 w-16" />
-                  </div>
-                ))}
-              </div>
+          <BarChart data={barData} height={280} />
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="p-3 rounded-lg bg-cyan-dim/30 text-center">
+              <p className="text-lg font-bold text-cyan">
+                {formatMoney(monthly.reduce((s, m) => s + m.revenue, 0))}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                إجمالي الإيرادات
+              </p>
             </div>
-          ) : donutSegments.length > 0 ? (
-            <>
-              <DonutChart
-                segments={donutSegments}
-                centerValue={formatMoney(totalPipelineValue)}
-                centerLabel="إجمالي"
-              />
-              <div className="mt-4 space-y-2">
-                {donutSegments.map((seg, i) => (
-                  <div key={i} className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: seg.color }}
-                      />
-                      <span className="text-muted-foreground">{seg.label}</span>
-                    </div>
-                    <span className="text-foreground font-medium">
-                      {formatMoney(seg.value)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
-              لا توجد صفقات بعد
+            <div className="p-3 rounded-lg bg-red-dim/30 text-center">
+              <p className="text-lg font-bold text-cc-red">
+                {formatMoney(monthly.reduce((s, m) => s + m.expenses, 0))}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                إجمالي المصروفات
+              </p>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* RIGHT: Revenue bar chart */}
+        {/* Cost distribution donut */}
         <div className="bg-card rounded-xl border border-border p-5">
           <h3 className="text-sm font-bold text-foreground mb-4">
-            الإيرادات الشهرية (ألف $)
+            توزيع التكاليف
           </h3>
-          {loading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-[280px] w-full rounded-xl" />
-              <div className="grid grid-cols-2 gap-3">
-                <Skeleton className="h-20 w-full rounded-lg" />
-                <Skeleton className="h-20 w-full rounded-lg" />
-              </div>
-            </div>
-          ) : barData.length > 0 ? (
-            <>
-              <BarChart data={barData} height={280} />
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-lg bg-cyan-dim/30 text-center">
-                  <p className="text-lg font-bold text-cyan">
-                    {formatMoney(totalRevenue)}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    إجمالي الإيرادات المحققة
-                  </p>
+          <DonutChart
+            segments={donutSegments}
+            centerValue={formatPercent(100)}
+            centerLabel="إجمالي"
+          />
+          <div className="mt-4 space-y-2">
+            {costs.map((c, i) => (
+              <div key={i} className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: c.color }}
+                  />
+                  <span className="text-muted-foreground">{c.label}</span>
                 </div>
-                <div className="p-3 rounded-lg bg-purple-dim/30 text-center">
-                  <p className="text-lg font-bold text-cc-purple">
-                    {formatMoney(totalPipelineValue - totalRevenue)}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    قيمة الفرص المتبقية
-                  </p>
-                </div>
+                <span className="text-foreground font-medium">
+                  {c.value}%
+                </span>
               </div>
-            </>
-          ) : (
-            <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
-              لا توجد بيانات شهرية بعد
-            </div>
-          )}
+            ))}
+          </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function FinanceCardSkeleton() {
-  return (
-    <div className="bg-card rounded-xl border border-border p-4 border-t-2 border-t-muted">
-      <div className="flex items-start justify-between">
-        <div className="space-y-2">
-          <Skeleton className="h-7 w-24" />
-          <Skeleton className="h-3 w-24" />
-        </div>
-        <Skeleton className="w-9 h-9 rounded-lg" />
-      </div>
-      <div className="mt-3">
-        <Skeleton className="h-1.5 w-full rounded-full" />
       </div>
     </div>
   );
