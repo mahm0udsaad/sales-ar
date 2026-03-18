@@ -22,7 +22,7 @@ export async function GET() {
 
   const { data, error } = await supabaseAdmin
     .from("user_profiles")
-    .select("*, roles(id, name, slug), organizations(name, name_ar)")
+    .select("*, roles(id, name, slug, allowed_pages), organizations(name, name_ar)")
     .order("created_at");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -34,11 +34,27 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
   const body = await req.json();
-  const { email, password, name, org_id, role_id, is_super_admin } = body;
+  const { email, password, name, org_id, allowed_pages, is_super_admin } = body;
 
-  if (!email || !password || !name || !org_id || !role_id) {
+  if (!email || !password || !name || !org_id || !allowed_pages?.length) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
+
+  // Auto-create a role for this user
+  const roleSlug = `user_${email.split("@")[0].replace(/[^a-zA-Z0-9]/g, "_")}`;
+  const { data: role, error: roleError } = await supabaseAdmin
+    .from("roles")
+    .insert({
+      name: name,
+      slug: roleSlug,
+      org_id,
+      allowed_pages,
+      is_system: false,
+    })
+    .select()
+    .single();
+
+  if (roleError) return NextResponse.json({ error: roleError.message }, { status: 500 });
 
   // Create auth user
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -47,7 +63,11 @@ export async function POST(req: NextRequest) {
     email_confirm: true,
   });
 
-  if (authError) return NextResponse.json({ error: authError.message }, { status: 500 });
+  if (authError) {
+    // Rollback role
+    await supabaseAdmin.from("roles").delete().eq("id", role.id);
+    return NextResponse.json({ error: authError.message }, { status: 500 });
+  }
 
   // Create profile
   const { data: profile, error: profileError } = await supabaseAdmin
@@ -57,15 +77,16 @@ export async function POST(req: NextRequest) {
       email,
       name,
       org_id,
-      role_id,
+      role_id: role.id,
       is_super_admin: is_super_admin || false,
     })
-    .select("*, roles(id, name, slug), organizations(name, name_ar)")
+    .select("*, roles(id, name, slug, allowed_pages), organizations(name, name_ar)")
     .single();
 
   if (profileError) {
-    // Rollback: delete the auth user
+    // Rollback
     await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+    await supabaseAdmin.from("roles").delete().eq("id", role.id);
     return NextResponse.json({ error: profileError.message }, { status: 500 });
   }
 
