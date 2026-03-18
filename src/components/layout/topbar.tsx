@@ -65,18 +65,21 @@ export function Topbar({ activeFilter, onFilterChange, activeMonth, onMonthChang
 
   const showPeriodBadge = activeFilter !== "الكل" || activeMonth !== null;
 
-  /* Live clock */
-  const [now, setNow] = useState(new Date());
+  /* Live clock — initialize null to avoid hydration mismatch */
+  const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
+    setNow(new Date());
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
-  const clockStr = new Intl.DateTimeFormat("ar-EG", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  }).format(now);
+  const clockStr = now
+    ? new Intl.DateTimeFormat("ar-EG", {
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      }).format(now)
+    : "";
 
   return (
     <div className="sticky top-0 z-40 px-3 sm:px-6 pt-3 space-y-2">
