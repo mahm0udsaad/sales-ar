@@ -12,6 +12,7 @@ export interface Deal {
   cycle_days: number;
   deal_date?: string;
   close_date?: string;
+  plan?: string;
   loss_reason?: string;
   notes?: string;
   month?: number;

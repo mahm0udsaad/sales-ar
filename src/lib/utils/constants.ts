@@ -1,5 +1,6 @@
-export const STAGES = ["تواصل", "تفاوض", "تجهيز", "انتظار الدفع", "مكتملة"] as const;
-export const SOURCES = ["إعلانات", "تسويق", "شراكة", "توصية", "معرض", "أخرى"] as const;
+export const STAGES = ["تواصل", "تفاوض", "تجهيز", "انتظار الدفع", "مكتملة", "تاجيل", "اعادة الاتصال في وقت اخر", "تجريبي", "مرفوض مع سبب"] as const;
+export const SOURCES = ["حملة اعلانية", "تسويق بالعمولة", "جديد لعميل حالي", "فرع جديد لعميل حالي", "من طرف عميل", "من الدعم", "من ارقام عشوائية", "اخرى"] as const;
+export const PLANS = ["الاساسية", "VIP", "بلس", "الكاشير", "الذهبية"] as const;
 export const PRIORITIES = ["عاجل", "مرتفع", "عادي"] as const;
 export const TICKET_STATUSES = ["مفتوح", "قيد الحل", "محلول"] as const;
 export const EMPLOYEE_STATUSES = ["نشط", "مشغول", "متاح", "إجازة"] as const;
@@ -21,7 +22,7 @@ export const RENEWAL_STATUS_COLORS: Record<string, string> = {
 };
 export const RENEWAL_CANCEL_REASONS = [
   "ارتفاع السعر", "قلة الاستخدام", "التحوّل لمنافس",
-  "نقص ميزات", "مشكلات تقنية", "أخرى",
+  "نقص ميزات", "مشكلات تقنية", "اغلاق المحل", "أخرى",
 ] as const;
 
 export const MONTHS_AR = [
@@ -35,6 +36,10 @@ export const STAGE_COLORS: Record<string, string> = {
   "تجهيز": "cyan",
   "انتظار الدفع": "amber",
   "مكتملة": "cc-green",
+  "تاجيل": "cc-blue",
+  "اعادة الاتصال في وقت اخر": "amber",
+  "تجريبي": "cc-purple",
+  "مرفوض مع سبب": "cc-red",
 };
 
 export const PRIORITY_COLORS: Record<string, string> = {
@@ -50,12 +55,14 @@ export const TICKET_STATUS_COLORS: Record<string, string> = {
 };
 
 export const SOURCE_COLORS: Record<string, string> = {
-  "إعلانات": "cyan",
-  "تسويق": "cc-purple",
-  "شراكة": "pink",
-  "توصية": "cc-green",
-  "معرض": "amber",
-  "أخرى": "cc-blue",
+  "حملة اعلانية": "cyan",
+  "تسويق بالعمولة": "cc-purple",
+  "جديد لعميل حالي": "cc-green",
+  "فرع جديد لعميل حالي": "cc-green",
+  "من طرف عميل": "pink",
+  "من الدعم": "amber",
+  "من ارقام عشوائية": "cc-blue",
+  "اخرى": "muted-foreground",
 };
 
 export const KPI_TARGETS = {

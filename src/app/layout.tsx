@@ -9,8 +9,8 @@ const tajawal = Tajawal({
 });
 
 export const metadata: Metadata = {
-  title: "CommandCenter | RESTAVO",
-  description: "منصة إدارة المبيعات والدعم - RESTAVO",
+  title: "لوحة التحكم",
+  description: "منصة إدارة المبيعات والدعم",
 };
 
 export default function RootLayout({

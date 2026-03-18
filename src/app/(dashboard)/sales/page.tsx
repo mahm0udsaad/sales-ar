@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { Deal } from "@/types";
 import { fetchDeals, createDeal, updateDeal, deleteDeal } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
-import { STAGES, SOURCES, SOURCE_COLORS } from "@/lib/utils/constants";
+import { STAGES, SOURCES, SOURCE_COLORS, PLANS } from "@/lib/utils/constants";
 import { DEMO_LOST_DEALS } from "@/lib/demo-data";
 import { formatMoney, formatMoneyFull, formatDate, formatPhone, formatPercent } from "@/lib/utils/format";
 import { getKpiStatus, KPI_STATUS_STYLES, KPI_TARGETS } from "@/lib/utils/constants";
@@ -59,12 +59,16 @@ import {
 } from "lucide-react";
 
 /* ─── Stage badge color mapping ─── */
-const STAGE_BADGE_COLOR: Record<string, "green" | "amber" | "purple" | "cyan" | "red"> = {
+const STAGE_BADGE_COLOR: Record<string, "green" | "amber" | "purple" | "cyan" | "red" | "blue"> = {
   "تواصل": "green",
   "تفاوض": "purple",
   "تجهيز": "cyan",
   "انتظار الدفع": "amber",
   "مكتملة": "green",
+  "تاجيل": "blue",
+  "اعادة الاتصال في وقت اخر": "amber",
+  "تجريبي": "purple",
+  "مرفوض مع سبب": "red",
 };
 
 /* ─── Stage summary config ─── */
@@ -81,8 +85,9 @@ const EMPTY_FORM = {
   client_phone: "",
   deal_value: 0,
   assigned_rep_name: "",
-  source: "إعلانات",
+  source: "حملة اعلانية",
   stage: "تواصل",
+  plan: "",
   deal_date: new Date().toISOString().slice(0, 10),
   probability: 50,
 };
@@ -201,8 +206,9 @@ export default function SalesPage() {
       client_phone: deal.client_phone || "",
       deal_value: deal.deal_value,
       assigned_rep_name: deal.assigned_rep_name || "",
-      source: deal.source || "إعلانات",
+      source: deal.source || "حملة اعلانية",
       stage: deal.stage,
+      plan: deal.plan || "",
       deal_date: deal.deal_date || new Date().toISOString().slice(0, 10),
       probability: deal.probability,
     });
@@ -225,6 +231,7 @@ export default function SalesPage() {
           assigned_rep_name: form.assigned_rep_name,
           source: form.source,
           stage: form.stage,
+          plan: form.plan || undefined,
           deal_date: form.deal_date,
           probability: form.probability,
         });
@@ -237,6 +244,7 @@ export default function SalesPage() {
           assigned_rep_name: form.assigned_rep_name,
           source: form.source,
           stage: form.stage,
+          plan: form.plan || undefined,
           deal_date: form.deal_date,
           probability: form.probability,
           cycle_days: 0,
@@ -281,12 +289,12 @@ export default function SalesPage() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-foreground">المبيعات</h1>
-            <p className="text-xs text-muted-foreground">متابعة الصفقات وخط الأنابيب</p>
+            <p className="text-xs text-muted-foreground">متابعة المبيعات وخط الأنابيب</p>
           </div>
         </div>
         <Button onClick={openAddModal} className="gap-1.5">
           <Plus className="w-4 h-4" />
-          إضافة صفقة
+          إضافة مبيع
         </Button>
       </div>
 
@@ -316,23 +324,23 @@ export default function SalesPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="cc-card rounded-2xl p-5 text-center" style={{ borderColor: "rgba(0,212,255,0.3)" }}>
             <p className="text-2xl font-extrabold text-cyan">{formatMoney(totalValue)}</p>
-            <p className="text-xs text-muted-foreground mt-1">إجمالي قيمة الصفقات</p>
+            <p className="text-xs text-muted-foreground mt-1">إجمالي قيمة المبيعات</p>
           </div>
           <div className="cc-card rounded-2xl p-5 text-center" style={{ borderColor: "rgba(16,185,129,0.3)" }}>
             <p className="text-2xl font-extrabold text-cc-green">{totalDeals}</p>
-            <p className="text-xs text-muted-foreground mt-1">عدد الصفقات</p>
+            <p className="text-xs text-muted-foreground mt-1">عدد المبيعات</p>
           </div>
           <div className="cc-card rounded-2xl p-5 text-center" style={{ borderColor: "rgba(139,92,246,0.3)" }}>
             <p className="text-2xl font-extrabold text-cc-purple">{formatMoney(avgDealValue)}</p>
-            <p className="text-xs text-muted-foreground mt-1">متوسط قيمة الصفقة</p>
+            <p className="text-xs text-muted-foreground mt-1">متوسط قيمة المبيع</p>
           </div>
         </div>
       )}
 
       {/* ─── Source Distribution Cards ─── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
         {loading
-          ? Array.from({ length: 6 }).map((_, i) => <StatCardSkeleton key={i} />)
+          ? Array.from({ length: 8 }).map((_, i) => <StatCardSkeleton key={i} />)
           : SOURCES.map((src) => {
               const count = sourceCounts[src] || 0;
               const pct = totalDeals > 0 ? Math.round((count / totalDeals) * 100) : 0;
@@ -395,7 +403,7 @@ export default function SalesPage() {
             ) : deals.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                  لا توجد صفقات
+                  لا توجد مبيعات
                 </TableCell>
               </TableRow>
             ) : (
@@ -569,7 +577,7 @@ export default function SalesPage() {
               icon={<BarChart3 className="w-4 h-4" />}
             />
             <KPICard
-              label="متوسط قيمة الصفقة"
+              label="متوسط قيمة المبيع"
               value={formatMoney(avgDealValue)}
               target={formatMoney(KPI_TARGETS.avg_deal_value)}
               status={getKpiStatus(avgDealValue, KPI_TARGETS.avg_deal_value)}
@@ -625,7 +633,7 @@ export default function SalesPage() {
             <div className="cc-card rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-5">
                 <span className="text-lg">🔍</span>
-                <h3 className="text-sm font-bold text-foreground">تحليل الصفقات الخاسرة</h3>
+                <h3 className="text-sm font-bold text-foreground">تحليل المبيعات الخاسرة</h3>
               </div>
               <div className="space-y-5">
                 {(() => {
@@ -650,7 +658,7 @@ export default function SalesPage() {
                               <span className="text-xs text-muted-foreground">{reason}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-cc-red text-xs font-bold">{data.count} صفقة</span>
+                              <span className="text-cc-red text-xs font-bold">{data.count} مبيع</span>
                               <span className="text-muted-foreground text-xs">{pct}%</span>
                             </div>
                           </div>
@@ -663,7 +671,7 @@ export default function SalesPage() {
                 })()}
               </div>
               <div className="mt-5 pt-4 border-t border-border">
-                <p className="text-xs text-muted-foreground">آخر الصفقات الخاسرة</p>
+                <p className="text-xs text-muted-foreground">آخر المبيعات الخاسرة</p>
               </div>
             </div>
           </div>
@@ -751,9 +759,9 @@ export default function SalesPage() {
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingId ? "تعديل صفقة" : "إضافة صفقة جديدة"}</DialogTitle>
+            <DialogTitle>{editingId ? "تعديل مبيع" : "إضافة مبيع جديد"}</DialogTitle>
             <DialogDescription>
-              {editingId ? "قم بتحديث بيانات الصفقة" : "أدخل بيانات الصفقة الجديدة"}
+              {editingId ? "قم بتحديث بيانات المبيع" : "أدخل بيانات المبيع الجديد"}
             </DialogDescription>
           </DialogHeader>
 
@@ -866,6 +874,23 @@ export default function SalesPage() {
               </Select>
             </div>
 
+            {/* Plan (dropdown) */}
+            <div className="grid gap-1.5">
+              <Label>الباقة</Label>
+              <Select value={form.plan} onValueChange={(val) => val && setForm({ ...form, plan: val })}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="اختر الباقة" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PLANS.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Probability slider */}
             <div className="grid gap-1.5">
               <div className="flex items-center justify-between">
@@ -895,7 +920,7 @@ export default function SalesPage() {
               إلغاء
             </Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? "جاري الحفظ..." : editingId ? "حفظ التعديلات" : "إضافة الصفقة"}
+              {saving ? "جاري الحفظ..." : editingId ? "حفظ التعديلات" : "إضافة المبيع"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -907,7 +932,7 @@ export default function SalesPage() {
           <DialogHeader>
             <DialogTitle>تأكيد الحذف</DialogTitle>
             <DialogDescription>
-              هل أنت متأكد من حذف هذه الصفقة؟ لا يمكن التراجع عن هذا الإجراء.
+              هل أنت متأكد من حذف هذا المبيع؟ لا يمكن التراجع عن هذا الإجراء.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -915,7 +940,7 @@ export default function SalesPage() {
               إلغاء
             </Button>
             <Button variant="destructive" onClick={handleDelete}>
-              حذف الصفقة
+              حذف المبيع
             </Button>
           </DialogFooter>
         </DialogContent>

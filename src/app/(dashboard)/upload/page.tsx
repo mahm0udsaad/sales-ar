@@ -109,7 +109,7 @@ function buildHeuristicMapping(
 
 /* ─── Cell helpers ─── */
 const VALID_STAGES    = new Set(["تواصل", "عرض سعر", "تفاوض", "إغلاق", "خسارة"]);
-const VALID_SOURCES   = new Set(["إعلانات", "تسويق", "شراكة", "توصية", "معرض"]);
+const VALID_SOURCES   = new Set(["حملة اعلانية", "تسويق بالعمولة", "جديد لعميل حالي", "من طرف عميل", "من الدعم", "من ارقام عشوائية", "اخرى"]);
 const VALID_PRIORITIES= new Set(["عاجل", "مرتفع", "عادي"]);
 const VALID_STATUSES  = new Set(["مفتوح", "قيد الحل", "محلول"]);
 
@@ -278,8 +278,8 @@ export default function UploadPage() {
             const rawStage = cellStr(row, col("stage")) || "تواصل";
             const stage = stageMap[rawStage] ?? (VALID_STAGES.has(rawStage) ? rawStage : "تواصل");
 
-            const rawSource = cellStr(row, col("source")) || "إعلانات";
-            const source = VALID_SOURCES.has(rawSource) ? rawSource : "إعلانات";
+            const rawSource = cellStr(row, col("source")) || "حملة اعلانية";
+            const source = VALID_SOURCES.has(rawSource) ? rawSource : "حملة اعلانية";
 
             const dealDate =
               toDateStr(col("deal_date") >= 0 ? row[col("deal_date")] : undefined) ??

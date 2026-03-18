@@ -17,6 +17,7 @@ import {
   Shield,
   LogOut,
   ChevronDown,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { label: "الشراكات", href: "/partnerships", slug: "partnerships", icon: Handshake },
   { label: "الفريق", href: "/team", slug: "team", icon: Users },
   { label: "المالية", href: "/finance", slug: "finance", icon: Banknote },
+  { label: "رفع الملفات", href: "/upload", slug: "upload", icon: Upload },
   { label: "إدارة المستخدمين", href: "/users", slug: "users", icon: Shield },
 ];
 
@@ -79,8 +81,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               <span className="text-sm font-extrabold tracking-[0.2em] text-cyan">CC</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] uppercase tracking-[0.28em] text-cyan/70">Restavo</p>
-              <h1 className="text-[1.05rem] font-extrabold text-foreground">Command Center</h1>
+              <h1 className="text-[1.05rem] font-extrabold text-foreground">لوحة التحكم</h1>
               <p className="mt-1 text-[11px] text-muted-foreground">مركز متابعة حي للمبيعات والتشغيل</p>
             </div>
             {/* Close button — only on mobile/tablet */}

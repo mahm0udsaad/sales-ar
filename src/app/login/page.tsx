@@ -47,7 +47,7 @@ export default function LoginPage() {
           <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan/30 to-[#8B5CF6]/30 ring-1 ring-white/10 mb-4">
             <span className="text-lg font-extrabold tracking-[0.2em] text-[#00D4FF]">CC</span>
           </div>
-          <h1 className="text-2xl font-extrabold text-[#F1F5F9]">Command Center</h1>
+          <h1 className="text-2xl font-extrabold text-[#F1F5F9]">لوحة التحكم</h1>
           <p className="text-sm text-[#94A3B8] mt-1">تسجيل الدخول إلى لوحة التحكم</p>
         </div>
 
@@ -101,7 +101,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-[10px] text-[#94A3B8]/50 mt-6">
-          Restavo Command Center &copy; {new Date().getFullYear()}
+          لوحة التحكم &copy; {new Date().getFullYear()}
         </p>
       </div>
     </div>

@@ -49,8 +49,8 @@ interface TopbarProps {
 
 export function Topbar({ activeFilter, onFilterChange, activeMonth, onMonthChange, unreadCount = 0, onBellClick, onMenuClick }: TopbarProps) {
   const pathname = usePathname();
-  const title = PAGE_TITLES[pathname] || "CommandCenter";
-  const subtitle = PAGE_SUBTITLES[pathname] || "Operational command surface";
+  const title = PAGE_TITLES[pathname] || "لوحة التحكم";
+  const subtitle = PAGE_SUBTITLES[pathname] || "مركز متابعة حي للمبيعات والتشغيل";
   const monthsRef = useRef<HTMLDivElement>(null);
   const {
     controls: { onRefresh, isRefreshing, lastUpdatedAt },
@@ -96,7 +96,7 @@ export function Topbar({ activeFilter, onFilterChange, activeMonth, onMonthChang
           <div className="min-w-0">
             <div className="mb-1 flex items-center gap-2 flex-wrap">
               <span className="rounded-full border border-cyan/15 bg-cyan-dim px-2 sm:px-2.5 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-semibold tracking-[0.18em] text-cyan uppercase">
-                Command Layer
+                لوحة التحكم
               </span>
               {showPeriodBadge && (
                 <span className="rounded-full bg-cyan/15 border border-cyan/25 px-2 sm:px-2.5 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-medium text-cyan">

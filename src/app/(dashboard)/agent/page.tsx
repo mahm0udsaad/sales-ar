@@ -246,7 +246,7 @@ export default function AgentPage() {
             </div>
             <div>
               <h3 className="text-sm font-bold text-foreground">المساعد الذكي</h3>
-              <p className="text-[10px] text-muted-foreground">مستشار أعمال RESTAVO — مدعوم بـ Gemini AI</p>
+              <p className="text-[10px] text-muted-foreground">مستشار أعمال — مدعوم بـ Gemini AI</p>
             </div>
           </div>
           {messages.length > 0 && (
