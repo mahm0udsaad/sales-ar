@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Deal } from "@/types";
 import { fetchDeals, createDeal, updateDeal, deleteDeal } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
+import { useTopbarControls } from "@/components/layout/topbar-context";
 import { STAGES, SOURCES, SOURCE_COLORS, PLANS } from "@/lib/utils/constants";
 import { DEMO_LOST_DEALS } from "@/lib/demo-data";
 import { formatMoney, formatMoneyFull, formatDate, formatPhone, formatPercent } from "@/lib/utils/format";
@@ -107,6 +108,18 @@ export default function SalesPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  /* card filter */
+  const [stageFilter, setStageFilter] = useState<string | null>(null);
+  const { activeMonthIndex, filterCutoff } = useTopbarControls();
+
+  /* time/month-filtered deals (used for all analytics + table) */
+  const monthDeals = filterCutoff
+    ? deals.filter((d) => new Date(d.deal_date || d.created_at) >= filterCutoff)
+    : activeMonthIndex
+      ? deals.filter((d) => d.month === activeMonthIndex.month && d.year === activeMonthIndex.year)
+      : deals;
+  const filteredDeals = stageFilter ? monthDeals.filter((d) => d.stage === stageFilter) : monthDeals;
+
   useEffect(() => {
     setLoading(true);
     fetchDeals()
@@ -116,32 +129,32 @@ export default function SalesPage() {
   }, [orgId]);
 
   /* ─── Computed values ─── */
-  const totalDeals = deals.length;
-  const totalValue = deals.reduce((s, d) => s + d.deal_value, 0);
+  const totalDeals = monthDeals.length;
+  const totalValue = monthDeals.reduce((s, d) => s + d.deal_value, 0);
   const avgDealValue = totalDeals > 0 ? Math.round(totalValue / totalDeals) : 0;
 
-  const stageCounts = deals.reduce<Record<string, { count: number; value: number }>>((acc, d) => {
+  const stageCounts = monthDeals.reduce<Record<string, { count: number; value: number }>>((acc, d) => {
     if (!acc[d.stage]) acc[d.stage] = { count: 0, value: 0 };
     acc[d.stage].count++;
     acc[d.stage].value += d.deal_value;
     return acc;
   }, {});
 
-  const sourceCounts = deals.reduce<Record<string, number>>((acc, d) => {
+  const sourceCounts = monthDeals.reduce<Record<string, number>>((acc, d) => {
     if (d.source) acc[d.source] = (acc[d.source] || 0) + 1;
     return acc;
   }, {});
 
   /* KPI calculations */
-  const closedDeals = deals.filter((d) => d.stage === "مكتملة").length;
+  const closedDeals = monthDeals.filter((d) => d.stage === "مكتملة").length;
   const winRate = totalDeals > 0 ? Math.round((closedDeals / totalDeals) * 100) : 0;
-  const avgCycleDays = totalDeals > 0 ? Math.round(deals.reduce((s, d) => s + d.cycle_days, 0) / totalDeals) : 0;
-  const pipelineValue = deals.filter((d) => d.stage !== "مكتملة").reduce((s, d) => s + d.deal_value, 0);
+  const avgCycleDays = totalDeals > 0 ? Math.round(monthDeals.reduce((s, d) => s + d.cycle_days, 0) / totalDeals) : 0;
+  const pipelineValue = monthDeals.filter((d) => d.stage !== "مكتملة").reduce((s, d) => s + d.deal_value, 0);
 
   /* Rep performance */
   const repPerformance = (() => {
     const repMap: Record<string, { deals: number; closed: number; value: number; cycleDays: number }> = {};
-    deals.forEach((d) => {
+    monthDeals.forEach((d) => {
       const rep = d.assigned_rep_name || "غير محدد";
       if (!repMap[rep]) repMap[rep] = { deals: 0, closed: 0, value: 0, cycleDays: 0 };
       repMap[rep].deals++;
@@ -173,7 +186,7 @@ export default function SalesPage() {
 
   /* Source ROI data */
   const sourceData = SOURCES.map((src) => {
-    const srcDeals = deals.filter((d) => d.source === src);
+    const srcDeals = monthDeals.filter((d) => d.source === src);
     const srcWon = srcDeals.filter((d) => d.stage === "مكتملة");
     return {
       source: src,
@@ -314,6 +327,8 @@ export default function SalesPage() {
                   progress={pct}
                   icon={s.icon}
                   subtext={formatMoney(data.value)}
+                  onClick={() => setStageFilter(stageFilter === s.stage ? null : s.stage)}
+                  active={stageFilter === s.stage}
                 />
               );
             })}
@@ -400,14 +415,14 @@ export default function SalesPage() {
                   </TableCell>
                 </TableRow>
               ))
-            ) : deals.length === 0 ? (
+            ) : filteredDeals.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                  لا توجد مبيعات
+                  {stageFilter ? `لا توجد مبيعات في مرحلة "${stageFilter}"` : "لا توجد مبيعات"}
                 </TableCell>
               </TableRow>
             ) : (
-              deals.map((deal) => (
+              filteredDeals.map((deal) => (
                 <TableRow key={deal.id}>
                   <TableCell className="font-medium text-foreground">
                     {deal.client_name}

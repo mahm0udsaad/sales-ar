@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Bell, RefreshCw, Menu, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useTopbarControls } from "@/components/layout/topbar-context";
+import { useTopbarControls, type TimeFilter } from "@/components/layout/topbar-context";
 import { MONTHS_AR } from "@/lib/utils/constants";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -35,25 +35,25 @@ const PAGE_SUBTITLES: Record<string, string> = {
   "/agent": "طبقة ذكاء مساعدة فوق بيانات الشركة",
 };
 
-const TIME_FILTERS = ["اليوم", "الأسبوع", "الشهر", "الكل"];
+const TIME_FILTERS: TimeFilter[] = ["اليوم", "الأسبوع", "الشهر", "الكل"];
 
 interface TopbarProps {
-  activeFilter: string;
-  onFilterChange: (filter: string) => void;
-  activeMonth: string | null;
-  onMonthChange: (month: string | null) => void;
   unreadCount?: number;
   onBellClick?: () => void;
   onMenuClick?: () => void;
 }
 
-export function Topbar({ activeFilter, onFilterChange, activeMonth, onMonthChange, unreadCount = 0, onBellClick, onMenuClick }: TopbarProps) {
+export function Topbar({ unreadCount = 0, onBellClick, onMenuClick }: TopbarProps) {
   const pathname = usePathname();
   const title = PAGE_TITLES[pathname] || "لوحة التحكم";
   const subtitle = PAGE_SUBTITLES[pathname] || "مركز متابعة حي للمبيعات والتشغيل";
   const monthsRef = useRef<HTMLDivElement>(null);
   const {
     controls: { onRefresh, isRefreshing, lastUpdatedAt },
+    activeMonth,
+    setActiveMonth: onMonthChange,
+    activeFilter,
+    setActiveFilter: onFilterChange,
   } = useTopbarControls();
   const showRefresh = pathname === "/dashboard" && !!onRefresh;
   const formattedLastUpdated = lastUpdatedAt

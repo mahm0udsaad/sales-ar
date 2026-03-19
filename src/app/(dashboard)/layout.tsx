@@ -133,8 +133,6 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [activeFilter, setActiveFilter] = useState("الكل");
-  const [activeMonth, setActiveMonth] = useState<string | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>(() => generateNotifications());
@@ -152,10 +150,6 @@ export default function DashboardLayout({
         {/* Content area — has margin on lg+ for sidebar, full-width on mobile/tablet */}
         <div className="lg:mr-[260px] min-h-screen">
           <Topbar
-            activeFilter={activeFilter}
-            onFilterChange={setActiveFilter}
-            activeMonth={activeMonth}
-            onMonthChange={setActiveMonth}
             unreadCount={unreadCount}
             onBellClick={() => setNotifOpen((prev) => !prev)}
             onMenuClick={() => setSidebarOpen(true)}

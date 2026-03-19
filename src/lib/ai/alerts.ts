@@ -21,7 +21,7 @@ export function generateAlerts(input: AlertInput): GeneratedAlert[] {
   const { deals, tickets, kpi, targetRevenue, targetCloseRate = 35 } = input;
   const alerts: GeneratedAlert[] = [];
 
-  const activeDeals = deals.filter((d) => d.stage !== "إغلاق" && d.stage !== "خسارة");
+  const activeDeals = deals.filter((d) => d.stage !== "مكتملة" && d.stage !== "مرفوض مع سبب");
 
   // CRITICAL: Stale deal > 30 days in negotiation
   for (const deal of activeDeals) {

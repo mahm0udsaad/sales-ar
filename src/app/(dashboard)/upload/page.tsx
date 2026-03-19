@@ -8,16 +8,21 @@ import { Card } from "@/components/ui/card";
 import {
   insertManyDeals,
   insertManyTickets,
+  insertManyRenewals,
   saveUploadRecord,
   fetchUploadHistory,
   type UploadRecord,
 } from "@/lib/supabase/db";
-import type { Deal, Ticket } from "@/types";
+import { mapStage, mapSource, mapRenewalStatus } from "@/lib/utils/value-maps";
+import { TICKET_STATUSES, PRIORITIES } from "@/lib/utils/constants";
+import type { Deal, Ticket, Renewal } from "@/types";
 
 /* ─── Types ─── */
+type SheetType = "sales" | "support" | "renewals" | "summary" | "skip" | "unknown";
+
 interface SheetInfo {
   name: string;
-  type: "sales" | "support" | "summary" | "unknown";
+  type: SheetType;
   headers: string[];
   rowCount: number;
   rows: unknown[][];
@@ -33,6 +38,8 @@ interface AiSheetMapping {
   confidence: number;
   mappings: ColumnMapping;
   stage_mapping: Record<string, string>;
+  source_mapping?: Record<string, string>;
+  renewal_status_mapping?: Record<string, string>;
 }
 
 interface UploadState {
@@ -41,29 +48,54 @@ interface UploadState {
   sheets: SheetInfo[];
   aiMappings: AiSheetMapping[] | null;
   error: string | null;
-  importResults: { deals: number; tickets: number } | null;
+  importResults: { deals: number; tickets: number; renewals: number } | null;
 }
 
-/* ─── Heuristic helpers ─── */
+/* ─── Sheet name detection ─── */
+const SHEET_NAME_RULES: { keywords: string[]; type: SheetType }[] = [
+  // Skip first (dashboard, template sheets)
+  { keywords: ["لوحة التحكم", "dashboard", "نموذج الإدخال", "نموذج", "template"], type: "skip" },
+  // Sales
+  { keywords: ["الصفقات", "صفقات", "مبيعات", "sales", "deals"], type: "sales" },
+  // Support
+  { keywords: ["تذاكر", "دعم", "support", "tickets"], type: "support" },
+  // Renewals
+  { keywords: ["التجديدات", "تجديدات", "تجديد", "renewals", "اشتراكات"], type: "renewals" },
+  // Summary
+  { keywords: ["ملخص", "summary"], type: "summary" },
+];
 
-// Keywords to detect sheet type from column headers
-const SALES_HEADER_KEYWORDS = ["مرحلة", "صفقة", "قيمة الصفقة", "قيمة", "مندوب", "احتمالية", "stage", "deal", "value"];
+function detectTypeFromName(name: string): SheetType | null {
+  const nameLower = name.toLowerCase();
+  for (const rule of SHEET_NAME_RULES) {
+    if (rule.keywords.some((k) => nameLower.includes(k))) return rule.type;
+  }
+  return null;
+}
+
+/* ─── Header-based fallback detection ─── */
+const SALES_HEADER_KEYWORDS = ["مرحلة", "صفقة", "قيمة الصفقة", "احتمالية", "مندوب", "stage", "deal", "probability"];
 const SUPPORT_HEADER_KEYWORDS = ["مشكلة", "أولوية", "تذكرة", "وكيل", "issue", "ticket", "priority"];
+const RENEWAL_HEADER_KEYWORDS = ["تجديد", "تاريخ التجديد", "اشتراك", "renewal", "خطة", "plan_name", "الباقة"];
 
-function detectTypeFromHeaders(headers: string[]): "sales" | "support" | "unknown" {
+function detectTypeFromHeaders(headers: string[]): SheetType {
   const joined = headers.join(" ").toLowerCase();
   const salesScore = SALES_HEADER_KEYWORDS.filter((k) => joined.includes(k)).length;
   const supportScore = SUPPORT_HEADER_KEYWORDS.filter((k) => joined.includes(k)).length;
-  if (salesScore > 0 && salesScore >= supportScore) return "sales";
-  if (supportScore > 0) return "support";
-  return "unknown";
+  const renewalScore = RENEWAL_HEADER_KEYWORDS.filter((k) => joined.includes(k)).length;
+
+  const max = Math.max(salesScore, supportScore, renewalScore);
+  if (max === 0) return "unknown";
+  if (renewalScore === max) return "renewals";
+  if (supportScore === max) return "support";
+  return "sales";
 }
 
-// Heuristic column index lookup by matching header name patterns
+/* ─── Heuristic column patterns ─── */
 const SALES_COL_PATTERNS: Record<string, string[]> = {
   client_name:   ["اسم العميل", "العميل", "client_name", "client", "اسم"],
-  client_phone:  ["جوال", "الجوال", "رقم الجوال", "phone", "هاتف", "رقم"],
-  deal_value:    ["قيمة الصفقة", "القيمة", "value", "amount", "المبلغ", "قيمة"],
+  client_phone:  ["جوال", "الجوال", "رقم الجوال", "phone", "هاتف"],
+  deal_value:    ["قيمة الصفقة", "القيمة قبل الضريبة", "القيمة", "value", "amount", "المبلغ"],
   source:        ["المصدر", "مصدر", "source"],
   stage:         ["المرحلة", "مرحلة", "stage"],
   probability:   ["احتمالية", "الاحتمالية", "probability", "prob"],
@@ -71,22 +103,36 @@ const SALES_COL_PATTERNS: Record<string, string[]> = {
   cycle_days:    ["أيام الدورة", "دورة البيع", "cycle_days", "cycle"],
   deal_date:     ["تاريخ الصفقة", "التاريخ", "تاريخ", "deal_date", "date"],
   close_date:    ["تاريخ الإغلاق", "close_date"],
-  loss_reason:   ["سبب الخسارة", "loss_reason"],
+  plan:          ["الخطة", "الباقة", "plan"],
+  loss_reason:   ["سبب الخسارة", "سبب الرفض", "loss_reason"],
   notes:         ["ملاحظات", "notes"],
 };
 
 const SUPPORT_COL_PATTERNS: Record<string, string[]> = {
-  ticket_number:      ["رقم التذكرة", "ticket_number", "رقم", "#"],
-  client_name:        ["اسم العميل", "العميل", "client_name", "client", "اسم"],
-  client_phone:       ["جوال", "الجوال", "رقم الجوال", "phone", "هاتف"],
-  issue:              ["المشكلة", "الوصف", "وصف المشكلة", "issue", "problem", "مشكلة"],
-  priority:           ["الأولوية", "priority", "أولوية"],
-  status:             ["الحالة", "status", "حالة"],
-  assigned_agent:     ["الوكيل", "المسؤول", "assigned_agent", "agent", "موظف"],
-  open_date:          ["تاريخ الفتح", "تاريخ الفتح", "open_date", "تاريخ", "date"],
-  due_date:           ["موعد التسليم", "due_date", "deadline"],
-  resolved_date:      ["تاريخ الحل", "resolved_date"],
-  response_time:      ["وقت الاستجابة", "response_time"],
+  ticket_number:  ["رقم التذكرة", "ticket_number", "#"],
+  client_name:    ["اسم العميل", "العميل", "client_name", "client", "اسم"],
+  client_phone:   ["جوال", "الجوال", "رقم الجوال", "phone", "هاتف"],
+  issue:          ["المشكلة", "الوصف", "وصف المشكلة", "issue", "problem", "مشكلة"],
+  priority:       ["الأولوية", "priority", "أولوية"],
+  status:         ["الحالة", "status", "حالة"],
+  assigned_agent: ["الوكيل", "المسؤول", "assigned_agent", "agent", "موظف"],
+  open_date:      ["تاريخ الفتح", "open_date", "تاريخ", "date"],
+  due_date:       ["موعد التسليم", "due_date", "deadline"],
+  resolved_date:  ["تاريخ الحل", "resolved_date"],
+  response_time:  ["وقت الاستجابة", "response_time"],
+};
+
+const RENEWAL_COL_PATTERNS: Record<string, string[]> = {
+  customer_name:  ["اسم العميل", "العميل", "customer_name", "اسم"],
+  customer_phone: ["جوال", "الجوال", "رقم الجوال", "phone", "هاتف"],
+  plan_name:      ["اسم الخطة", "الخطة", "الباقة", "plan_name", "plan"],
+  plan_price:     ["سعر الخطة", "سعر الخطة قبل الضريبة", "القيمة", "plan_price", "price", "المبلغ"],
+  start_date:     ["تاريخ البدء", "start_date", "تاريخ الاشتراك"],
+  renewal_date:   ["تاريخ التجديد", "renewal_date", "موعد التجديد"],
+  status:         ["الحالة", "status", "حالة"],
+  cancel_reason:  ["سبب الإلغاء", "cancel_reason"],
+  assigned_rep:   ["المسؤول", "مندوب", "assigned_rep", "موظف"],
+  notes:          ["ملاحظات", "notes"],
 };
 
 function buildHeuristicMapping(
@@ -108,10 +154,8 @@ function buildHeuristicMapping(
 }
 
 /* ─── Cell helpers ─── */
-const VALID_STAGES    = new Set(["تواصل", "عرض سعر", "تفاوض", "إغلاق", "خسارة"]);
-const VALID_SOURCES   = new Set(["حملة اعلانية", "تسويق بالعمولة", "جديد لعميل حالي", "من طرف عميل", "من الدعم", "من ارقام عشوائية", "اخرى"]);
-const VALID_PRIORITIES= new Set(["عاجل", "مرتفع", "عادي"]);
-const VALID_STATUSES  = new Set(["مفتوح", "قيد الحل", "محلول"]);
+const VALID_PRIORITIES: Set<string> = new Set(PRIORITIES);
+const VALID_STATUSES: Set<string> = new Set(TICKET_STATUSES);
 
 function cellStr(row: unknown[], idx: number): string {
   if (idx < 0 || row[idx] === null || row[idx] === undefined || row[idx] === "") return "";
@@ -152,7 +196,6 @@ export default function UploadPage() {
   const [history, setHistory] = useState<UploadRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
-  // Load upload history from Supabase on mount / org change
   useEffect(() => {
     setHistoryLoading(true);
     fetchUploadHistory()
@@ -191,12 +234,7 @@ export default function UploadPage() {
           .filter((r) => (r as unknown[]).some((c) => c !== "" && c != null));
 
         // Detect type: sheet name first, then headers as fallback
-        let type: SheetInfo["type"] = "unknown";
-        const nameLower = name.toLowerCase();
-        if (nameLower.includes("مبيعات") || nameLower.includes("sales")) type = "sales";
-        else if (nameLower.includes("دعم") || nameLower.includes("support")) type = "support";
-        else if (nameLower.includes("ملخص") || nameLower.includes("summary")) type = "summary";
-        else type = detectTypeFromHeaders(headers); // ← fallback from headers
+        const type: SheetType = detectTypeFromName(name) ?? detectTypeFromHeaders(headers);
 
         return { name, type, headers, rowCount: rows.length, rows };
       });
@@ -210,11 +248,13 @@ export default function UploadPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            sheets: sheets.map((s) => ({
-              name: s.name, type: s.type,
-              headers: s.headers,
-              sample_rows: s.rows.slice(0, 3),
-            })),
+            sheets: sheets
+              .filter((s) => s.type !== "skip" && s.type !== "summary")
+              .map((s) => ({
+                name: s.name, type: s.type,
+                headers: s.headers,
+                sample_rows: s.rows.slice(0, 3),
+              })),
           }),
         });
         if (res.ok) {
@@ -229,7 +269,11 @@ export default function UploadPage() {
       const finalSheets = sheets.map((sh) => {
         const ai = aiMappings?.find((a) => a.name === sh.name);
         if (ai && ai.type && ai.type !== "unknown" && sh.type === "unknown") {
-          return { ...sh, type: ai.type as SheetInfo["type"] };
+          return { ...sh, type: ai.type as SheetType };
+        }
+        // AI says skip → respect it
+        if (ai && ai.type === "skip") {
+          return { ...sh, type: "skip" as SheetType };
         }
         return sh;
       });
@@ -249,19 +293,26 @@ export default function UploadPage() {
     setState((s) => ({ ...s, status: "importing" }));
     let dealsImported = 0;
     let ticketsImported = 0;
+    let renewalsImported = 0;
 
     try {
       for (const sheet of sheets) {
+        if (sheet.type === "skip" || sheet.type === "summary" || sheet.type === "unknown") continue;
+
         // Build final column mapping: AI first, heuristic fallback
         const ai = aiMappings?.find((a) => a.name === sheet.name);
         const aiMappingResult: ColumnMapping = ai?.mappings ?? {};
-        const stageMap: Record<string, string> = ai?.stage_mapping ?? {};
+        const aiStageMap: Record<string, string> = ai?.stage_mapping ?? {};
+        const aiSourceMap: Record<string, string> = ai?.source_mapping ?? {};
+        const aiRenewalStatusMap: Record<string, string> = ai?.renewal_status_mapping ?? {};
 
         const heuristic =
           sheet.type === "sales"
             ? buildHeuristicMapping(sheet.headers, SALES_COL_PATTERNS)
             : sheet.type === "support"
             ? buildHeuristicMapping(sheet.headers, SUPPORT_COL_PATTERNS)
+            : sheet.type === "renewals"
+            ? buildHeuristicMapping(sheet.headers, RENEWAL_COL_PATTERNS)
             : {};
 
         // Merge: AI takes priority, heuristic fills gaps
@@ -276,10 +327,12 @@ export default function UploadPage() {
             if (!clientName) continue;
 
             const rawStage = cellStr(row, col("stage")) || "تواصل";
-            const stage = stageMap[rawStage] ?? (VALID_STAGES.has(rawStage) ? rawStage : "تواصل");
+            const stage = mapStage(rawStage, aiStageMap);
 
-            const rawSource = cellStr(row, col("source")) || "حملة اعلانية";
-            const source = VALID_SOURCES.has(rawSource) ? rawSource : "حملة اعلانية";
+            const rawSource = cellStr(row, col("source")) || "اخرى";
+            const source = aiSourceMap[rawSource]
+              ? mapSource(aiSourceMap[rawSource])
+              : mapSource(rawSource);
 
             const dealDate =
               toDateStr(col("deal_date") >= 0 ? row[col("deal_date")] : undefined) ??
@@ -297,6 +350,7 @@ export default function UploadPage() {
               cycle_days: toNum(col("cycle_days") >= 0 ? row[col("cycle_days")] : 0),
               deal_date: dealDate,
               close_date: toDateStr(col("close_date") >= 0 ? row[col("close_date")] : undefined),
+              plan: cellStr(row, col("plan")) || undefined,
               loss_reason: cellStr(row, col("loss_reason")) || undefined,
               notes: cellStr(row, col("notes")) || undefined,
               month: d.getMonth() + 1,
@@ -320,6 +374,9 @@ export default function UploadPage() {
 
             const rawNum = col("ticket_number") >= 0 ? row[col("ticket_number")] : undefined;
 
+            const openDate = toDateStr(col("open_date") >= 0 ? row[col("open_date")] : undefined);
+            const od = openDate ? new Date(openDate) : new Date();
+
             batch.push({
               ticket_number: rawNum ? toNum(rawNum) || undefined : undefined,
               client_name: clientName,
@@ -328,14 +385,43 @@ export default function UploadPage() {
               priority,
               status,
               assigned_agent_name: cellStr(row, col("assigned_agent")) || undefined,
-              open_date: toDateStr(col("open_date") >= 0 ? row[col("open_date")] : undefined),
+              open_date: openDate,
               due_date: toDateStr(col("due_date") >= 0 ? row[col("due_date")] : undefined),
               resolved_date: toDateStr(col("resolved_date") >= 0 ? row[col("resolved_date")] : undefined),
-              month: new Date().getMonth() + 1,
-              year: new Date().getFullYear(),
+              month: od.getMonth() + 1,
+              year: od.getFullYear(),
             });
           }
           ticketsImported += await insertManyTickets(batch);
+
+        } else if (sheet.type === "renewals") {
+          const batch: Omit<Renewal, "id" | "org_id" | "created_at" | "updated_at">[] = [];
+          for (const rawRow of sheet.rows) {
+            const row = rawRow as unknown[];
+            const customerName = cellStr(row, col("customer_name"));
+            if (!customerName) continue;
+
+            const rawStatus = cellStr(row, col("status")) || "مجدول";
+            const status = aiRenewalStatusMap[rawStatus]
+              ? mapRenewalStatus(aiRenewalStatusMap[rawStatus])
+              : mapRenewalStatus(rawStatus);
+
+            batch.push({
+              customer_name: customerName,
+              customer_phone: cellStr(row, col("customer_phone")) || undefined,
+              plan_name: cellStr(row, col("plan_name")) || "الاساسية",
+              plan_price: toNum(col("plan_price") >= 0 ? row[col("plan_price")] : 0),
+              start_date: toDateStr(col("start_date") >= 0 ? row[col("start_date")] : undefined)
+                ?? new Date().toISOString().slice(0, 10),
+              renewal_date: toDateStr(col("renewal_date") >= 0 ? row[col("renewal_date")] : undefined)
+                ?? new Date().toISOString().slice(0, 10),
+              status,
+              cancel_reason: cellStr(row, col("cancel_reason")) || undefined,
+              assigned_rep: cellStr(row, col("assigned_rep")) || undefined,
+              notes: cellStr(row, col("notes")) || undefined,
+            });
+          }
+          renewalsImported += await insertManyRenewals(batch);
         }
       }
 
@@ -345,6 +431,7 @@ export default function UploadPage() {
         sheets_count: sheets.length,
         deals_imported: dealsImported,
         tickets_imported: ticketsImported,
+        renewals_imported: renewalsImported,
         status: "done",
       });
 
@@ -354,16 +441,16 @@ export default function UploadPage() {
       setState((s) => ({
         ...s,
         status: "done",
-        importResults: { deals: dealsImported, tickets: ticketsImported },
+        importResults: { deals: dealsImported, tickets: ticketsImported, renewals: renewalsImported },
       }));
     } catch (err) {
       console.error("Import error:", err);
-      // Save failed record
       await saveUploadRecord({
         filename: file?.name ?? "ملف",
         sheets_count: sheets.length,
         deals_imported: dealsImported,
         tickets_imported: ticketsImported,
+        renewals_imported: renewalsImported,
         status: "error",
       }).catch(() => {});
       fetchUploadHistory().then(setHistory).catch(console.error);
@@ -381,6 +468,7 @@ export default function UploadPage() {
 
   const { status, sheets, error, importResults } = state;
   const isProcessing = ["parsing", "ai_mapping", "importing"].includes(status);
+  const importableSheets = sheets.filter((s) => s.type === "sales" || s.type === "support" || s.type === "renewals");
 
   /* ─── Render ─── */
   return (
@@ -409,6 +497,7 @@ export default function UploadPage() {
           <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-bold text-foreground mb-2">اسحب ملف Excel هنا</h3>
           <p className="text-sm text-muted-foreground">أو اضغط لاختيار ملف — يدعم xlsx, xls, csv</p>
+          <p className="text-xs text-muted-foreground mt-2">يدعم استيراد المبيعات والدعم والتجديدات تلقائياً</p>
         </Card>
       )}
 
@@ -441,61 +530,78 @@ export default function UploadPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-foreground">
-              {sheets.length} ورقة في الملف
+              {sheets.length} ورقة في الملف — {importableSheets.length} قابلة للاستيراد
             </h3>
             <Button variant="ghost" size="sm" onClick={resetUpload} className="text-muted-foreground">
               رفع ملف آخر
             </Button>
           </div>
 
-          {sheets.map((sheet, i) => (
-            <Card key={i} className="p-4">
-              <div className="flex items-center gap-3">
-                <FileSpreadsheet className="w-8 h-8 text-cc-green shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium text-foreground">{sheet.name}</p>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                      sheet.type === "sales"    ? "bg-cyan-dim text-cyan" :
-                      sheet.type === "support"  ? "bg-green-dim text-cc-green" :
-                      sheet.type === "summary"  ? "bg-amber-dim text-amber" :
-                                                  "bg-muted text-muted-foreground"
-                    }`}>
-                      {sheet.type === "sales"   ? "مبيعات ✓" :
-                       sheet.type === "support" ? "دعم ✓"    :
-                       sheet.type === "summary" ? "ملخص"     : "غير محدد"}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {sheet.rowCount} صف &bull; {sheet.headers.filter(Boolean).length} عمود
-                  </p>
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {sheet.headers.filter(Boolean).slice(0, 8).map((h, hi) => (
-                      <span key={hi} className="px-1.5 py-0.5 bg-muted rounded text-[10px] text-muted-foreground">
-                        {h}
+          {sheets.map((sheet, i) => {
+            const badgeStyle =
+              sheet.type === "sales"    ? "bg-cyan-dim text-cyan" :
+              sheet.type === "support"  ? "bg-green-dim text-cc-green" :
+              sheet.type === "renewals" ? "bg-purple-dim text-cc-purple" :
+              sheet.type === "skip"     ? "bg-muted text-muted-foreground" :
+              sheet.type === "summary"  ? "bg-amber-dim text-amber" :
+                                          "bg-muted text-muted-foreground";
+            const badgeLabel =
+              sheet.type === "sales"    ? "مبيعات ✓" :
+              sheet.type === "support"  ? "دعم ✓" :
+              sheet.type === "renewals" ? "تجديدات ✓" :
+              sheet.type === "skip"     ? "تجاهل" :
+              sheet.type === "summary"  ? "ملخص" : "غير محدد";
+
+            return (
+              <Card key={i} className={`p-4 ${sheet.type === "skip" ? "opacity-50" : ""}`}>
+                <div className="flex items-center gap-3">
+                  <FileSpreadsheet className="w-8 h-8 text-cc-green shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium text-foreground">{sheet.name}</p>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${badgeStyle}`}>
+                        {badgeLabel}
                       </span>
-                    ))}
-                    {sheet.headers.filter(Boolean).length > 8 && (
-                      <span className="text-[10px] text-muted-foreground">
-                        +{sheet.headers.filter(Boolean).length - 8} أعمدة أخرى
-                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {sheet.rowCount} صف &bull; {sheet.headers.filter(Boolean).length} عمود
+                    </p>
+                    {sheet.type !== "skip" && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {sheet.headers.filter(Boolean).slice(0, 8).map((h, hi) => (
+                          <span key={hi} className="px-1.5 py-0.5 bg-muted rounded text-[10px] text-muted-foreground">
+                            {h}
+                          </span>
+                        ))}
+                        {sheet.headers.filter(Boolean).length > 8 && (
+                          <span className="text-[10px] text-muted-foreground">
+                            +{sheet.headers.filter(Boolean).length - 8} أعمدة أخرى
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
 
-          {sheets.some((s) => s.type === "unknown" || s.type === "summary") && (
+          {sheets.some((s) => s.type === "unknown") && (
             <p className="text-xs text-amber text-center">
-              ⚠ الأوراق غير المحددة النوع لن يتم استيرادها
+              الأوراق غير المحددة النوع لن يتم استيرادها
             </p>
           )}
 
-          <Button onClick={handleImport} className="w-full bg-cyan text-background hover:bg-cyan/90">
-            <CheckCircle className="w-4 h-4 ml-2" />
-            استيراد البيانات إلى قاعدة البيانات
-          </Button>
+          {importableSheets.length > 0 ? (
+            <Button onClick={handleImport} className="w-full bg-cyan text-background hover:bg-cyan/90">
+              <CheckCircle className="w-4 h-4 ml-2" />
+              استيراد البيانات إلى قاعدة البيانات
+            </Button>
+          ) : (
+            <p className="text-xs text-cc-red text-center">
+              لا توجد أوراق قابلة للاستيراد في هذا الملف
+            </p>
+          )}
         </div>
       )}
 
@@ -517,9 +623,15 @@ export default function UploadPage() {
                 <p className="text-sm text-muted-foreground">تذكرة دعم</p>
               </div>
             )}
-            {importResults.deals === 0 && importResults.tickets === 0 && (
+            {importResults.renewals > 0 && (
+              <div>
+                <p className="text-3xl font-bold text-cc-purple">{importResults.renewals}</p>
+                <p className="text-sm text-muted-foreground">تجديد</p>
+              </div>
+            )}
+            {importResults.deals === 0 && importResults.tickets === 0 && importResults.renewals === 0 && (
               <p className="text-sm text-muted-foreground">
-                لم يُستورد شيء — تحقق من أن أسماء الأوراق تحتوي على "مبيعات" أو "دعم"
+                لم يُستورد شيء — تحقق من محتوى الملف
               </p>
             )}
           </div>

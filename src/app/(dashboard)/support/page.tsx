@@ -6,6 +6,7 @@ import {
   fetchEmployees,
 } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
+import { useTopbarControls } from "@/components/layout/topbar-context";
 import { PRIORITIES, TICKET_STATUSES } from "@/lib/utils/constants";
 import { PRIORITY_COLORS, TICKET_STATUS_COLORS } from "@/lib/utils/constants";
 import { formatDate, formatPhone } from "@/lib/utils/format";
@@ -96,6 +97,22 @@ export default function SupportPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Month filter
+  const { activeMonthIndex, filterCutoff } = useTopbarControls();
+  const monthTickets = filterCutoff
+    ? tickets.filter((t) => new Date(t.open_date || t.created_at) >= filterCutoff)
+    : activeMonthIndex
+      ? tickets.filter((t) => t.month === activeMonthIndex.month && t.year === activeMonthIndex.year)
+      : tickets;
+
+  // Card filter: "مفتوح" | "قيد الحل" | "محلول" | "عاجل" | null
+  const [cardFilter, setCardFilter] = useState<string | null>(null);
+  const filteredTickets = cardFilter
+    ? cardFilter === "عاجل"
+      ? monthTickets.filter((t) => t.priority === "عاجل")
+      : monthTickets.filter((t) => t.status === cardFilter)
+    : monthTickets;
+
   useEffect(() => {
     setLoading(true);
     Promise.all([
@@ -107,10 +124,10 @@ export default function SupportPage() {
   }, [orgId]);
 
   /* ---------- derived counts ---------- */
-  const countOpen = tickets.filter((t) => t.status === "مفتوح").length;
-  const countInProgress = tickets.filter((t) => t.status === "قيد الحل").length;
-  const countResolved = tickets.filter((t) => t.status === "محلول").length;
-  const countUrgent = tickets.filter((t) => t.priority === "عاجل").length;
+  const countOpen = monthTickets.filter((t) => t.status === "مفتوح").length;
+  const countInProgress = monthTickets.filter((t) => t.status === "قيد الحل").length;
+  const countResolved = monthTickets.filter((t) => t.status === "محلول").length;
+  const countUrgent = monthTickets.filter((t) => t.priority === "عاجل").length;
 
   /* ---------- helpers ---------- */
   function openCreateDialog() {
@@ -267,24 +284,32 @@ export default function SupportPage() {
               label="مفتوحة"
               color="red"
               icon={<Inbox className="w-4 h-4 text-cc-red" />}
+              onClick={() => setCardFilter(cardFilter === "مفتوح" ? null : "مفتوح")}
+              active={cardFilter === "مفتوح"}
             />
             <StatCard
               value={String(countInProgress)}
               label="قيد الحل"
               color="amber"
               icon={<Clock className="w-4 h-4 text-amber" />}
+              onClick={() => setCardFilter(cardFilter === "قيد الحل" ? null : "قيد الحل")}
+              active={cardFilter === "قيد الحل"}
             />
             <StatCard
               value={String(countResolved)}
               label="محلولة"
               color="green"
               icon={<CheckCircle2 className="w-4 h-4 text-cc-green" />}
+              onClick={() => setCardFilter(cardFilter === "محلول" ? null : "محلول")}
+              active={cardFilter === "محلول"}
             />
             <StatCard
               value={String(countUrgent)}
               label="عاجلة"
               color="blue"
               icon={<AlertTriangle className="w-4 h-4 text-cc-blue" />}
+              onClick={() => setCardFilter(cardFilter === "عاجل" ? null : "عاجل")}
+              active={cardFilter === "عاجل"}
             />
           </>
         )}
@@ -328,14 +353,14 @@ export default function SupportPage() {
                   </TableCell>
                 </TableRow>
               ))
-            ) : tickets.length === 0 ? (
+            ) : filteredTickets.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                  لا توجد تذاكر
+                  {cardFilter ? `لا توجد تذاكر "${cardFilter}"` : "لا توجد تذاكر"}
                 </TableCell>
               </TableRow>
             ) : (
-              tickets.map((ticket) => (
+              filteredTickets.map((ticket) => (
                 <TableRow key={ticket.id}>
                   <TableCell className="text-right font-mono text-xs text-muted-foreground">
                     {ticket.ticket_number}

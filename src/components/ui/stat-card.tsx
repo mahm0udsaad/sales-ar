@@ -10,6 +10,8 @@ interface StatCardProps {
   subtext?: string;
   muted?: boolean;
   tooltip?: string;
+  onClick?: () => void;
+  active?: boolean;
 }
 
 const COLOR_MAP: Record<string, {
@@ -70,18 +72,21 @@ const COLOR_MAP: Record<string, {
   },
 };
 
-export function StatCard({ value, label, color, progress, icon, subtext, muted, tooltip }: StatCardProps) {
+export function StatCard({ value, label, color, progress, icon, subtext, muted, tooltip, onClick, active }: StatCardProps) {
   const c = COLOR_MAP[color];
   const content = (
     <div
+      onClick={onClick}
       className={cn(
-        "relative overflow-hidden rounded-2xl p-4 transition-opacity",
-        muted && "opacity-60"
+        "relative overflow-hidden rounded-2xl p-4 transition-all",
+        muted && "opacity-60",
+        onClick && "cursor-pointer hover:scale-[1.02]",
+        active && "ring-2 ring-offset-1 ring-offset-transparent"
       )}
       style={{
         backgroundColor: "#111827",
-        border: `1px solid ${c.border}`,
-        boxShadow: c.glow,
+        border: `1px solid ${active ? c.border.replace(/0\.35/, "0.8") : c.border}`,
+        boxShadow: active ? c.glow.replace(/0\.12/, "0.3") : c.glow,
       }}
     >
       <div className="flex items-start justify-between relative z-10">

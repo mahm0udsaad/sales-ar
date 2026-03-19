@@ -6,19 +6,23 @@ export const TICKET_STATUSES = ["مفتوح", "قيد الحل", "محلول"] a
 export const EMPLOYEE_STATUSES = ["نشط", "مشغول", "متاح", "إجازة"] as const;
 export const PARTNERSHIP_TYPES = ["استراتيجية", "تقنية", "تجارية", "تسويقية"] as const;
 export const PARTNERSHIP_STATUSES = ["شراكة نشطة", "قيد التفاوض", "شراكة مؤجلة", "شراكة مُوقفة"] as const;
-export const PROJECT_STATUSES = ["في الموعد", "متأخر", "يكتمل قريباً", "موقوف"] as const;
+export const PROJECT_STATUSES = ["في الموعد", "متأخر", "يكتمل قريباً", "موقوف", "مكتمل"] as const;
 export const REVIEW_CATEGORIES = ["الدعم", "المنتج", "التسعير", "الأداء", "التكامل", "التدريب", "أخرى"] as const;
 export const REVIEW_TYPES = [
-  { value: "promoter", label: "مروّج" },
-  { value: "neutral", label: "محايد" },
-  { value: "detractor", label: "منتقد" },
+  { value: "very_satisfied", label: "راضي جداً" },
+  { value: "satisfied", label: "راضي" },
+  { value: "neutral", label: "متوسط" },
+  { value: "needs_improvement", label: "يحتاج تطوير" },
+  { value: "unsatisfied", label: "غير راضي" },
 ] as const;
 
-export const RENEWAL_STATUSES = ["قيد الانتظار", "مكتمل", "ملغي"] as const;
+export const RENEWAL_STATUSES = ["مجدول", "جاري المتابعة", "انتظار الدفع", "مكتمل", "ملغي بسبب"] as const;
 export const RENEWAL_STATUS_COLORS: Record<string, string> = {
-  "قيد الانتظار": "amber",
+  "مجدول": "cc-blue",
+  "جاري المتابعة": "amber",
+  "انتظار الدفع": "cc-purple",
   "مكتمل": "cc-green",
-  "ملغي": "cc-red",
+  "ملغي بسبب": "cc-red",
 };
 export const RENEWAL_CANCEL_REASONS = [
   "ارتفاع السعر", "قلة الاستخدام", "التحوّل لمنافس",

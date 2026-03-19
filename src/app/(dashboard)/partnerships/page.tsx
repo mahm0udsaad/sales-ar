@@ -92,6 +92,12 @@ export default function PartnershipsPage() {
       .finally(() => setLoading(false));
   }, [orgId]);
 
+  /* card filter */
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const filteredPartnerships = statusFilter
+    ? partnerships.filter((p) => p.status === statusFilter)
+    : partnerships;
+
   /* KPIs */
   const totalPartnerships = partnerships.length;
   const activePartnerships = partnerships.filter((p) => p.status === "شراكة نشطة").length;
@@ -226,18 +232,24 @@ export default function PartnershipsPage() {
               label="إجمالي الشراكات"
               color="cyan"
               icon={<Handshake className="w-4 h-4 text-cyan" />}
+              onClick={() => setStatusFilter(null)}
+              active={statusFilter === null}
             />
             <StatCard
               value={String(activePartnerships)}
               label="شراكات نشطة"
               color="green"
               icon={<Activity className="w-4 h-4 text-cc-green" />}
+              onClick={() => setStatusFilter(statusFilter === "شراكة نشطة" ? null : "شراكة نشطة")}
+              active={statusFilter === "شراكة نشطة"}
             />
             <StatCard
               value={String(negotiatingPartnerships)}
               label="قيد التفاوض"
               color="amber"
               icon={<Clock className="w-4 h-4 text-amber" />}
+              onClick={() => setStatusFilter(statusFilter === "قيد التفاوض" ? null : "قيد التفاوض")}
+              active={statusFilter === "قيد التفاوض"}
             />
             <StatCard
               value={formatMoney(totalValue)}
@@ -333,7 +345,7 @@ export default function PartnershipsPage() {
               قائمة الشراكات
             </h3>
             <div className="space-y-3">
-              {partnerships.map((p) => {
+              {filteredPartnerships.map((p) => {
                 const initial = p.name.charAt(0);
                 return (
                   <div

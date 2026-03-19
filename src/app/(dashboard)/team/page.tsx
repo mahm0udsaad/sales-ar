@@ -153,6 +153,12 @@ export default function TeamPage() {
   const activeCount = employees.filter((e) => e.status === "نشط").length;
   const busyCount = employees.filter((e) => e.status === "مشغول").length;
 
+  /* card filter */
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const filteredEmployees = statusFilter
+    ? employees.filter((e) => e.status === statusFilter)
+    : employees;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -187,21 +193,29 @@ export default function TeamPage() {
               label="إجمالي الفريق"
               color="cyan"
               icon={<Users className="w-4 h-4 text-cyan" />}
+              onClick={() => setStatusFilter(null)}
+              active={statusFilter === null}
             />
             <StatCard
               value={String(activeCount)}
               label="أعضاء نشطين"
               color="green"
+              onClick={() => setStatusFilter(statusFilter === "نشط" ? null : "نشط")}
+              active={statusFilter === "نشط"}
             />
             <StatCard
               value={String(busyCount)}
               label="مشغول"
               color="amber"
+              onClick={() => setStatusFilter(statusFilter === "مشغول" ? null : "مشغول")}
+              active={statusFilter === "مشغول"}
             />
             <StatCard
               value={String(employees.filter((e) => e.status === "إجازة").length)}
               label="إجازة"
               color="red"
+              onClick={() => setStatusFilter(statusFilter === "إجازة" ? null : "إجازة")}
+              active={statusFilter === "إجازة"}
             />
           </>
         )}
@@ -216,7 +230,7 @@ export default function TeamPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {employees.map((emp) => {
+          {filteredEmployees.map((emp) => {
             const workload = 0;
             const initial = emp.name.charAt(0);
 

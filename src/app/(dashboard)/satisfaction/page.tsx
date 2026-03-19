@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { DEMO_SATISFACTION } from "@/lib/demo-data";
 import { fetchReviews, createReview, updateReview, deleteReview } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
-import { REVIEW_CATEGORIES, REVIEW_TYPES, getKpiStatus, KPI_STATUS_STYLES } from "@/lib/utils/constants";
+import { useTopbarControls } from "@/components/layout/topbar-context";
+import { REVIEW_CATEGORIES, REVIEW_TYPES, PLANS, getKpiStatus, KPI_STATUS_STYLES } from "@/lib/utils/constants";
 import { KPICard } from "@/components/ui/kpi-card";
 import { LineChart } from "@/components/ui/line-chart";
 import { BarChart } from "@/components/ui/bar-chart";
@@ -44,32 +45,44 @@ import {
 
 /* ---------- helpers ---------- */
 
-function starsToType(stars: number): "promoter" | "neutral" | "detractor" {
-  if (stars >= 4) return "promoter";
+type ReviewType = "very_satisfied" | "satisfied" | "neutral" | "needs_improvement" | "unsatisfied";
+
+function starsToType(stars: number): ReviewType {
+  if (stars === 5) return "very_satisfied";
+  if (stars === 4) return "satisfied";
   if (stars === 3) return "neutral";
-  return "detractor";
+  if (stars === 2) return "needs_improvement";
+  return "unsatisfied";
 }
 
 const EMPTY_FORM = {
   customer_name: "",
   stars: 5,
-  type: "promoter" as "promoter" | "neutral" | "detractor",
+  type: "very_satisfied" as ReviewType,
   category: "المنتج",
+  plan: "" as string,
   review_date: new Date().toISOString().slice(0, 10),
   comment: "",
 };
 
-const feedbackTypeStyle = {
-  promoter: { label: "مروّج", color: "text-cc-green", bg: "bg-green-dim", icon: ThumbsUp },
-  neutral: { label: "محايد", color: "text-amber", bg: "bg-amber-dim", icon: Minus },
-  detractor: { label: "منتقد", color: "text-cc-red", bg: "bg-red-dim", icon: ThumbsDown },
-} as const;
+const feedbackTypeStyle: Record<string, { label: string; color: string; bg: string; icon: typeof ThumbsUp }> = {
+  very_satisfied: { label: "راضي جداً", color: "text-cc-green", bg: "bg-green-dim", icon: ThumbsUp },
+  satisfied: { label: "راضي", color: "text-cyan", bg: "bg-cyan-dim", icon: ThumbsUp },
+  neutral: { label: "متوسط", color: "text-amber", bg: "bg-amber-dim", icon: Minus },
+  needs_improvement: { label: "يحتاج تطوير", color: "text-cc-red", bg: "bg-red-dim", icon: ThumbsDown },
+  unsatisfied: { label: "غير راضي", color: "text-cc-red", bg: "bg-red-dim", icon: ThumbsDown },
+  // Legacy mappings for existing data
+  promoter: { label: "راضي جداً", color: "text-cc-green", bg: "bg-green-dim", icon: ThumbsUp },
+  detractor: { label: "غير راضي", color: "text-cc-red", bg: "bg-red-dim", icon: ThumbsDown },
+};
+
+const DEFAULT_STYLE = { label: "متوسط", color: "text-amber", bg: "bg-amber-dim", icon: Minus };
 
 /* ---------- page ---------- */
 
 export default function SatisfactionPage() {
   const d = DEMO_SATISFACTION;
-  const [feedbackFilter, setFeedbackFilter] = useState<"all" | "promoter" | "neutral" | "detractor">("all");
+  const [feedbackFilter, setFeedbackFilter] = useState<"all" | ReviewType>("all");
 
   const { activeOrgId: orgId } = useAuth();
   /* reviews CRUD state */
@@ -95,10 +108,21 @@ export default function SatisfactionPage() {
   const npsStatus = getKpiStatus(d.nps, d.npsTarget);
   const promotersStatus = getKpiStatus(d.promotersPercent, d.promotersTarget);
 
+  /* month filter */
+  const { activeMonthIndex, filterCutoff } = useTopbarControls();
+  const monthReviews = filterCutoff
+    ? reviews.filter((r) => new Date(r.review_date || r.created_at) >= filterCutoff)
+    : activeMonthIndex
+      ? reviews.filter((r) => {
+          const d = new Date(r.review_date || r.created_at);
+          return d.getMonth() + 1 === activeMonthIndex.month && d.getFullYear() === activeMonthIndex.year;
+        })
+      : reviews;
+
   /* filter reviews */
   const filteredReviews = feedbackFilter === "all"
-    ? reviews
-    : reviews.filter((r) => r.type === feedbackFilter);
+    ? monthReviews
+    : monthReviews.filter((r) => r.type === feedbackFilter);
 
   /* chart data */
   const trendData = d.monthlyTrend.map((m) => ({
@@ -137,6 +161,7 @@ export default function SatisfactionPage() {
       stars: review.stars,
       type: review.type,
       category: review.category || "المنتج",
+      plan: (review as Review & { plan?: string }).plan || "",
       review_date: review.review_date || new Date().toISOString().slice(0, 10),
       comment: review.comment || "",
     });
@@ -363,10 +388,10 @@ export default function SatisfactionPage() {
         <TabsContent value="feedback" className="space-y-6">
           {/* Header row: filters + add button */}
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              {(["all", "promoter", "neutral", "detractor"] as const).map((filter) => {
-                const labels = { all: "الكل", promoter: "مروّج", neutral: "محايد", detractor: "منتقد" };
-                const colors = { all: "", promoter: "text-cc-green", neutral: "text-amber", detractor: "text-cc-red" };
+            <div className="flex items-center gap-2 flex-wrap">
+              {(["all", "very_satisfied", "satisfied", "neutral", "needs_improvement", "unsatisfied"] as const).map((filter) => {
+                const labels = { all: "الكل", very_satisfied: "راضي جداً", satisfied: "راضي", neutral: "متوسط", needs_improvement: "يحتاج تطوير", unsatisfied: "غير راضي" };
+                const colors = { all: "", very_satisfied: "text-cc-green", satisfied: "text-cyan", neutral: "text-amber", needs_improvement: "text-cc-red", unsatisfied: "text-cc-red" };
                 return (
                   <button
                     key={filter}
@@ -398,7 +423,7 @@ export default function SatisfactionPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredReviews.map((review) => {
-                const style = feedbackTypeStyle[review.type];
+                const style = feedbackTypeStyle[review.type] || DEFAULT_STYLE;
                 const Icon = style.icon;
                 return (
                   <div key={review.id} className="cc-card rounded-xl p-5 space-y-3">
@@ -515,29 +540,52 @@ export default function SatisfactionPage() {
               </div>
             </div>
 
-            {/* Type + Category row */}
+            {/* Type */}
+            <div className="space-y-1.5">
+              <Label>النوع</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {REVIEW_TYPES.map((t) => {
+                  const colorMap: Record<string, string> = {
+                    very_satisfied: "text-cc-green border-cc-green/40 bg-green-dim",
+                    satisfied: "text-cyan border-cyan/40 bg-cyan-dim",
+                    neutral: "text-amber border-amber/40 bg-amber-dim",
+                    needs_improvement: "text-cc-red border-cc-red/40 bg-red-dim",
+                    unsatisfied: "text-cc-red border-cc-red/40 bg-red-dim",
+                  };
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setForm({ ...form, type: t.value as ReviewType })}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
+                        form.type === t.value
+                          ? colorMap[t.value]
+                          : "border-border text-muted-foreground hover:border-muted-foreground"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Plan + Category row */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>النوع</Label>
-                <div className="flex gap-1.5">
-                  {REVIEW_TYPES.map((t) => {
-                    const colorMap = { promoter: "text-cc-green border-cc-green/40 bg-green-dim", neutral: "text-amber border-amber/40 bg-amber-dim", detractor: "text-cc-red border-cc-red/40 bg-red-dim" };
-                    return (
-                      <button
-                        key={t.value}
-                        type="button"
-                        onClick={() => setForm({ ...form, type: t.value as "promoter" | "neutral" | "detractor" })}
-                        className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-medium border transition-colors ${
-                          form.type === t.value
-                            ? colorMap[t.value as keyof typeof colorMap]
-                            : "border-border text-muted-foreground hover:border-muted-foreground"
-                        }`}
-                      >
-                        {t.label}
-                      </button>
-                    );
-                  })}
-                </div>
+                <Label>الخطة</Label>
+                <Select value={form.plan} onValueChange={(v) => v && setForm({ ...form, plan: v })}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="اختر الخطة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PLANS.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>التصنيف</Label>

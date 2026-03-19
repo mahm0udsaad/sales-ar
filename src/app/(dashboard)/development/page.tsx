@@ -41,11 +41,12 @@ import {
 
 /* ---------- helpers ---------- */
 
-const STATUS_COLOR: Record<string, "green" | "amber" | "red" | "blue"> = {
+const STATUS_COLOR: Record<string, "green" | "amber" | "red" | "blue" | "cyan"> = {
   "في الموعد": "green",
   "متأخر": "red",
   "يكتمل قريباً": "amber",
   "موقوف": "blue",
+  "مكتمل": "cyan",
 };
 
 const STATUS_BORDER: Record<string, string> = {
@@ -53,6 +54,7 @@ const STATUS_BORDER: Record<string, string> = {
   "متأخر": "border-t-cc-red",
   "يكتمل قريباً": "border-t-amber",
   "موقوف": "border-t-cc-blue",
+  "مكتمل": "border-t-cyan",
 };
 
 function progressBarColor(pct: number): string {
@@ -92,6 +94,12 @@ export default function DevelopmentPage() {
   const overdueCount = projects.filter((p) => p.status_tag === "متأخر").length;
   const onTimeCount = projects.filter((p) => p.status_tag === "في الموعد").length;
   const soonCount = projects.filter((p) => p.status_tag === "يكتمل قريباً").length;
+
+  /* card filter */
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const filteredProjects = statusFilter
+    ? projects.filter((p) => p.status_tag === statusFilter)
+    : projects;
 
   const openAddModal = () => {
     setEditingProject(null);
@@ -189,24 +197,32 @@ export default function DevelopmentPage() {
               label="في الفترة"
               color="cyan"
               icon={<Code className="w-4 h-4 text-cyan" />}
+              onClick={() => setStatusFilter(null)}
+              active={statusFilter === null}
             />
             <StatCard
               value={String(onTimeCount)}
               label="في الموعد"
               color="green"
               icon={<CheckCircle className="w-4 h-4 text-cc-green" />}
+              onClick={() => setStatusFilter(statusFilter === "في الموعد" ? null : "في الموعد")}
+              active={statusFilter === "في الموعد"}
             />
             <StatCard
               value={String(overdueCount)}
               label="متأخرة"
               color="red"
               icon={<AlertTriangle className="w-4 h-4 text-cc-red" />}
+              onClick={() => setStatusFilter(statusFilter === "متأخر" ? null : "متأخر")}
+              active={statusFilter === "متأخر"}
             />
             <StatCard
               value={String(soonCount)}
               label="يكتمل قريباً"
               color="amber"
               icon={<Clock className="w-4 h-4 text-amber" />}
+              onClick={() => setStatusFilter(statusFilter === "يكتمل قريباً" ? null : "يكتمل قريباً")}
+              active={statusFilter === "يكتمل قريباً"}
             />
           </>
         )}
@@ -221,7 +237,7 @@ export default function DevelopmentPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {projects.map((proj) => {
+          {filteredProjects.map((proj) => {
             const completed = proj.total_tasks - proj.remaining_tasks;
             const statusColor = STATUS_COLOR[proj.status_tag || ""] || "blue";
             const borderColor = STATUS_BORDER[proj.status_tag || ""] || "border-t-cc-blue";

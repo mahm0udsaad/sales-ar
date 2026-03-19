@@ -9,10 +9,12 @@ import {
   deleteRenewal,
 } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
+import { useTopbarControls } from "@/components/layout/topbar-context";
 import {
   RENEWAL_STATUSES,
   RENEWAL_STATUS_COLORS,
   RENEWAL_CANCEL_REASONS,
+  PLANS,
   MONTHS_AR,
   getKpiStatus,
   KPI_STATUS_STYLES,
@@ -64,9 +66,11 @@ import {
 
 /* ─── Status badge color mapping ─── */
 const STATUS_BADGE: Record<string, { text: string; color: string; bg: string }> = {
-  "قيد الانتظار": { text: "قيد الانتظار", color: "text-amber", bg: "bg-amber-dim" },
+  "مجدول": { text: "مجدول", color: "text-cc-blue", bg: "bg-blue-dim" },
+  "جاري المتابعة": { text: "جاري المتابعة", color: "text-amber", bg: "bg-amber-dim" },
+  "انتظار الدفع": { text: "انتظار الدفع", color: "text-cc-purple", bg: "bg-purple-dim" },
   "مكتمل": { text: "مكتمل", color: "text-cc-green", bg: "bg-green-dim" },
-  "ملغي": { text: "ملغي", color: "text-cc-red", bg: "bg-red-dim" },
+  "ملغي بسبب": { text: "ملغي بسبب", color: "text-cc-red", bg: "bg-red-dim" },
 };
 
 /* ─── Empty form shape ─── */
@@ -77,7 +81,7 @@ const EMPTY_FORM = {
   plan_price: 0,
   start_date: new Date().toISOString().slice(0, 10),
   renewal_date: "",
-  status: "قيد الانتظار",
+  status: "مجدول",
   cancel_reason: "",
   assigned_rep: "",
   notes: "",
@@ -115,6 +119,26 @@ export default function RenewalsPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
+  /* month filter */
+  const { activeMonthIndex, filterCutoff } = useTopbarControls();
+  const monthRenewals = filterCutoff
+    ? renewals.filter((r) => new Date(r.renewal_date) >= filterCutoff)
+    : activeMonthIndex
+      ? renewals.filter((r) => {
+          const d = new Date(r.renewal_date);
+          return d.getMonth() + 1 === activeMonthIndex.month && d.getFullYear() === activeMonthIndex.year;
+        })
+      : renewals;
+
+  /* card filter */
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const PENDING_STATUSES = new Set(["مجدول", "جاري المتابعة", "انتظار الدفع"]);
+  const filteredRenewals = statusFilter
+    ? statusFilter === "pending"
+      ? monthRenewals.filter((r) => PENDING_STATUSES.has(r.status))
+      : monthRenewals.filter((r) => r.status === statusFilter)
+    : monthRenewals;
+
   useEffect(() => {
     setLoading(true);
     fetchRenewals()
@@ -125,22 +149,24 @@ export default function RenewalsPage() {
 
   /* ─── Computed analytics ─── */
   const analytics = useMemo(() => {
-    const total = renewals.length;
-    const renewed = renewals.filter((r) => r.status === "مكتمل").length;
-    const cancelled = renewals.filter((r) => r.status === "ملغي").length;
-    const waiting = renewals.filter((r) => r.status === "قيد الانتظار").length;
+    const total = monthRenewals.length;
+    const renewed = monthRenewals.filter((r) => r.status === "مكتمل").length;
+    const cancelled = monthRenewals.filter((r) => r.status === "ملغي بسبب").length;
+    const scheduled = monthRenewals.filter((r) => r.status === "مجدول").length;
+    const following = monthRenewals.filter((r) => r.status === "جاري المتابعة").length;
+    const waiting = monthRenewals.filter((r) => r.status === "انتظار الدفع").length;
     const renewalRate = total > 0 ? Math.round((renewed / total) * 100) : 0;
     const churnRate = total > 0 ? Math.round((cancelled / total) * 100) : 0;
-    const revenueLoss = renewals
-      .filter((r) => r.status === "ملغي")
+    const revenueLoss = monthRenewals
+      .filter((r) => r.status === "ملغي بسبب")
       .reduce((sum, r) => sum + r.plan_price, 0);
-    const totalRevenue = renewals
+    const totalRevenue = monthRenewals
       .filter((r) => r.status === "مكتمل")
       .reduce((sum, r) => sum + r.plan_price, 0);
 
     // Cancellation reasons breakdown
-    const cancelReasons = renewals
-      .filter((r) => r.status === "ملغي" && r.cancel_reason)
+    const cancelReasons = monthRenewals
+      .filter((r) => r.status === "ملغي بسبب" && r.cancel_reason)
       .reduce<Record<string, number>>((acc, r) => {
         acc[r.cancel_reason!] = (acc[r.cancel_reason!] || 0) + 1;
         return acc;
@@ -160,13 +186,13 @@ export default function RenewalsPage() {
       const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
       const month = d.getMonth();
       const year = d.getFullYear();
-      const monthRenewals = renewals.filter((r) => {
+      const mRenewals = renewals.filter((r) => {
         const rd = new Date(r.renewal_date);
         return rd.getMonth() === month && rd.getFullYear() === year;
       });
-      const mTotal = monthRenewals.length;
-      const mRenewed = monthRenewals.filter((r) => r.status === "مكتمل").length;
-      const mCancelled = monthRenewals.filter((r) => r.status === "ملغي").length;
+      const mTotal = mRenewals.length;
+      const mRenewed = mRenewals.filter((r) => r.status === "مكتمل").length;
+      const mCancelled = mRenewals.filter((r) => r.status === "ملغي بسبب").length;
       return {
         label: MONTHS_AR[month].slice(0, 3),
         value: mTotal > 0 ? Math.round((mRenewed / mTotal) * 100) : 0,
@@ -178,6 +204,8 @@ export default function RenewalsPage() {
       total,
       renewed,
       cancelled,
+      scheduled,
+      following,
       waiting,
       renewalRate,
       churnRate,
@@ -186,13 +214,15 @@ export default function RenewalsPage() {
       cancelReasonsArr,
       monthlyTrend,
     };
-  }, [renewals]);
+  }, [renewals, monthRenewals]);
 
   /* ─── Donut data ─── */
   const donutSegments = [
     { label: "مكتمل", value: analytics.renewed, color: "#10B981" },
-    { label: "ملغي", value: analytics.cancelled, color: "#EF4444" },
-    { label: "قيد الانتظار", value: analytics.waiting, color: "#F59E0B" },
+    { label: "ملغي بسبب", value: analytics.cancelled, color: "#EF4444" },
+    { label: "مجدول", value: analytics.scheduled, color: "#3B82F6" },
+    { label: "جاري المتابعة", value: analytics.following, color: "#F59E0B" },
+    { label: "انتظار الدفع", value: analytics.waiting, color: "#A855F7" },
   ];
 
   /* ─── KPI Statuses ─── */
@@ -235,7 +265,7 @@ export default function RenewalsPage() {
         start_date: form.start_date,
         renewal_date: form.renewal_date,
         status: form.status,
-        cancel_reason: form.status === "ملغي" ? form.cancel_reason || undefined : undefined,
+        cancel_reason: form.status === "ملغي بسبب" ? form.cancel_reason || undefined : undefined,
         assigned_rep: form.assigned_rep || undefined,
         notes: form.notes || undefined,
       };
@@ -307,6 +337,8 @@ export default function RenewalsPage() {
               label="إجمالي التجديدات"
               color="cyan"
               icon={<Users className="w-4 h-4 text-cyan" />}
+              onClick={() => setStatusFilter(null)}
+              active={statusFilter === null}
             />
             <StatCard
               value={analytics.renewed.toLocaleString()}
@@ -315,20 +347,26 @@ export default function RenewalsPage() {
               icon={<CheckCircle2 className="w-4 h-4 text-cc-green" />}
               subtext={`${analytics.renewalRate}%`}
               progress={analytics.renewalRate}
+              onClick={() => setStatusFilter(statusFilter === "مكتمل" ? null : "مكتمل")}
+              active={statusFilter === "مكتمل"}
             />
             <StatCard
               value={analytics.cancelled.toLocaleString()}
-              label="ملغي"
+              label="ملغي بسبب"
               color="red"
               icon={<XCircle className="w-4 h-4 text-cc-red" />}
               subtext={`${analytics.churnRate}%`}
+              onClick={() => setStatusFilter(statusFilter === "ملغي بسبب" ? null : "ملغي بسبب")}
+              active={statusFilter === "ملغي بسبب"}
             />
             <StatCard
-              value={analytics.waiting.toLocaleString()}
-              label="قيد الانتظار"
+              value={(analytics.scheduled + analytics.following + analytics.waiting).toLocaleString()}
+              label="قيد المتابعة"
               color="amber"
               icon={<Clock className="w-4 h-4 text-amber" />}
-              subtext={analytics.total > 0 ? `${Math.round((analytics.waiting / analytics.total) * 100)}%` : "0%"}
+              subtext={analytics.total > 0 ? `${Math.round(((analytics.scheduled + analytics.following + analytics.waiting) / analytics.total) * 100)}%` : "0%"}
+              onClick={() => setStatusFilter(statusFilter === "pending" ? null : "pending")}
+              active={statusFilter === "pending"}
             />
           </>
         )}
@@ -393,17 +431,17 @@ export default function RenewalsPage() {
                   ))}
                 </TableRow>
               ))
-            ) : renewals.length === 0 ? (
+            ) : filteredRenewals.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
-                  لا توجد تجديدات بعد. اضغط &quot;إضافة تجديد&quot; لإضافة أول تجديد.
+                  {statusFilter ? "لا توجد تجديدات مطابقة" : "لا توجد تجديدات بعد. اضغط \"إضافة تجديد\" لإضافة أول تجديد."}
                 </TableCell>
               </TableRow>
             ) : (
-              renewals.map((renewal) => {
+              filteredRenewals.map((renewal) => {
                 const days = getDaysRemaining(renewal.renewal_date);
                 const daysStyle = getDaysRemainingStyle(days);
-                const badge = STATUS_BADGE[renewal.status] || STATUS_BADGE["قيد الانتظار"];
+                const badge = STATUS_BADGE[renewal.status] || STATUS_BADGE["مجدول"];
 
                 return (
                   <TableRow key={renewal.id}>
@@ -610,13 +648,19 @@ export default function RenewalsPage() {
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="plan_name">اسم الخطة</Label>
-                <Input
-                  id="plan_name"
-                  value={form.plan_name}
-                  onChange={(e) => setForm({ ...form, plan_name: e.target.value })}
-                  placeholder="مثال: خطة المنيو الرقمي"
-                />
+                <Label>اسم الخطة</Label>
+                <Select value={form.plan_name} onValueChange={(v) => v && setForm({ ...form, plan_name: v })}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="اختر الخطة" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PLANS.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -701,7 +745,7 @@ export default function RenewalsPage() {
             </div>
 
             {/* Cancel reason - only when status is ملغي */}
-            {form.status === "ملغي" && (
+            {form.status === "ملغي بسبب" && (
               <div className="grid gap-1.5">
                 <Label>سبب الإلغاء</Label>
                 <Select

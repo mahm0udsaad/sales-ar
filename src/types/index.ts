@@ -146,7 +146,7 @@ export interface Review {
   customer_name: string;
   avatar?: string;
   stars: number;
-  type: "promoter" | "neutral" | "detractor";
+  type: "very_satisfied" | "satisfied" | "neutral" | "needs_improvement" | "unsatisfied";
   category?: string;
   review_date?: string;
   comment?: string;

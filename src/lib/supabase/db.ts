@@ -390,6 +390,19 @@ export async function insertManyTickets(
   return data?.length ?? 0;
 }
 
+export async function insertManyRenewals(
+  renewals: Omit<Renewal, "id" | "org_id" | "created_at" | "updated_at">[]
+): Promise<number> {
+  if (renewals.length === 0) return 0;
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("renewals")
+    .insert(renewals.map((r) => ({ ...r, org_id: getOrgId() })))
+    .select("id");
+  if (error) throw error;
+  return data?.length ?? 0;
+}
+
 // ─── EXCEL UPLOAD HISTORY ────────────────────────────────────────────────────
 
 export interface UploadRecord {
@@ -397,6 +410,7 @@ export interface UploadRecord {
   filename: string;
   deals_imported: number;
   tickets_imported: number;
+  renewals_imported: number;
   status: string;
   created_at: string;
 }
@@ -406,6 +420,7 @@ export async function saveUploadRecord(record: {
   sheets_count: number;
   deals_imported: number;
   tickets_imported: number;
+  renewals_imported: number;
   status: string;
 }): Promise<void> {
   const supabase = createClient();
@@ -418,7 +433,7 @@ export async function fetchUploadHistory(): Promise<UploadRecord[]> {
   const supabase = createClient();
   const { data } = await supabase
     .from("excel_uploads")
-    .select("id, filename, deals_imported, tickets_imported, status, created_at")
+    .select("id, filename, deals_imported, tickets_imported, renewals_imported, status, created_at")
     .eq("org_id", getOrgId())
     .order("created_at", { ascending: false })
     .limit(20);
