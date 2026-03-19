@@ -793,7 +793,7 @@ export default function SalesPage() {
             </div>
 
             {/* Phone + Value row */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="grid gap-1.5">
                 <Label htmlFor="client_phone">رقم الجوال</Label>
                 <Input
@@ -822,7 +822,7 @@ export default function SalesPage() {
             </div>
 
             {/* Rep + Date row */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="grid gap-1.5">
                 <Label htmlFor="assigned_rep_name">المسؤول</Label>
                 <Input

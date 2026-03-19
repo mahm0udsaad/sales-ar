@@ -635,7 +635,7 @@ export default function RenewalsPage() {
             </div>
 
             {/* Phone + Plan name */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="grid gap-1.5">
                 <Label htmlFor="customer_phone">رقم الجوال</Label>
                 <Input
@@ -665,7 +665,7 @@ export default function RenewalsPage() {
             </div>
 
             {/* Price + Rep */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="grid gap-1.5">
                 <Label htmlFor="plan_price">سعر الخطة (ر.س)</Label>
                 <Input
@@ -692,7 +692,7 @@ export default function RenewalsPage() {
             </div>
 
             {/* Start date + Renewal date */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="grid gap-1.5">
                 <Label htmlFor="start_date">تاريخ البدء</Label>
                 <Input

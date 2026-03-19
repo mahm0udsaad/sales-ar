@@ -369,7 +369,7 @@ export default function DevelopmentPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>إجمالي المهام</Label>
                 <Input

@@ -441,7 +441,7 @@ export default function SupportPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-2">
+          <div className="grid grid-cols-1 gap-4 py-2 md:grid-cols-2">
             {/* اسم العميل */}
             <div className="space-y-1.5">
               <Label htmlFor="client_name">اسم العميل</Label>
@@ -466,7 +466,7 @@ export default function SupportPage() {
             </div>
 
             {/* وصف المشكلة */}
-            <div className="space-y-1.5 sm:col-span-2">
+            <div className="space-y-1.5 md:col-span-2">
               <Label htmlFor="issue">وصف المشكلة</Label>
               <Textarea
                 id="issue"
@@ -552,7 +552,7 @@ export default function SupportPage() {
             </div>
 
             {/* موعد التسليم */}
-            <div className="space-y-1.5 sm:col-span-2">
+            <div className="space-y-1.5 md:col-span-2">
               <Label htmlFor="due_date">موعد التسليم</Label>
               <Input
                 id="due_date"
