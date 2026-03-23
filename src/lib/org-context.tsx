@@ -12,15 +12,15 @@ export interface Organization {
 export const ORGANIZATIONS: Organization[] = [
   {
     id: "00000000-0000-0000-0000-000000000001",
-    name: "Manues",
-    nameAr: "مانيوز",
-    avatar: "M",
+    name: "قائمه الطلبات",
+    nameAr: "قائمه الطلبات",
+    avatar: "ق",
   },
   {
     id: "00000000-0000-0000-0000-000000000002",
-    name: "hegozat",
+    name: "حجوزات",
     nameAr: "حجوزات",
-    avatar: "H",
+    avatar: "ح",
   },
 ];
 
