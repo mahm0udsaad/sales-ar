@@ -392,7 +392,6 @@ export default function SatisfactionPage() {
 
         {/* ─── Tab 3: Customer Feedback (CRUD) ─── */}
         <TabsContent value="feedback" className="space-y-6">
-          {/* Search + Header row: filters + add button */}
           <div className="mb-2">
             <Input
               value={clientSearch}
