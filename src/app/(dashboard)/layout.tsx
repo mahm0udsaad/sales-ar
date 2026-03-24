@@ -9,6 +9,7 @@ import { NotificationPanel } from "@/components/layout/notification-panel";
 import { AIChatFAB } from "@/components/ai/ai-chat-fab";
 import { AIAlertsBanner } from "@/components/ai/ai-alerts-banner";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { OrgProvider } from "@/lib/org-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DEMO_TICKETS, DEMO_PROJECTS, DEMO_PARTNERSHIPS } from "@/lib/demo-data";
 import type { AppNotification } from "@/types";
@@ -143,6 +144,7 @@ export default function DashboardLayout({
   const isAgentPage = pathname === "/agent";
 
   return (
+    <OrgProvider>
     <AuthProvider>
     <TopbarProvider>
       <div className="min-h-screen bg-background panel-grid">
@@ -185,5 +187,6 @@ export default function DashboardLayout({
       </div>
     </TopbarProvider>
     </AuthProvider>
+    </OrgProvider>
   );
 }
