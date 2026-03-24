@@ -1,13 +1,16 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot, Review, Renewal } from "@/types";
+import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot, Renewal, Review } from "@/types";
+
+const DEFAULT_ORG = "00000000-0000-0000-0000-000000000001";
 
 /**
  * Builds a knowledge context string from REAL Supabase data.
  * This is injected into the AI agent's system prompt so it can answer
  * questions accurately with real numbers.
  */
-export async function buildKnowledgeContext(orgId: string): Promise<string> {
+export async function buildKnowledgeContext(orgId?: string): Promise<string> {
   const supabase = await createServerSupabaseClient();
+  const ORG_ID = orgId || DEFAULT_ORG;
 
   // Fetch all data in parallel
   const [
@@ -20,14 +23,14 @@ export async function buildKnowledgeContext(orgId: string): Promise<string> {
     { data: renewals },
     { data: reviews },
   ] = await Promise.all([
-    supabase.from("deals").select("*").eq("org_id", orgId).order("created_at", { ascending: false }),
-    supabase.from("tickets").select("*").eq("org_id", orgId).order("created_at", { ascending: false }),
-    supabase.from("employees").select("*").eq("org_id", orgId),
-    supabase.from("projects").select("*").eq("org_id", orgId),
-    supabase.from("partnerships").select("*").eq("org_id", orgId),
-    supabase.from("kpi_snapshots").select("*").eq("org_id", orgId).order("year").order("month"),
-    supabase.from("renewals").select("*").eq("org_id", orgId).order("renewal_date", { ascending: true }),
-    supabase.from("reviews").select("*").eq("org_id", orgId).order("created_at", { ascending: false }),
+    supabase.from("deals").select("*").eq("org_id", ORG_ID).order("created_at", { ascending: false }),
+    supabase.from("tickets").select("*").eq("org_id", ORG_ID).order("created_at", { ascending: false }),
+    supabase.from("employees").select("*").eq("org_id", ORG_ID),
+    supabase.from("projects").select("*").eq("org_id", ORG_ID),
+    supabase.from("partnerships").select("*").eq("org_id", ORG_ID),
+    supabase.from("kpi_snapshots").select("*").eq("org_id", ORG_ID).order("year").order("month"),
+    supabase.from("renewals").select("*").eq("org_id", ORG_ID).order("renewal_date", { ascending: true }),
+    supabase.from("reviews").select("*").eq("org_id", ORG_ID).order("created_at", { ascending: false }),
   ]);
 
   const allDeals = (deals ?? []) as Deal[];
@@ -193,8 +196,8 @@ ${allPartnerships.map((p) => `- ${p.name}: ${p.type || "—"} | ${p.status || "�
   if (allRenewals.length > 0) {
     const activeRenewals = allRenewals.filter((r) => r.status === "نشط" || r.status === "active");
     const expiredRenewals = allRenewals.filter((r) => r.status === "منتهي" || r.status === "expired");
-    const cancelledRenewals = allRenewals.filter((r) => r.status === "ملغي" || r.status === "cancelled");
-    const totalValue = allRenewals.reduce((s, r) => s + r.plan_price, 0);
+    const cancelledRenewals = allRenewals.filter((r) => r.status === "ملغي" || r.status === "cancelled" || r.status === "ملغي بسبب");
+    const totalValue = allRenewals.reduce((s, r) => s + (r.plan_price || 0), 0);
 
     sections.push(`## التجديدات (${allRenewals.length} تجديد)
 - نشطة: ${activeRenewals.length} | منتهية: ${expiredRenewals.length} | ملغية: ${cancelledRenewals.length}
@@ -203,16 +206,17 @@ ${allPartnerships.map((p) => `- ${p.name}: ${p.type || "—"} | ${p.status || "�
 ### تفاصيل التجديدات:
 | العميل | الخطة | السعر | الحالة | تاريخ التجديد |
 |--------|-------|-------|--------|--------------|
-${allRenewals.slice(0, 20).map((r) => `| ${r.customer_name} | ${r.plan_name} | $${r.plan_price} | ${r.status} | ${r.renewal_date || "—"} |`).join("\n")}${allRenewals.length > 20 ? `\n... و${allRenewals.length - 20} تجديد آخر` : ""}`);
+${allRenewals.slice(0, 20).map((r) => `| ${r.customer_name} | ${r.plan_name || "—"} | $${r.plan_price || 0} | ${r.status} | ${r.renewal_date || "—"} |`).join("\n")}${allRenewals.length > 20 ? `\n... و${allRenewals.length - 20} تجديد آخر` : ""}`);
   } else {
     sections.push(`## التجديدات\nلا توجد تجديدات مسجلة في النظام بعد.`);
   }
 
   // 10. Reviews
   if (allReviews.length > 0) {
-    const avgRating = allReviews.reduce((s, r) => s + r.stars, 0) / allReviews.length;
+    const avgRating = allReviews.reduce((s, r) => s + (r.stars || 0), 0) / allReviews.length;
     const typeDist = allReviews.reduce((acc, r) => {
-      acc[r.type] = (acc[r.type] || 0) + 1;
+      const t = r.type || "غير محدد";
+      acc[t] = (acc[t] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -223,13 +227,13 @@ ${allRenewals.slice(0, 20).map((r) => `| ${r.customer_name} | ${r.plan_name} | $
 ### تفاصيل التقييمات:
 | العميل | التقييم | النوع | التعليق | التاريخ |
 |--------|---------|-------|---------|--------|
-${allReviews.slice(0, 20).map((r) => `| ${r.customer_name} | ${"⭐".repeat(r.stars)} | ${r.type} | ${r.comment ? r.comment.slice(0, 50) : "—"} | ${r.review_date || "—"} |`).join("\n")}${allReviews.length > 20 ? `\n... و${allReviews.length - 20} تقييم آخر` : ""}`);
+${allReviews.slice(0, 20).map((r) => `| ${r.customer_name} | ${"⭐".repeat(r.stars || 0)} | ${r.type || "—"} | ${r.comment ? r.comment.slice(0, 50) : "—"} | ${r.review_date || "—"} |`).join("\n")}${allReviews.length > 20 ? `\n... و${allReviews.length - 20} تقييم آخر` : ""}`);
   } else {
     sections.push(`## تقييمات العملاء\nلا توجد تقييمات مسجلة في النظام بعد.`);
   }
 
   // 11. Data status summary
-  const hasData = allDeals.length > 0 || allTickets.length > 0;
+  const hasData = allDeals.length > 0 || allTickets.length > 0 || allRenewals.length > 0;
   if (!hasData) {
     sections.push(`## ⚠️ حالة البيانات
 النظام فارغ حالياً — لم يتم تحميل أي بيانات بعد.

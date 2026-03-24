@@ -56,7 +56,8 @@ export async function POST(req: NextRequest) {
 
   if (roleError) return NextResponse.json({ error: roleError.message }, { status: 500 });
 
-  // Create auth user
+  // Create auth user (or get existing one if email already registered)
+  let authUserId: string;
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
@@ -64,16 +65,31 @@ export async function POST(req: NextRequest) {
   });
 
   if (authError) {
-    // Rollback role
-    await supabaseAdmin.from("roles").delete().eq("id", role.id);
-    return NextResponse.json({ error: authError.message }, { status: 500 });
+    // If user already exists in Auth, look them up
+    if (authError.message?.includes("already") || authError.status === 422) {
+      const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
+      const existing = users?.find((u) => u.email === email);
+      if (existing) {
+        authUserId = existing.id;
+        // Update their password
+        await supabaseAdmin.auth.admin.updateUserById(authUserId, { password });
+      } else {
+        await supabaseAdmin.from("roles").delete().eq("id", role.id);
+        return NextResponse.json({ error: authError.message }, { status: 500 });
+      }
+    } else {
+      await supabaseAdmin.from("roles").delete().eq("id", role.id);
+      return NextResponse.json({ error: authError.message }, { status: 500 });
+    }
+  } else {
+    authUserId = authData.user.id;
   }
 
   // Upsert profile (trigger on auth.users may have already created a row)
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("user_profiles")
     .upsert({
-      id: authData.user.id,
+      id: authUserId,
       email,
       name,
       org_id,
@@ -85,7 +101,7 @@ export async function POST(req: NextRequest) {
 
   if (profileError) {
     // Rollback
-    await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+    await supabaseAdmin.auth.admin.deleteUser(authUserId);
     await supabaseAdmin.from("roles").delete().eq("id", role.id);
     return NextResponse.json({ error: profileError.message }, { status: 500 });
   }

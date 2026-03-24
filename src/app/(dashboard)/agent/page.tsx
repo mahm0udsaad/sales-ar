@@ -80,7 +80,10 @@ const SUGGESTED_PROMPTS = [
 export default function AgentPage() {
   const { orgId } = useOrg();
   const { messages, sendMessage, status, setMessages } = useChat({
-    transport: new DefaultChatTransport({ api: "/api/agent", body: { orgId } }),
+    transport: new DefaultChatTransport({
+      api: "/api/agent",
+      body: { orgId },
+    }),
   });
 
   const isLoading = status === "streaming" || status === "submitted";
