@@ -27,6 +27,7 @@ import { useAuth } from "@/lib/auth-context";
 const NAV_ITEMS = [
   { label: "نظرة عامة", href: "/dashboard", slug: "dashboard", icon: LayoutDashboard },
   { label: "المبيعات", href: "/sales", slug: "sales", icon: TrendingUp },
+  { label: "دليل المبيعات", href: "/sales-guide", slug: "sales-guide", icon: BookOpen },
   { label: "الاجتماع الأسبوعي", href: "/weekly", slug: "weekly", icon: ClipboardList },
   { label: "التجديدات", href: "/renewals", slug: "renewals", icon: RefreshCw },
   { label: "رضا العملاء", href: "/satisfaction", slug: "satisfaction", icon: Heart },
@@ -35,7 +36,6 @@ const NAV_ITEMS = [
   { label: "الشراكات", href: "/partnerships", slug: "partnerships", icon: Handshake },
   { label: "الفريق", href: "/team", slug: "team", icon: Users },
   { label: "المالية", href: "/finance", slug: "finance", icon: Banknote },
-  { label: "دليل المبيعات", href: "/sales-guide", slug: "sales-guide", icon: BookOpen },
   { label: "رفع الملفات", href: "/upload", slug: "upload", icon: Upload },
   { label: "إدارة المستخدمين", href: "/users", slug: "users", icon: Shield },
 ];

@@ -58,6 +58,7 @@ import {
   RefreshCw,
   Heart,
   ArrowLeft,
+  BookOpen,
 } from "lucide-react";
 
 /* ─── Stage badge color mapping ─── */
@@ -310,10 +311,18 @@ export default function SalesPage() {
             <p className="text-xs text-muted-foreground">متابعة المبيعات وخط الأنابيب</p>
           </div>
         </div>
-        <Button onClick={openAddModal} className="gap-1.5">
-          <Plus className="w-4 h-4" />
-          إضافة مبيع
-        </Button>
+        <div className="flex items-center gap-2">
+          <Link href="/sales-guide">
+            <Button variant="outline" className="gap-1.5">
+              <BookOpen className="w-4 h-4" />
+              دليل المبيعات
+            </Button>
+          </Link>
+          <Button onClick={openAddModal} className="gap-1.5">
+            <Plus className="w-4 h-4" />
+            إضافة مبيع
+          </Button>
+        </div>
       </div>
 
       {/* ─── Stage Summary Cards ─── */}

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 import type { SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, Employee } from "@/types";
 import {
@@ -68,6 +69,7 @@ import {
   Activity,
   Users,
   ArrowUpDown,
+  ArrowRight,
 } from "lucide-react";
 
 /* ─── Color helpers ─── */
@@ -232,6 +234,25 @@ export default function SalesGuidePage() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
+      {/* ─── Page Header ─── */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-purple-dim flex items-center justify-center">
+            <Trophy className="w-4 h-4 text-cc-purple" />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-foreground">دليل المبيعات</h1>
+            <p className="text-xs text-muted-foreground">تتبع الأداء والأنشطة ولوحة المتصدرين</p>
+          </div>
+        </div>
+        <Link href="/sales">
+          <Button variant="outline" className="gap-1.5">
+            <TrendingUp className="w-4 h-4" />
+            المبيعات
+          </Button>
+        </Link>
+      </div>
+
       {/* ─── Top KPIs ─── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
