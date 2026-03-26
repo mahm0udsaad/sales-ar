@@ -59,6 +59,8 @@ import {
   Heart,
   ArrowLeft,
   BookOpen,
+  FlaskConical,
+  XCircle,
 } from "lucide-react";
 
 /* ─── Stage badge color mapping ─── */
@@ -80,6 +82,8 @@ const STAGE_SUMMARY = [
   { stage: "انتظار الدفع", color: "amber" as const, icon: <Clock className="w-4 h-4 text-amber" /> },
   { stage: "تجهيز", color: "cyan" as const, icon: <Settings className="w-4 h-4 text-cyan" /> },
   { stage: "تفاوض", color: "purple" as const, icon: <MessageSquare className="w-4 h-4 text-cc-purple" /> },
+  { stage: "تجريبي", color: "blue" as const, icon: <FlaskConical className="w-4 h-4 text-cc-blue" /> },
+  { stage: "مرفوض مع سبب", color: "red" as const, icon: <XCircle className="w-4 h-4 text-cc-red" /> },
 ];
 
 /* ─── Empty deal form shape ─── */
@@ -326,9 +330,9 @@ export default function SalesPage() {
       </div>
 
       {/* ─── Stage Summary Cards ─── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {loading
-          ? Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
+          ? Array.from({ length: 6 }).map((_, i) => <StatCardSkeleton key={i} />)
           : STAGE_SUMMARY.map((s) => {
               const data = stageCounts[s.stage] || { count: 0, value: 0 };
               const pct = totalDeals > 0 ? Math.round((data.count / totalDeals) * 100) : 0;
