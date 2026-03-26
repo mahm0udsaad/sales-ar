@@ -1,5 +1,5 @@
 import { createClient } from "./client";
-import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot, Review, Renewal, SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, SalesGuideSetting } from "@/types";
+import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot, Review, Renewal, SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, SalesGuideSetting, SalesMessage, SalesMessageRating } from "@/types";
 
 const DEFAULT_ORG = "00000000-0000-0000-0000-000000000001";
 
@@ -619,4 +619,102 @@ export async function upsertSalesGuideSetting(
     .single();
   if (error) throw error;
   return data as SalesGuideSetting;
+}
+
+// ─── SALES MESSAGES & SCRIPTS ──────────────────────────────────────────────
+
+export async function fetchSalesMessages(msgType?: string): Promise<SalesMessage[]> {
+  const supabase = createClient();
+  let query = supabase
+    .from("sales_messages")
+    .select("*")
+    .eq("org_id", getOrgId())
+    .order("avg_rating", { ascending: false });
+  if (msgType) query = query.eq("msg_type", msgType);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as SalesMessage[];
+}
+
+export async function createSalesMessage(
+  msg: Omit<SalesMessage, "id" | "org_id" | "avg_rating" | "ratings_count" | "created_at" | "updated_at">
+): Promise<SalesMessage> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("sales_messages")
+    .insert({ ...msg, org_id: getOrgId() })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as SalesMessage;
+}
+
+export async function updateSalesMessage(
+  id: string,
+  msg: Partial<Pick<SalesMessage, "title" | "content" | "category">>
+): Promise<SalesMessage> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("sales_messages")
+    .update({ ...msg, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("org_id", getOrgId())
+    .select()
+    .single();
+  if (error) throw error;
+  return data as SalesMessage;
+}
+
+export async function deleteSalesMessage(id: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("sales_messages")
+    .delete()
+    .eq("id", id)
+    .eq("org_id", getOrgId());
+  if (error) throw error;
+}
+
+export async function fetchMessageRatings(messageId: string): Promise<SalesMessageRating[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("sales_message_ratings")
+    .select("*")
+    .eq("message_id", messageId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as SalesMessageRating[];
+}
+
+export async function addMessageRating(
+  messageId: string,
+  rating: number,
+  comment?: string,
+  ratedBy?: string
+): Promise<SalesMessageRating> {
+  const supabase = createClient();
+
+  // Insert rating
+  const { data, error } = await supabase
+    .from("sales_message_ratings")
+    .insert({ message_id: messageId, org_id: getOrgId(), rating, comment, rated_by: ratedBy })
+    .select()
+    .single();
+  if (error) throw error;
+
+  // Update average on the message
+  const { data: allRatings } = await supabase
+    .from("sales_message_ratings")
+    .select("rating")
+    .eq("message_id", messageId);
+
+  if (allRatings && allRatings.length > 0) {
+    const avg = allRatings.reduce((s, r) => s + r.rating, 0) / allRatings.length;
+    await supabase
+      .from("sales_messages")
+      .update({ avg_rating: Math.round(avg * 10) / 10, ratings_count: allRatings.length })
+      .eq("id", messageId);
+  }
+
+  return data as SalesMessageRating;
 }

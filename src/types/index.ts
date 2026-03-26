@@ -303,6 +303,30 @@ export interface ScoreLevelItem {
   color: string;
 }
 
+export interface SalesMessage {
+  id: string;
+  org_id: string;
+  category: "new_client" | "renewal_client" | "cashier_client";
+  msg_type: "message" | "script";
+  title: string;
+  content: string;
+  avg_rating: number;
+  ratings_count: number;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SalesMessageRating {
+  id: string;
+  message_id: string;
+  org_id: string;
+  rating: number;
+  comment?: string;
+  rated_by?: string;
+  created_at: string;
+}
+
 export interface AppNotification {
   id: string;
   type: "urgent_ticket" | "overdue_project" | "high_workload" | "near_complete" | "negotiating" | "crud_action";

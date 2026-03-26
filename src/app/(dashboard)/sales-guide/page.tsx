@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
-import type { SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, Employee, PipelineStageItem, ActivityPointItem, ScoreLevelItem } from "@/types";
+import type { SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, Employee, PipelineStageItem, ActivityPointItem, ScoreLevelItem, SalesMessage, SalesMessageRating } from "@/types";
 import {
   fetchSalesActivities,
   createSalesActivity,
@@ -17,6 +17,12 @@ import {
   fetchEmployees,
   fetchSalesGuideSettings,
   upsertSalesGuideSetting,
+  fetchSalesMessages,
+  createSalesMessage,
+  updateSalesMessage,
+  deleteSalesMessage,
+  addMessageRating,
+  fetchMessageRatings,
 } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -73,6 +79,10 @@ import {
   ArrowUpDown,
   ArrowRight,
   Pencil,
+  MessageSquare,
+  PhoneCall,
+  Star,
+  Send,
 } from "lucide-react";
 
 /* ─── Color helpers ─── */
@@ -83,6 +93,12 @@ const LEVEL_BADGE: Record<string, { color: "green" | "cyan" | "amber" | "purple"
   needs_improvement: { color: "purple", label: "يحتاج تحسين" },
   danger: { color: "red", label: "خطر" },
 };
+
+const MSG_CATEGORIES = [
+  { value: "new_client" as const, label: "عميل جديد", icon: "🆕" },
+  { value: "renewal_client" as const, label: "عميل تجديد", icon: "🔄" },
+  { value: "cashier_client" as const, label: "عميل نظام كاشير", icon: "💳" },
+];
 
 const RESULT_BADGE: Record<string, { color: "green" | "amber" | "blue" | "red"; label: string }> = {
   positive: { color: "green", label: "إيجابي" },
@@ -160,6 +176,17 @@ export default function SalesGuidePage() {
   const [levelForm, setLevelForm] = useState({ label: "", minPoints: 0 });
   const [levelDialog, setLevelDialog] = useState(false);
 
+  /* Sales messages & scripts state */
+  const [messages, setMessages] = useState<SalesMessage[]>([]);
+  const [msgDialog, setMsgDialog] = useState(false);
+  const [editingMsg, setEditingMsg] = useState<SalesMessage | null>(null);
+  const [msgForm, setMsgForm] = useState({ title: "", content: "", category: "new_client" as SalesMessage["category"], msg_type: "message" as SalesMessage["msg_type"] });
+  const [msgCategoryFilter, setMsgCategoryFilter] = useState<string>("all");
+  const [ratingDialog, setRatingDialog] = useState(false);
+  const [ratingMsgId, setRatingMsgId] = useState<string | null>(null);
+  const [ratingForm, setRatingForm] = useState({ rating: 5, comment: "" });
+  const [viewRatings, setViewRatings] = useState<{ msgId: string; ratings: SalesMessageRating[] } | null>(null);
+
   const [saving, setSaving] = useState(false);
 
   /* ─── Load data ─── */
@@ -169,19 +196,21 @@ export default function SalesGuidePage() {
 
   async function load() {
     setLoading(true);
-    const [a, t, s, p, e, gs] = await Promise.allSettled([
+    const [a, t, s, p, e, gs, msgs] = await Promise.allSettled([
       fetchSalesActivities(),
       fetchSalesTargets(),
       fetchRepWeeklyScores(),
       fetchPipPlans(),
       fetchEmployees(),
       fetchSalesGuideSettings(),
+      fetchSalesMessages(),
     ]);
     if (a.status === "fulfilled") setActivities(a.value);
     if (t.status === "fulfilled") setTargets(t.value);
     if (s.status === "fulfilled") setScores(s.value);
     if (p.status === "fulfilled") setPipPlans(p.value);
     if (e.status === "fulfilled") setEmployees(e.value);
+    if (msgs.status === "fulfilled") setMessages(msgs.value);
     if (gs.status === "fulfilled") {
       for (const setting of gs.value) {
         if (setting.setting_key === "pipeline_stages") setPipelineStages(setting.setting_value as PipelineStageItem[]);
@@ -352,6 +381,72 @@ export default function SalesGuidePage() {
     }
   }
 
+  /* ─── Sales messages handlers ─── */
+  function openAddMsg(msgType: SalesMessage["msg_type"]) {
+    setEditingMsg(null);
+    setMsgForm({ title: "", content: "", category: "new_client", msg_type: msgType });
+    setMsgDialog(true);
+  }
+
+  function openEditMsg(msg: SalesMessage) {
+    setEditingMsg(msg);
+    setMsgForm({ title: msg.title, content: msg.content, category: msg.category, msg_type: msg.msg_type });
+    setMsgDialog(true);
+  }
+
+  async function handleSaveMsg() {
+    if (!msgForm.title.trim() || !msgForm.content.trim()) return;
+    setSaving(true);
+    try {
+      if (editingMsg) {
+        const updated = await updateSalesMessage(editingMsg.id, { title: msgForm.title, content: msgForm.content, category: msgForm.category });
+        setMessages((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+      } else {
+        const created = await createSalesMessage({
+          title: msgForm.title,
+          content: msgForm.content,
+          category: msgForm.category,
+          msg_type: msgForm.msg_type,
+          created_by: user?.name,
+        });
+        setMessages((prev) => [created, ...prev]);
+      }
+      setMsgDialog(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteMsg(id: string) {
+    await deleteSalesMessage(id);
+    setMessages((prev) => prev.filter((m) => m.id !== id));
+  }
+
+  function openRating(msgId: string) {
+    setRatingMsgId(msgId);
+    setRatingForm({ rating: 5, comment: "" });
+    setRatingDialog(true);
+  }
+
+  async function handleSubmitRating() {
+    if (!ratingMsgId) return;
+    setSaving(true);
+    try {
+      await addMessageRating(ratingMsgId, ratingForm.rating, ratingForm.comment || undefined, user?.name);
+      // Refresh messages to get updated avg
+      const updated = await fetchSalesMessages();
+      setMessages(updated);
+      setRatingDialog(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleViewRatings(msgId: string) {
+    const ratings = await fetchMessageRatings(msgId);
+    setViewRatings({ msgId, ratings });
+  }
+
   /* ─── Loading skeleton ─── */
   if (loading) {
     return (
@@ -425,6 +520,8 @@ export default function SalesGuidePage() {
           <TabsTrigger value="targets" className="rounded-xl text-xs px-4 py-2">الأهداف</TabsTrigger>
           <TabsTrigger value="pip" className="rounded-xl text-xs px-4 py-2">خطط التحسين</TabsTrigger>
           <TabsTrigger value="pipeline" className="rounded-xl text-xs px-4 py-2">دليل المراحل</TabsTrigger>
+          <TabsTrigger value="messages" className="rounded-xl text-xs px-4 py-2">رسائل الاستهداف</TabsTrigger>
+          <TabsTrigger value="scripts" className="rounded-xl text-xs px-4 py-2">سكربت المكالمات</TabsTrigger>
         </TabsList>
 
         {/* ── Activities Tab ── */}
@@ -824,6 +921,152 @@ export default function SalesGuidePage() {
             </div>
           </div>
         </TabsContent>
+
+        {/* ── Messages & Scripts Tabs (shared renderer) ── */}
+        {(["messages", "scripts"] as const).map((tabKey) => {
+          const msgType = tabKey === "messages" ? "message" : "script";
+          const tabLabel = tabKey === "messages" ? "رسائل الاستهداف" : "سكربت المكالمات";
+          const tabIcon = tabKey === "messages" ? <MessageSquare className="w-5 h-5" /> : <PhoneCall className="w-5 h-5" />;
+          const filtered = messages.filter((m) => m.msg_type === msgType && (msgCategoryFilter === "all" || m.category === msgCategoryFilter));
+
+          return (
+            <TabsContent key={tabKey} value={tabKey} className="mt-4">
+              <div className="glass-surface rounded-2xl p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    {tabIcon}
+                    <h3 className="text-lg font-bold">{tabLabel}</h3>
+                  </div>
+                  <Button size="sm" onClick={() => openAddMsg(msgType)} className="gap-1.5">
+                    <Plus className="w-4 h-4" /> إضافة
+                  </Button>
+                </div>
+
+                {/* Category filter */}
+                <div className="flex items-center gap-2 mb-4 flex-wrap">
+                  <button
+                    onClick={() => setMsgCategoryFilter("all")}
+                    className={`px-3 py-1.5 rounded-xl text-xs transition-all ${
+                      msgCategoryFilter === "all"
+                        ? "bg-cyan/15 text-cyan font-medium border border-cyan/30"
+                        : "text-muted-foreground hover:text-foreground border border-white/6"
+                    }`}
+                  >
+                    الكل
+                  </button>
+                  {MSG_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.value}
+                      onClick={() => setMsgCategoryFilter(cat.value)}
+                      className={`px-3 py-1.5 rounded-xl text-xs transition-all ${
+                        msgCategoryFilter === cat.value
+                          ? "bg-cyan/15 text-cyan font-medium border border-cyan/30"
+                          : "text-muted-foreground hover:text-foreground border border-white/6"
+                      }`}
+                    >
+                      {cat.icon} {cat.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Messages list */}
+                {filtered.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    {tabKey === "messages" ? <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" /> : <PhoneCall className="w-12 h-12 mx-auto mb-3 opacity-30" />}
+                    <p>لا توجد {tabLabel} بعد</p>
+                    <p className="text-sm mt-1">أضف أول {tabKey === "messages" ? "رسالة" : "سكربت"} لفريق المبيعات</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filtered.map((m) => {
+                      const catInfo = MSG_CATEGORIES.find((c) => c.value === m.category);
+                      return (
+                        <div
+                          key={m.id}
+                          className="rounded-2xl p-4 border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-bold text-foreground">{m.title}</h4>
+                              <ColorBadge
+                                text={`${catInfo?.icon || ""} ${catInfo?.label || m.category}`}
+                                color={m.category === "new_client" ? "green" : m.category === "renewal_client" ? "amber" : "purple"}
+                              />
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button variant="ghost" size="sm" onClick={() => openEditMsg(m)} className="w-7 h-7 p-0 text-muted-foreground hover:text-cyan">
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleDeleteMsg(m.id)} className="w-7 h-7 p-0 text-muted-foreground hover:text-cc-red">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Content */}
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed mb-3">{m.content}</p>
+
+                          {/* Rating & actions */}
+                          <div className="flex items-center justify-between border-t border-white/6 pt-3">
+                            <div className="flex items-center gap-3">
+                              {/* Stars display */}
+                              <div className="flex items-center gap-1">
+                                {[1, 2, 3, 4, 5].map((s) => (
+                                  <Star
+                                    key={s}
+                                    className={`w-4 h-4 ${s <= Math.round(m.avg_rating) ? "text-amber fill-amber" : "text-muted-foreground/30"}`}
+                                  />
+                                ))}
+                                <span className="text-xs text-muted-foreground mr-1">
+                                  {m.avg_rating > 0 ? m.avg_rating.toFixed(1) : "—"} ({m.ratings_count})
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => handleViewRatings(m.id)} className="text-xs text-muted-foreground gap-1">
+                                <MessageSquare className="w-3.5 h-3.5" /> التعليقات
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => openRating(m.id)} className="text-xs text-cyan gap-1">
+                                <Star className="w-3.5 h-3.5" /> تقييم
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Inline ratings view */}
+                          {viewRatings?.msgId === m.id && viewRatings.ratings.length > 0 && (
+                            <div className="mt-3 border-t border-white/6 pt-3 space-y-2">
+                              {viewRatings.ratings.map((r) => (
+                                <div key={r.id} className="flex items-start gap-2 text-xs">
+                                  <div className="flex items-center gap-0.5 shrink-0">
+                                    {[1, 2, 3, 4, 5].map((s) => (
+                                      <Star key={s} className={`w-3 h-3 ${s <= r.rating ? "text-amber fill-amber" : "text-muted-foreground/20"}`} />
+                                    ))}
+                                  </div>
+                                  <div className="flex-1">
+                                    <span className="font-medium text-foreground">{r.rated_by || "مجهول"}</span>
+                                    {r.comment && <p className="text-muted-foreground mt-0.5">{r.comment}</p>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {viewRatings?.msgId === m.id && viewRatings.ratings.length === 0 && (
+                            <p className="mt-3 border-t border-white/6 pt-3 text-xs text-muted-foreground text-center">لا توجد تعليقات بعد</p>
+                          )}
+
+                          {/* Created by */}
+                          {m.created_by && (
+                            <p className="text-[10px] text-muted-foreground/50 mt-2">بواسطة: {m.created_by}</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          );
+        })}
       </Tabs>
 
       {/* ─── Add Activity Dialog ─── */}
@@ -1098,6 +1341,100 @@ export default function SalesGuidePage() {
             <Button variant="ghost" onClick={() => setPointDialog(false)}>إلغاء</Button>
             <Button onClick={handleUpdatePoint} disabled={saving}>
               {saving ? "جارٍ الحفظ..." : "حفظ التعديلات"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Add/Edit Message Dialog ─── */}
+      <Dialog open={msgDialog} onOpenChange={setMsgDialog}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>{editingMsg ? "تعديل" : "إضافة"} {msgForm.msg_type === "message" ? "رسالة استهداف" : "سكربت مكالمة"}</DialogTitle>
+            <DialogDescription>
+              {editingMsg ? "تعديل المحتوى" : "أضف محتوى جديد لفريق المبيعات"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label>الفئة</Label>
+              <Select
+                value={msgForm.category}
+                onValueChange={(v) => setMsgForm({ ...msgForm, category: v as SalesMessage["category"] })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {MSG_CATEGORIES.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>{c.icon} {c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>العنوان</Label>
+              <Input
+                value={msgForm.title}
+                onChange={(e) => setMsgForm({ ...msgForm, title: e.target.value })}
+                placeholder={msgForm.msg_type === "message" ? "عنوان الرسالة..." : "عنوان السكربت..."}
+              />
+            </div>
+            <div>
+              <Label>المحتوى</Label>
+              <Textarea
+                value={msgForm.content}
+                onChange={(e) => setMsgForm({ ...msgForm, content: e.target.value })}
+                placeholder={msgForm.msg_type === "message" ? "نص الرسالة..." : "نص السكربت..."}
+                rows={6}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setMsgDialog(false)}>إلغاء</Button>
+            <Button onClick={handleSaveMsg} disabled={saving || !msgForm.title.trim() || !msgForm.content.trim()}>
+              {saving ? "جارٍ الحفظ..." : "حفظ"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Rating Dialog ─── */}
+      <Dialog open={ratingDialog} onOpenChange={setRatingDialog}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>تقييم وتعليق</DialogTitle>
+            <DialogDescription>قيّم هذا المحتوى وأضف تعليقك</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label>التقييم</Label>
+              <div className="flex items-center gap-1 mt-2">
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setRatingForm({ ...ratingForm, rating: s })}
+                    className="p-1 transition-transform hover:scale-110"
+                  >
+                    <Star className={`w-7 h-7 ${s <= ratingForm.rating ? "text-amber fill-amber" : "text-muted-foreground/30"}`} />
+                  </button>
+                ))}
+                <span className="text-sm font-bold text-amber mr-2">{ratingForm.rating}/5</span>
+              </div>
+            </div>
+            <div>
+              <Label>تعليق (اختياري)</Label>
+              <Textarea
+                value={ratingForm.comment}
+                onChange={(e) => setRatingForm({ ...ratingForm, comment: e.target.value })}
+                placeholder="أضف تعليقك على هذا الأسلوب..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRatingDialog(false)}>إلغاء</Button>
+            <Button onClick={handleSubmitRating} disabled={saving} className="gap-1.5">
+              <Send className="w-4 h-4" />
+              {saving ? "جارٍ الإرسال..." : "إرسال التقييم"}
             </Button>
           </DialogFooter>
         </DialogContent>
