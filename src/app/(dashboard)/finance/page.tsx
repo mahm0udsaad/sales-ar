@@ -51,6 +51,7 @@ export default function FinancePage() {
   const [expenseDialog, setExpenseDialog] = useState(false);
   const [expenseForm, setExpenseForm] = useState({ category: "", amount: "", description: "" });
   const [savingExpense, setSavingExpense] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
@@ -346,11 +347,49 @@ export default function FinancePage() {
               </div>
             </div>
 
+            {/* Category filter */}
+            {(() => {
+              const categories = [...new Set(expenses.map((e) => e.category))];
+              if (categories.length < 2) return null;
+              return (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <button
+                    onClick={() => setCategoryFilter(null)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                      categoryFilter === null
+                        ? "bg-cyan/15 text-cyan border-cyan/30"
+                        : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                    }`}
+                  >
+                    الكل ({expenses.length})
+                  </button>
+                  {categories.map((cat) => {
+                    const count = expenses.filter((e) => e.category === cat).length;
+                    const catTotal = expenses.filter((e) => e.category === cat).reduce((s, e) => s + e.amount, 0);
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => setCategoryFilter(categoryFilter === cat ? null : cat)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                          categoryFilter === cat
+                            ? "bg-cyan/15 text-cyan border-cyan/30"
+                            : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                        }`}
+                      >
+                        {cat} ({count}) — {formatMoney(catTotal)}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
             {/* Expense items sorted by amount (highest first) */}
             <div className="space-y-2">
               {(() => {
-                const maxAmount = Math.max(...expenses.map((e) => e.amount), 1);
-                const sorted = [...expenses].sort((a, b) => b.amount - a.amount);
+                const filtered = categoryFilter ? expenses.filter((e) => e.category === categoryFilter) : expenses;
+                const maxAmount = Math.max(...filtered.map((e) => e.amount), 1);
+                const sorted = [...filtered].sort((a, b) => b.amount - a.amount);
                 return sorted.map((exp, idx) => {
                   const pct = Math.round((exp.amount / maxAmount) * 100);
                   // Color gradient: top items red → middle amber → bottom green
@@ -365,7 +404,7 @@ export default function FinancePage() {
                     textColor = "text-amber";
                   }
 
-                  const totalExp = expenses.reduce((s, e) => s + e.amount, 0);
+                  const totalExp = filtered.reduce((s, e) => s + e.amount, 0);
                   const expPct = totalExp > 0 ? Math.round((exp.amount / totalExp) * 100) : 0;
 
                   return (
