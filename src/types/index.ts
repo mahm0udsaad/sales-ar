@@ -170,6 +170,22 @@ export interface Renewal {
   updated_at: string;
 }
 
+export interface Referral {
+  id: string;
+  org_id: string;
+  referrer_name: string;
+  referrer_phone?: string;
+  referred_name: string;
+  referred_phone?: string;
+  status: string;
+  reward_amount: number;
+  reward_paid: boolean;
+  converted: boolean;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Alert {
   id: string;
   org_id: string;

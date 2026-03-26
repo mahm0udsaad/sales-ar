@@ -1,5 +1,5 @@
 import { createClient } from "./client";
-import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot, Review, Renewal, SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, SalesGuideSetting, SalesMessage, SalesMessageRating } from "@/types";
+import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot, Review, Renewal, Referral, SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, SalesGuideSetting, SalesMessage, SalesMessageRating } from "@/types";
 
 const DEFAULT_ORG = "00000000-0000-0000-0000-000000000001";
 
@@ -717,4 +717,164 @@ export async function addMessageRating(
   }
 
   return data as SalesMessageRating;
+}
+
+// ─── Referrals ─────────────────────────────────────────────────────────────
+
+export async function fetchReferrals(): Promise<Referral[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("referrals")
+    .select("*")
+    .eq("org_id", getOrgId())
+    .order("created_at", { ascending: false });
+  return (data || []) as Referral[];
+}
+
+export async function createReferral(
+  referral: Omit<Referral, "id" | "org_id" | "created_at" | "updated_at">
+): Promise<Referral> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("referrals")
+    .insert({ ...referral, org_id: getOrgId() })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Referral;
+}
+
+export async function updateReferral(
+  id: string,
+  referral: Partial<Omit<Referral, "id" | "org_id">>
+): Promise<Referral> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("referrals")
+    .update({ ...referral, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Referral;
+}
+
+// ─── Weekly Retention Stats (computed from real data) ──────────────────────
+
+export async function fetchWeeklyRetentionStats(): Promise<{
+  renewed: number;
+  expiring: number;
+  contacted: number;
+  upsell: number;
+  renewRate: number;
+}> {
+  const supabase = createClient();
+  const orgId = getOrgId();
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  weekStart.setHours(0, 0, 0, 0);
+  const weekStartStr = weekStart.toISOString().split("T")[0];
+  const todayStr = now.toISOString().split("T")[0];
+
+  // Next 14 days for expiring
+  const expiringEnd = new Date(now);
+  expiringEnd.setDate(now.getDate() + 14);
+  const expiringEndStr = expiringEnd.toISOString().split("T")[0];
+
+  // Renewals completed this week
+  const { data: renewedData } = await supabase
+    .from("renewals")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("status", "مكتمل")
+    .gte("updated_at", weekStartStr);
+  const renewed = renewedData?.length || 0;
+
+  // Subscriptions expiring in next 14 days
+  const { data: expiringData } = await supabase
+    .from("renewals")
+    .select("id")
+    .eq("org_id", orgId)
+    .neq("status", "مكتمل")
+    .neq("status", "ملغي بسبب")
+    .gte("renewal_date", todayStr)
+    .lte("renewal_date", expiringEndStr);
+  const expiring = expiringData?.length || 0;
+
+  // Contacted this week (status = جاري المتابعة and updated this week)
+  const { data: contactedData } = await supabase
+    .from("renewals")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("status", "جاري المتابعة")
+    .gte("updated_at", weekStartStr);
+  const contacted = contactedData?.length || 0;
+
+  // Upsell: deals closed this week with source "جديد لعميل حالي"
+  const { data: upsellData } = await supabase
+    .from("deals")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("stage", "مكتملة")
+    .eq("source", "جديد لعميل حالي")
+    .gte("updated_at", weekStartStr);
+  const upsell = upsellData?.length || 0;
+
+  // Renewal rate: completed / (completed + cancelled) this month
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+  const { data: allDueData } = await supabase
+    .from("renewals")
+    .select("status")
+    .eq("org_id", orgId)
+    .gte("renewal_date", monthStart)
+    .lte("renewal_date", todayStr);
+  const allDue = allDueData || [];
+  const completedCount = allDue.filter((r) => r.status === "مكتمل").length;
+  const renewRate = allDue.length > 0 ? Math.round((completedCount / allDue.length) * 100) : 0;
+
+  return { renewed, expiring, contacted, upsell, renewRate };
+}
+
+export async function fetchWeeklyReferralStats(): Promise<{
+  active: number;
+  newRefs: number;
+  converted: number;
+  rewards: number;
+  convRate: number;
+}> {
+  const supabase = createClient();
+  const orgId = getOrgId();
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  weekStart.setHours(0, 0, 0, 0);
+  const weekStartStr = weekStart.toISOString().split("T")[0];
+
+  // All referrals for org
+  const { data: allRefs } = await supabase
+    .from("referrals")
+    .select("*")
+    .eq("org_id", orgId);
+  const refs = (allRefs || []) as Referral[];
+
+  // Active referrers (unique referrer names)
+  const activeReferrers = new Set(refs.map((r) => r.referrer_name));
+  const active = activeReferrers.size;
+
+  // New referrals this week
+  const newRefs = refs.filter((r) => r.created_at >= weekStartStr).length;
+
+  // Converted
+  const convertedCount = refs.filter((r) => r.converted).length;
+
+  // Rewards paid
+  const rewards = refs.filter((r) => r.reward_paid).reduce((s, r) => s + r.reward_amount, 0);
+
+  // Conversion rate
+  const convRate = refs.length > 0 ? Math.round((convertedCount / refs.length) * 100) : 0;
+
+  return { active, newRefs, converted: convertedCount, rewards, convRate };
 }
