@@ -32,6 +32,7 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
   const [showMentions, setShowMentions] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
   const [mentionIndex, setMentionIndex] = useState(0);
+  const [mentionStart, setMentionStart] = useState(-1); // cursor position of @
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -47,29 +48,27 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
   }, [open, entityType, entityId]);
 
   const filteredEmployees = employees.filter((e) =>
-    !mentionFilter || e.name.toLowerCase().includes(mentionFilter.toLowerCase())
+    !mentionFilter || e.name.includes(mentionFilter)
   );
 
   const insertMention = useCallback((name: string) => {
     const textarea = textareaRef.current;
-    if (!textarea) return;
-    const val = newNote;
+    if (!textarea || mentionStart === -1) return;
+    // Replace from @ position to current cursor with @name
+    const before = newNote.slice(0, mentionStart); // everything before @
     const cursor = textarea.selectionStart;
-    // Find the @ that triggered this
-    const before = val.slice(0, cursor);
-    const atIdx = before.lastIndexOf("@");
-    if (atIdx === -1) return;
-    const after = val.slice(cursor);
-    const inserted = val.slice(0, atIdx) + `@${name}` + " " + after;
+    const after = newNote.slice(cursor);
+    const inserted = before + `@${name} ` + after;
     setNewNote(inserted);
     setShowMentions(false);
     setMentionFilter("");
+    setMentionStart(-1);
     setTimeout(() => {
       textarea.focus();
-      const pos = atIdx + name.length + 2;
+      const pos = before.length + name.length + 2; // @ + name + space
       textarea.setSelectionRange(pos, pos);
     }, 0);
-  }, [newNote]);
+  }, [newNote, mentionStart]);
 
   function handleNoteChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const val = e.target.value;
@@ -77,14 +76,21 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
 
     const cursor = e.target.selectionStart;
     const before = val.slice(0, cursor);
-    const atMatch = before.match(/@([^\s@]*)$/);
-    if (atMatch) {
-      setMentionFilter(atMatch[1]);
-      setShowMentions(true);
-      setMentionIndex(0);
-    } else {
-      setShowMentions(false);
+
+    // Find the last @ that isn't followed by a completed mention
+    const atIdx = before.lastIndexOf("@");
+    if (atIdx !== -1 && (atIdx === 0 || before[atIdx - 1] === " " || before[atIdx - 1] === "\n")) {
+      const query = before.slice(atIdx + 1);
+      // Only show dropdown if no newline after @
+      if (!query.includes("\n")) {
+        setMentionStart(atIdx);
+        setMentionFilter(query);
+        setShowMentions(true);
+        setMentionIndex(0);
+        return;
+      }
     }
+    setShowMentions(false);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -106,6 +112,17 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
     if (e.key === "Enter" && e.ctrlKey) handleAdd();
   }
 
+  /* Extract mentioned employee names from text by matching against known employees */
+  function extractMentions(text: string): string[] {
+    const mentioned: string[] = [];
+    for (const emp of employees) {
+      if (text.includes(`@${emp.name}`)) {
+        mentioned.push(emp.name);
+      }
+    }
+    return [...new Set(mentioned)];
+  }
+
   async function handleAdd() {
     if (!newNote.trim()) return;
     setSaving(true);
@@ -115,15 +132,9 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
       setNotes((prev) => [created, ...prev]);
 
       /* Send mention notifications */
-      const mentions = newNote.match(/@([\u0600-\u06FF\w\s]+?)(?=\s|@|$)/g);
-      if (mentions) {
-        const uniqueNames = [...new Set(mentions.map((m) => m.slice(1).trim()))];
-        for (const name of uniqueNames) {
-          const emp = employees.find((e) => e.name === name);
-          if (emp) {
-            createMentionNotification(created.id, entityType, entityId, entityName, name, authorName, newNote.trim()).catch(console.error);
-          }
-        }
+      const mentionedNames = extractMentions(newNote);
+      for (const name of mentionedNames) {
+        createMentionNotification(created.id, entityType, entityId, entityName, name, authorName, newNote.trim()).catch(console.error);
       }
 
       setNewNote("");
@@ -143,9 +154,14 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
 
   /* Render note text with highlighted mentions */
   function renderNoteText(text: string) {
-    const parts = text.split(/(@[\u0600-\u06FF\w\s]+?)(?=\s|@|$)/g);
+    if (employees.length === 0) return text;
+    // Build regex from employee names sorted by length (longest first to avoid partial matches)
+    const names = employees.map((e) => e.name).sort((a, b) => b.length - a.length);
+    const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    const regex = new RegExp(`(@(?:${escaped.join("|")}))`, "g");
+    const parts = text.split(regex);
     return parts.map((part, i) =>
-      part.startsWith("@") ? (
+      part.startsWith("@") && names.some((n) => part === `@${n}`) ? (
         <span key={i} className="text-amber font-bold">{part}</span>
       ) : (
         <span key={i}>{part}</span>
@@ -186,16 +202,16 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
                 />
                 {/* Mention suggestions dropdown */}
                 {showMentions && filteredEmployees.length > 0 && (
-                  <div className="absolute bottom-full mb-1 right-0 w-full bg-card border border-border rounded-lg shadow-lg z-50 max-h-[160px] overflow-y-auto">
+                  <div className="absolute bottom-full mb-1 right-0 w-full bg-card border border-border rounded-lg shadow-lg z-50 max-h-[200px] overflow-y-auto">
                     {filteredEmployees.map((emp, idx) => (
                       <button
                         key={emp.id}
                         onClick={() => insertMention(emp.name)}
-                        className={`w-full flex items-center gap-2 px-3 py-2 text-right text-sm transition-colors ${
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-right text-sm transition-colors ${
                           idx === mentionIndex ? "bg-cyan/10 text-cyan" : "text-foreground hover:bg-white/5"
                         }`}
                       >
-                        <div className="w-6 h-6 rounded-full bg-amber/15 text-amber flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-amber/15 text-amber flex items-center justify-center text-xs font-bold flex-shrink-0">
                           {emp.name.charAt(0)}
                         </div>
                         <span className="font-medium">{emp.name}</span>
@@ -222,12 +238,16 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
                       const cursor = textarea.selectionStart;
                       const before = newNote.slice(0, cursor);
                       const after = newNote.slice(cursor);
-                      setNewNote(before + "@" + after);
+                      const needSpace = before.length > 0 && before[before.length - 1] !== " " && before[before.length - 1] !== "\n";
+                      const prefix = needSpace ? " @" : "@";
+                      setNewNote(before + prefix + after);
+                      setMentionStart(before.length + (needSpace ? 1 : 0));
                       setShowMentions(true);
                       setMentionFilter("");
                       setTimeout(() => {
                         textarea.focus();
-                        textarea.setSelectionRange(cursor + 1, cursor + 1);
+                        const pos = cursor + prefix.length;
+                        textarea.setSelectionRange(pos, pos);
                       }, 0);
                     }
                   }}
