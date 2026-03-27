@@ -213,7 +213,12 @@ export default function SalesPage() {
   const monthDeals = filterCutoff
     ? deals.filter((d) => new Date(d.deal_date || d.created_at) >= filterCutoff)
     : activeMonthIndex
-      ? deals.filter((d) => d.month === activeMonthIndex.month && d.year === activeMonthIndex.year)
+      ? deals.filter((d) => {
+          const dt = d.deal_date ? new Date(d.deal_date) : null;
+          const m = d.month ?? (dt ? dt.getMonth() + 1 : null);
+          const y = d.year ?? (dt ? dt.getFullYear() : null);
+          return m === activeMonthIndex.month && y === activeMonthIndex.year;
+        })
       : deals;
   const stageFilteredDeals = stageFilter ? monthDeals.filter((d) => d.stage === stageFilter) : monthDeals;
   const filteredDeals = clientSearch
@@ -354,6 +359,8 @@ export default function SalesPage() {
           deal_date: form.deal_date,
           probability: form.probability,
           marketer_name: marketerName || undefined,
+          month,
+          year,
         });
         setDeals((prev) => prev.map((d) => (d.id === editingId ? updated : d)));
       } else {
