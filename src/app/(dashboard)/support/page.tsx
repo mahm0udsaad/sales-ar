@@ -230,6 +230,7 @@ export default function SupportPage() {
     "مفتوح": "red",
     "قيد الحل": "amber",
     "محلول": "green",
+    "متأخر": "red",
   };
 
   function priorityColor(p: string): "red" | "amber" | "blue" {
@@ -340,7 +341,7 @@ export default function SupportPage() {
               <TableHead className="text-right">موعد التسليم</TableHead>
               <TableHead className="text-right">الأولوية</TableHead>
               <TableHead className="text-right">الحالة</TableHead>
-              <TableHead className="text-right">الوكيل</TableHead>
+              <TableHead className="text-right">الموظف</TableHead>
               <TableHead className="text-right">إجراءات</TableHead>
             </TableRow>
           </TableHeader>
@@ -529,9 +530,9 @@ export default function SupportPage() {
               </Select>
             </div>
 
-            {/* الوكيل */}
+            {/* الموظف */}
             <div className="space-y-1.5">
-              <Label>الوكيل</Label>
+              <Label>الموظف</Label>
               <Select
                 value={form.assigned_agent_name}
                 onValueChange={(val) =>
@@ -539,7 +540,7 @@ export default function SupportPage() {
                 }
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="اختر الوكيل" />
+                  <SelectValue placeholder="اختر الموظف" />
                 </SelectTrigger>
                 <SelectContent>
                   {employees.map((emp) => (

@@ -20,6 +20,7 @@ import {
   Upload,
   ClipboardList,
   BookOpen,
+  Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { label: "الدعم", href: "/support", slug: "support", icon: Headphones },
   { label: "التطويرات", href: "/development", slug: "development", icon: Code },
   { label: "الشراكات", href: "/partnerships", slug: "partnerships", icon: Handshake },
+  { label: "المسوقين", href: "/marketers", slug: "marketers", icon: Megaphone },
   { label: "الفريق", href: "/team", slug: "team", icon: Users },
   { label: "المالية", href: "/finance", slug: "finance", icon: Banknote },
   { label: "رفع الملفات", href: "/upload", slug: "upload", icon: Upload },
@@ -178,19 +180,19 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 href={item.href}
                 onClick={onClose}
                 className={cn(
-                  "group relative flex items-center gap-3 overflow-hidden rounded-2xl px-3.5 py-3 text-[13px] transition-all",
+                  "group relative flex items-center gap-3 overflow-hidden rounded-2xl px-3.5 py-3 text-[13px] transition-all duration-200",
                   isActive
-                    ? "bg-white/[0.04] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
-                    : "text-muted-foreground hover:bg-white/[0.03] hover:text-foreground"
+                    ? "bg-gradient-to-l from-cyan/[0.12] to-transparent text-foreground font-semibold border border-cyan/[0.15] shadow-[0_0_20px_rgba(0,212,255,0.08)]"
+                    : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground border border-transparent"
                 )}
               >
                 {isActive && (
-                  <span className="absolute inset-y-2 right-1 w-1 rounded-full bg-linear-to-b from-cyan to-cc-purple" />
+                  <span className="absolute inset-y-2 right-0.5 w-[3px] rounded-full bg-gradient-to-b from-cyan via-cyan to-cc-purple shadow-[0_0_8px_rgba(0,212,255,0.6)]" />
                 )}
                 <span
                   className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-xl transition-colors",
-                    isActive ? "bg-cyan-dim text-cyan" : "bg-white/[0.03] text-muted-foreground group-hover:text-foreground"
+                    "flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200",
+                    isActive ? "bg-cyan/[0.15] text-cyan ring-1 ring-cyan/20 shadow-[0_0_10px_rgba(0,212,255,0.15)]" : "bg-white/[0.03] text-muted-foreground group-hover:text-foreground group-hover:bg-white/[0.06]"
                   )}
                 >
                   <Icon className="w-[17px] h-[17px]" />

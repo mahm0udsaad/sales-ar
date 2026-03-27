@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { fetchWeeklyRetentionStats, fetchWeeklyReferralStats } from "@/lib/supabase/db";
 
 /* ─── Design Tokens ─── */
 const T = {
@@ -85,10 +86,16 @@ function ProgressBar({ value, max, color }: { value: number; max: number; color?
   );
 }
 
+type RetentionStats = { renewed: number; expiring: number; contacted: number; upsell: number; renewRate: number };
+type ReferralStats = { active: number; newRefs: number; converted: number; rewards: number; convRate: number };
+
 export default function WeeklyMeetingView() {
   const [data, setData] = useState<WeeklyData>(emptyData);
   const [tab, setTab] = useState(0);
   const [saved, setSaved] = useState(true);
+  const [retentionStats, setRetentionStats] = useState<RetentionStats | null>(null);
+  const [referralStats, setReferralStats] = useState<ReferralStats | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loaded = useRef(false);
 
@@ -102,6 +109,23 @@ export default function WeeklyMeetingView() {
       }
     } catch { /* ignore */ }
     loaded.current = true;
+  }, []);
+
+  // Load real stats from DB
+  useEffect(() => {
+    async function loadStats() {
+      setLoadingStats(true);
+      try {
+        const [ret, ref] = await Promise.all([
+          fetchWeeklyRetentionStats(),
+          fetchWeeklyReferralStats(),
+        ]);
+        setRetentionStats(ret);
+        setReferralStats(ref);
+      } catch { /* ignore */ }
+      setLoadingStats(false);
+    }
+    loadStats();
   }, []);
 
   // Auto-save with debounce
@@ -249,7 +273,7 @@ export default function WeeklyMeetingView() {
       {tab === 0 && <Tab1Numbers data={data} update={update} />}
       {tab === 1 && <Tab2Team data={data} updateMember={updateMember} />}
       {tab === 2 && <Tab3Revenue data={data} update={update} updateWeeklyRev={updateWeeklyRev} />}
-      {tab === 3 && <Tab4Retention data={data} update={update} />}
+      {tab === 3 && <Tab4Retention data={data} update={update} retentionStats={retentionStats} referralStats={referralStats} loadingStats={loadingStats} />}
       {tab === 4 && <Tab5Decisions data={data} update={update} updateTask={updateTask} addTask={addTask} removeTask={removeTask} />}
     </div>
   );
@@ -460,60 +484,98 @@ function Tab3Revenue({ data, update, updateWeeklyRev }: {
 /* ═══════════════════════════════════════════════════════════════
    TAB 4 — الاحتفاظ والإحالة
    ═══════════════════════════════════════════════════════════════ */
-function Tab4Retention({ data, update }: { data: WeeklyData; update: (p: Partial<WeeklyData>) => void }) {
-  const retRows = [
-    { label: "تجديدات هذا الأسبوع", field: "renewed" as const, color: T.teal },
-    { label: "اشتراكات تنتهي قريباً", field: "expiring" as const, color: T.amber },
-    { label: "تم التواصل معهم", field: "contacted" as const, color: T.green },
-    { label: "Upsell مكتمل / 5", field: "upsell" as const, color: T.purple },
-    { label: "نسبة التجديد % (هدف: 75%)", field: "renewRate" as const, color: T.teal },
+function Tab4Retention({ data, update, retentionStats, referralStats, loadingStats }: {
+  data: WeeklyData;
+  update: (p: Partial<WeeklyData>) => void;
+  retentionStats: RetentionStats | null;
+  referralStats: ReferralStats | null;
+  loadingStats: boolean;
+}) {
+  const retRows: { label: string; field: keyof RetentionStats; target?: number; unit?: string; color: string }[] = [
+    { label: "تجديدات هذا الأسبوع", field: "renewed", color: T.teal },
+    { label: "اشتراكات تنتهي قريباً", field: "expiring", color: T.amber },
+    { label: "تم التواصل معهم", field: "contacted", color: T.green },
+    { label: "Upsell مكتمل", field: "upsell", target: 5, color: T.purple },
+    { label: "نسبة التجديد %", field: "renewRate", target: 75, unit: "%", color: T.teal },
   ];
-  const refRows = [
-    { label: "محيلين نشطين / 30", field: "active" as const, color: T.purple },
-    { label: "إحالات جديدة / 15", field: "newRefs" as const, color: T.teal },
-    { label: "تحولت لعملاء / 5", field: "converted" as const, color: T.green },
-    { label: "مكافآت صُرفت", field: "rewards" as const, color: T.amber },
-    { label: "نسبة التحويل % (هدف: 33%)", field: "convRate" as const, color: T.purple },
+  const refRows: { label: string; field: keyof ReferralStats; target?: number; unit?: string; color: string }[] = [
+    { label: "محيلين نشطين", field: "active", target: 30, color: T.purple },
+    { label: "إحالات جديدة", field: "newRefs", target: 15, color: T.teal },
+    { label: "تحولت لعملاء", field: "converted", target: 5, color: T.green },
+    { label: "مكافآت صُرفت", field: "rewards", unit: "ر.س", color: T.amber },
+    { label: "نسبة التحويل %", field: "convRate", target: 33, unit: "%", color: T.purple },
   ];
 
+  const dbBadge: React.CSSProperties = {
+    display: "inline-flex", alignItems: "center", gap: 4,
+    fontSize: 10, padding: "2px 8px", borderRadius: 6,
+    background: `${T.teal}15`, color: T.teal, fontWeight: 600,
+  };
+
+  const loadingDot = loadingStats ? "⟳" : "✓";
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 16 }}>
       {/* Retention */}
       <div style={cardStyle}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: T.teal }}>🔄 الاحتفاظ بالعملاء</h3>
-        {retRows.map(r => (
-          <div key={r.field} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${T.border}20` }}>
-            <span style={{ fontSize: 13, color: T.mid, flex: 1 }}>{r.label}</span>
-            <input
-              type="text"
-              value={data.retention[r.field]}
-              onChange={e => update({ retention: { ...data.retention, [r.field]: e.target.value } })}
-              placeholder="0"
-              style={{ ...inputBase, width: 80, textAlign: "left" as const, fontSize: 16, color: r.color }}
-              onFocus={e => { e.target.style.borderBottomColor = T.teal; }}
-              onBlur={e => { e.target.style.borderBottomColor = T.border; }}
-            />
-          </div>
-        ))}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: T.teal }}>🔄 الاحتفاظ بالعملاء</h3>
+          <span style={dbBadge}>{loadingDot} من قاعدة البيانات</span>
+        </div>
+        {retRows.map(r => {
+          const dbVal = retentionStats ? retentionStats[r.field] : null;
+          const displayVal = dbVal !== null ? (r.unit === "%" ? `${dbVal}%` : String(dbVal)) : "—";
+          const pct = r.target && dbVal !== null ? Math.min(Math.round((dbVal / r.target) * 100), 100) : null;
+          return (
+            <div key={r.field} style={{ padding: "12px 0", borderBottom: `1px solid ${T.border}20` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 13, color: T.mid, flex: 1 }}>
+                  {r.label}
+                  {r.target ? <span style={{ fontSize: 10, color: T.dim }}> / هدف: {r.target}{r.unit || ""}</span> : null}
+                </span>
+                <span style={{ fontSize: 20, fontWeight: 700, fontFamily: "monospace", color: r.color, minWidth: 60, textAlign: "left" as const }}>
+                  {loadingStats ? "..." : displayVal}
+                </span>
+              </div>
+              {pct !== null && !loadingStats && (
+                <div style={{ height: 4, borderRadius: 2, background: T.border, marginTop: 6, width: "100%" }}>
+                  <div style={{ height: "100%", borderRadius: 2, background: r.color, width: `${pct}%`, transition: "width 0.3s" }} />
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Referral */}
       <div style={cardStyle}>
-        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: T.purple }}>🎁 برنامج الإحالة</h3>
-        {refRows.map(r => (
-          <div key={r.field} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${T.border}20` }}>
-            <span style={{ fontSize: 13, color: T.mid, flex: 1 }}>{r.label}</span>
-            <input
-              type="text"
-              value={data.referral[r.field]}
-              onChange={e => update({ referral: { ...data.referral, [r.field]: e.target.value } })}
-              placeholder="0"
-              style={{ ...inputBase, width: 80, textAlign: "left" as const, fontSize: 16, color: r.color }}
-              onFocus={e => { e.target.style.borderBottomColor = T.teal; }}
-              onBlur={e => { e.target.style.borderBottomColor = T.border; }}
-            />
-          </div>
-        ))}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: T.purple }}>🎁 برنامج الإحالة</h3>
+          <span style={{ ...dbBadge, background: `${T.purple}15`, color: T.purple }}>{loadingDot} من قاعدة البيانات</span>
+        </div>
+        {refRows.map(r => {
+          const dbVal = referralStats ? referralStats[r.field] : null;
+          const displayVal = dbVal !== null ? (r.unit === "%" ? `${dbVal}%` : r.unit === "ر.س" ? `${dbVal.toLocaleString()} ر.س` : String(dbVal)) : "—";
+          const pct = r.target && dbVal !== null ? Math.min(Math.round((dbVal / r.target) * 100), 100) : null;
+          return (
+            <div key={r.field} style={{ padding: "12px 0", borderBottom: `1px solid ${T.border}20` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 13, color: T.mid, flex: 1 }}>
+                  {r.label}
+                  {r.target ? <span style={{ fontSize: 10, color: T.dim }}> / هدف: {r.target}{r.unit || ""}</span> : null}
+                </span>
+                <span style={{ fontSize: 20, fontWeight: 700, fontFamily: "monospace", color: r.color, minWidth: 60, textAlign: "left" as const }}>
+                  {loadingStats ? "..." : displayVal}
+                </span>
+              </div>
+              {pct !== null && !loadingStats && (
+                <div style={{ height: 4, borderRadius: 2, background: T.border, marginTop: 6, width: "100%" }}>
+                  <div style={{ height: "100%", borderRadius: 2, background: r.color, width: `${pct}%`, transition: "width 0.3s" }} />
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

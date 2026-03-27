@@ -13,6 +13,7 @@ export interface Deal {
   deal_date?: string;
   close_date?: string;
   plan?: string;
+  marketer_name?: string;
   loss_reason?: string;
   notes?: string;
   month?: number;
@@ -170,6 +171,47 @@ export interface Renewal {
   updated_at: string;
 }
 
+export interface Referral {
+  id: string;
+  org_id: string;
+  referrer_name: string;
+  referrer_phone?: string;
+  referred_name: string;
+  referred_phone?: string;
+  status: string;
+  reward_amount: number;
+  reward_paid: boolean;
+  converted: boolean;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MonthlyExpense {
+  id: string;
+  org_id: string;
+  category: string;
+  amount: number;
+  description?: string;
+  expense_date: string;
+  month: number;
+  year: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Marketer {
+  id: string;
+  org_id: string;
+  name: string;
+  phone?: string;
+  commission_rate: number;
+  is_active: boolean;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Alert {
   id: string;
   org_id: string;
@@ -272,6 +314,59 @@ export interface PipPlan {
   reason?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface SalesGuideSetting {
+  id: string;
+  org_id: string;
+  setting_key: "pipeline_stages" | "activity_points" | "score_levels";
+  setting_value: PipelineStageItem[] | ActivityPointItem[] | ScoreLevelItem[];
+  updated_at: string;
+}
+
+export interface PipelineStageItem {
+  stage: string;
+  probability: number;
+  color: string;
+}
+
+export interface ActivityPointItem {
+  key: string;
+  label: string;
+  icon: string;
+  points: number;
+}
+
+export interface ScoreLevelItem {
+  value: string;
+  label: string;
+  emoji: string;
+  minPoints: number;
+  color: string;
+}
+
+export interface SalesMessage {
+  id: string;
+  org_id: string;
+  category: "new_client" | "renewal_client" | "cashier_client";
+  msg_type: "message" | "script";
+  title: string;
+  content: string;
+  avg_rating: number;
+  ratings_count: number;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SalesMessageRating {
+  id: string;
+  message_id: string;
+  org_id: string;
+  rating: number;
+  comment?: string;
+  rated_by?: string;
+  created_at: string;
 }
 
 export interface AppNotification {
