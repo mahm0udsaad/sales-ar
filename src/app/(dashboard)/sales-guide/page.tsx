@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
-import type { SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, Employee, PipelineStageItem, ActivityPointItem, ScoreLevelItem, SalesMessage, SalesMessageRating } from "@/types";
+import type { SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, Employee, PipelineStageItem, ActivityPointItem, ScoreLevelItem, SalesMessage, SalesMessageRating, Deal, FollowUpNote } from "@/types";
 import {
   fetchSalesActivities,
   createSalesActivity,
@@ -23,6 +23,9 @@ import {
   deleteSalesMessage,
   addMessageRating,
   fetchMessageRatings,
+  fetchDeals,
+  fetchFollowUpNotesByDate,
+  fetchFollowUpNotesSince,
 } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -137,6 +140,9 @@ export default function SalesGuidePage() {
 
   /* ─── State ─── */
   const [activities, setActivities] = useState<SalesActivity[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [todayNotes, setTodayNotes] = useState<FollowUpNote[]>([]);
+  const [monthNotes, setMonthNotes] = useState<FollowUpNote[]>([]);
   const [targets, setTargets] = useState<SalesTarget[]>([]);
   const [scores, setScores] = useState<RepWeeklyScore[]>([]);
   const [pipPlans, setPipPlans] = useState<PipPlan[]>([]);
@@ -196,7 +202,10 @@ export default function SalesGuidePage() {
 
   async function load() {
     setLoading(true);
-    const [a, t, s, p, e, gs, msgs] = await Promise.allSettled([
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    const monthStartStr = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+    const [a, t, s, p, e, gs, msgs, d, fn, mn] = await Promise.allSettled([
       fetchSalesActivities(),
       fetchSalesTargets(),
       fetchRepWeeklyScores(),
@@ -204,9 +213,15 @@ export default function SalesGuidePage() {
       fetchEmployees(),
       fetchSalesGuideSettings(),
       fetchSalesMessages(),
+      fetchDeals(),
+      fetchFollowUpNotesByDate(todayStr),
+      fetchFollowUpNotesSince(monthStartStr),
     ]);
     if (a.status === "fulfilled") setActivities(a.value);
     if (t.status === "fulfilled") setTargets(t.value);
+    if (d.status === "fulfilled") setDeals(d.value);
+    if (fn.status === "fulfilled") setTodayNotes(fn.value);
+    if (mn.status === "fulfilled") setMonthNotes(mn.value);
     if (s.status === "fulfilled") setScores(s.value);
     if (p.status === "fulfilled") setPipPlans(p.value);
     if (e.status === "fulfilled") setEmployees(e.value);
@@ -224,13 +239,98 @@ export default function SalesGuidePage() {
   /* ─── Stats ─── */
   const todayStr = new Date().toISOString().split("T")[0];
   const todayActivities = activities.filter((a) => a.activity_date === todayStr);
-  const weekActivities = useMemo(() => {
+  const weekStartStr = useMemo(() => {
     const now = new Date();
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - now.getDay());
-    const start = startOfWeek.toISOString().split("T")[0];
-    return activities.filter((a) => a.activity_date >= start);
-  }, [activities]);
+    return startOfWeek.toISOString().split("T")[0];
+  }, []);
+  const weekActivities = useMemo(() => {
+    return activities.filter((a) => a.activity_date >= weekStartStr);
+  }, [activities, weekStartStr]);
+  const weekNotes = useMemo(() => {
+    return monthNotes.filter((n) => n.created_at >= `${weekStartStr}T00:00:00`);
+  }, [monthNotes, weekStartStr]);
+
+  /* Auto-calculate live scores per employee from activities + deals */
+  const liveScores = useMemo(() => {
+    // Get week's closed deals
+    const weekClosedDeals = deals.filter((d) =>
+      d.stage === "مكتملة" && (d.deal_date || d.created_at.slice(0, 10)) >= weekStartStr
+    );
+
+    // Build per-employee map
+    const empMap: Record<string, {
+      calls: number; demos: number; followups: number; meetings: number;
+      quotes: number; whatsapp: number; deals_closed: number; revenue: number; points: number;
+    }> = {};
+
+    const getEmp = (name: string) => {
+      if (!empMap[name]) empMap[name] = { calls: 0, demos: 0, followups: 0, meetings: 0, quotes: 0, whatsapp: 0, deals_closed: 0, revenue: 0, points: 0 };
+      return empMap[name];
+    };
+
+    // Count activities this week
+    weekActivities.forEach((a) => {
+      const name = a.employee_name || "غير محدد";
+      const emp = getEmp(name);
+      const ap = activityPoints.find((p) => p.key === a.activity_type);
+      const pts = ap?.points ?? 0;
+      emp.points += pts;
+      if (a.activity_type === "call") emp.calls++;
+      else if (a.activity_type === "demo") emp.demos++;
+      else if (a.activity_type === "followup") emp.followups++;
+      else if (a.activity_type === "meeting") emp.meetings++;
+      else if (a.activity_type === "quote") emp.quotes++;
+      else if (a.activity_type === "whatsapp") emp.whatsapp++;
+    });
+
+    // Count follow-up notes this week (note_type maps to activity types)
+    weekNotes.forEach((n) => {
+      const name = n.author_name || "غير محدد";
+      const emp = getEmp(name);
+      const noteType = n.note_type || "note";
+      const ap = activityPoints.find((p) => p.key === noteType);
+      const pts = ap?.points ?? 0;
+      emp.points += pts;
+      if (noteType === "call") emp.calls++;
+      else if (noteType === "demo") emp.demos++;
+      else if (noteType === "followup") emp.followups++;
+      else if (noteType === "meeting") emp.meetings++;
+      else if (noteType === "quote") emp.quotes++;
+      else if (noteType === "whatsapp") emp.whatsapp++;
+    });
+
+    // Count closed deals this week
+    weekClosedDeals.forEach((d) => {
+      const name = d.assigned_rep_name || "غير محدد";
+      const emp = getEmp(name);
+      emp.deals_closed++;
+      emp.revenue += d.deal_value;
+      const dealPts = activityPoints.find((p) => p.key === "deal_closed")?.points ?? 50;
+      emp.points += dealPts;
+    });
+
+    // Determine levels based on scoreLevels config
+    const sortedLevels = [...scoreLevels].sort((a, b) => b.minPoints - a.minPoints);
+
+    return Object.entries(empMap)
+      .map(([name, data]) => {
+        const level = sortedLevels.find((l) => data.points >= l.minPoints)?.value || "";
+        return {
+          id: name,
+          employee_name: name,
+          total_points: data.points,
+          calls_count: data.calls + data.whatsapp,
+          demos_count: data.demos,
+          followups_count: data.followups,
+          deals_closed: data.deals_closed,
+          revenue: data.revenue,
+          level,
+        };
+      })
+      .sort((a, b) => b.total_points - a.total_points);
+  }, [weekActivities, weekNotes, deals, weekStartStr, activityPoints, scoreLevels]);
 
   const activePips = pipPlans.filter((p) => p.status === "active");
 
@@ -615,15 +715,15 @@ export default function SalesGuidePage() {
               </div>
             </div>
 
-            {scores.length === 0 ? (
+            {liveScores.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Trophy className="w-12 h-12 mx-auto mb-3 opacity-30" />
                 <p>لا توجد نتائج أسبوعية بعد</p>
-                <p className="text-sm mt-1">سيتم حساب النقاط تلقائيا من النشاطات</p>
+                <p className="text-sm mt-1">سجّل نشاطات أو أغلق صفقات لحساب النقاط تلقائياً</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {scores.map((s, idx) => {
+                {liveScores.map((s, idx) => {
                   const levelInfo = s.level ? LEVEL_BADGE[s.level] : null;
                   const emoji = scoreLevels.find((l) => l.value === s.level)?.emoji || "";
                   return (
@@ -686,18 +786,50 @@ export default function SalesGuidePage() {
                       demos: ["demo"],
                       quotes: ["quote"],
                     };
-                    const types = keyToTypes[t.target_key];
-                    if (!types) return 0;
 
-                    if (t.period_type === "daily") {
-                      return todayActivities.filter((a) => types.includes(a.activity_type)).length;
-                    } else if (t.period_type === "weekly") {
-                      return weekActivities.filter((a) => types.includes(a.activity_type)).length;
-                    } else {
-                      // monthly
-                      const now = new Date();
-                      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-                      return activities.filter((a) => a.activity_date >= monthStart && types.includes(a.activity_type)).length;
+                    // Period-based deal filtering
+                    const now = new Date();
+                    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+                    const weekStart = (() => { const d = new Date(now); d.setDate(d.getDate() - d.getDay()); return d.toISOString().split("T")[0]; })();
+                    const periodDeals = (period: string) => {
+                      if (period === "daily") return deals.filter((d) => (d.deal_date || d.created_at.slice(0, 10)) === todayStr);
+                      if (period === "weekly") return deals.filter((d) => (d.deal_date || d.created_at.slice(0, 10)) >= weekStart);
+                      return deals.filter((d) => (d.deal_date || d.created_at.slice(0, 10)) >= monthStart);
+                    };
+
+                    // Activity-based targets (from activities + follow-up notes)
+                    const types = keyToTypes[t.target_key];
+                    if (types) {
+                      if (t.period_type === "daily") {
+                        const fromActivities = todayActivities.filter((a) => types.includes(a.activity_type)).length;
+                        const fromNotes = todayNotes.filter((n) => n.note_type && types.includes(n.note_type)).length;
+                        return fromActivities + fromNotes;
+                      }
+                      if (t.period_type === "weekly") {
+                        const fromActivities = weekActivities.filter((a) => types.includes(a.activity_type)).length;
+                        const fromNotes = weekNotes.filter((n) => n.note_type && types.includes(n.note_type)).length;
+                        return fromActivities + fromNotes;
+                      }
+                      const fromActivities = activities.filter((a) => a.activity_date >= monthStart && types.includes(a.activity_type)).length;
+                      const fromNotes = monthNotes.filter((n) => n.note_type && types.includes(n.note_type)).length;
+                      return fromActivities + fromNotes;
+                    }
+
+                    // Deal-based targets
+                    const pd = periodDeals(t.period_type);
+                    const closedDeals = pd.filter((d) => d.stage === "مكتملة");
+
+                    switch (t.target_key) {
+                      case "deals_closed":
+                      case "closed_deals": return closedDeals.length;
+                      case "revenue": return closedDeals.reduce((s, d) => s + d.deal_value, 0);
+                      case "win_rate": return pd.length > 0 ? Math.round((closedDeals.length / pd.length) * 100) : 0;
+                      case "new_clients": return pd.length;
+                      case "avg_cycle_days": return closedDeals.length > 0 ? Math.round(closedDeals.reduce((s, d) => s + d.cycle_days, 0) / closedDeals.length) : 0;
+                      case "avg_deal_value": return closedDeals.length > 0 ? Math.round(closedDeals.reduce((s, d) => s + d.deal_value, 0) / closedDeals.length) : 0;
+                      case "pipeline_value": return pd.filter((d) => d.stage !== "مكتملة" && d.stage !== "مرفوض مع سبب").reduce((s, d) => s + d.deal_value, 0);
+                      case "lead_response_minutes": return 0; // requires response time tracking
+                      default: return 0;
                     }
                   })();
 
@@ -1154,6 +1286,35 @@ export default function SalesGuidePage() {
                 </Select>
               </div>
             </div>
+            {/* Target vs Achieved indicator */}
+            {activityForm.activity_type && (() => {
+              const keyMap: Record<string, string> = { call: "calls", whatsapp: "calls", followup: "followups", demo: "demos", quote: "quotes", meeting: "followups" };
+              const targetKey = keyMap[activityForm.activity_type];
+              const target = targetKey ? targets.find((t) => t.target_key === targetKey && t.period_type === "daily") : null;
+              const todayCount = todayActivities.filter((a) => a.activity_type === activityForm.activity_type).length;
+              const targetVal = target?.target_value ?? 0;
+              const minVal = target?.min_value ?? 0;
+              const pct = targetVal > 0 ? Math.min(Math.round((todayCount / targetVal) * 100), 100) : 0;
+              const typeInfo = ACTIVITY_TYPES.find((t) => t.value === activityForm.activity_type);
+
+              return (
+                <div className="rounded-lg border border-border/50 bg-card/50 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-muted-foreground">{typeInfo?.icon} {typeInfo?.label} — اليوم</span>
+                    <span className={`text-xs font-bold ${todayCount >= targetVal && targetVal > 0 ? "text-cc-green" : todayCount >= minVal && minVal > 0 ? "text-cyan" : "text-muted-foreground"}`}>{pct}%</span>
+                  </div>
+                  <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden mb-2">
+                    <div className={`h-full rounded-full transition-all ${todayCount >= targetVal && targetVal > 0 ? "bg-cc-green" : todayCount >= minVal && minVal > 0 ? "bg-cyan" : "bg-amber"}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-foreground font-bold">المتحقق: <span className="text-cyan">{todayCount}</span></span>
+                    <span className="text-muted-foreground">الحد الأدنى: {minVal}</span>
+                    <span className="text-muted-foreground">المستهدف: <span className="text-amber font-bold">{targetVal}</span></span>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>الموظف</Label>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
@@ -12,7 +12,7 @@ import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { OrgProvider } from "@/lib/org-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DEMO_TICKETS, DEMO_PROJECTS, DEMO_PARTNERSHIPS } from "@/lib/demo-data";
-import { fetchDeals, fetchSalesTargets, fetchSalesActivities, fetchTickets } from "@/lib/supabase/db";
+import { fetchDeals, fetchSalesTargets, fetchSalesActivities, fetchTickets, fetchMentionNotifications, markMentionNotificationsRead } from "@/lib/supabase/db";
 import type { AppNotification } from "@/types";
 
 const PAGE_SLUG_MAP: Record<string, string> = {
@@ -30,6 +30,28 @@ const PAGE_SLUG_MAP: Record<string, string> = {
   "/users": "users",
   "/weekly": "weekly",
 };
+
+function MentionNotifLoader({ onLoad }: { onLoad: (n: AppNotification[]) => void }) {
+  const { user } = useAuth();
+  useEffect(() => {
+    if (!user?.name) return;
+    fetchMentionNotifications(user.name).then((mentions) => {
+      const notifs: AppNotification[] = mentions
+        .filter((m) => !m.is_read)
+        .map((m) => ({
+          id: `mention-${m.id}`,
+          type: "crud_action" as const,
+          icon: "💬",
+          message: `${m.author_name} أشار إليك في متابعة "${m.entity_name}": ${m.note_text.slice(0, 60)}...`,
+          section: m.entity_type === "deal" ? "sales" : "renewals",
+          timestamp: m.created_at,
+          isRead: false,
+        }));
+      if (notifs.length > 0) onLoad(notifs);
+    }).catch(console.error);
+  }, [user?.name, onLoad]);
+  return null;
+}
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -271,6 +293,15 @@ export default function DashboardLayout({
     });
   }, []);
 
+  // Expose addNotifications for child components
+  const addNotifications = useCallback((newNotifs: AppNotification[]) => {
+    setNotifications((prev) => {
+      const existingIds = new Set(prev.map((n) => n.id));
+      const fresh = newNotifs.filter((n) => !existingIds.has(n.id));
+      return [...fresh, ...prev];
+    });
+  }, []);
+
   const unreadCount = useMemo(() => notifications.filter((n) => !n.isRead).length, [notifications]);
 
   const isAgentPage = pathname === "/agent";
@@ -279,6 +310,7 @@ export default function DashboardLayout({
     <OrgProvider>
     <AuthProvider>
     <TopbarProvider>
+      <MentionNotifLoader onLoad={addNotifications} />
       <div className="min-h-screen bg-background panel-grid">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 

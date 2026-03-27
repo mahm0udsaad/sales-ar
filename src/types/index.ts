@@ -378,3 +378,28 @@ export interface AppNotification {
   timestamp: string;
   isRead: boolean;
 }
+
+export interface FollowUpNote {
+  id: string;
+  org_id: string;
+  entity_type: "deal" | "renewal";
+  entity_id: string;
+  note: string;
+  note_type?: "note" | "call" | "whatsapp" | "followup" | "meeting" | "demo" | "quote";
+  author_name: string;
+  created_at: string;
+}
+
+export interface MentionNotification {
+  id: string;
+  org_id: string;
+  note_id: string;
+  entity_type: "deal" | "renewal";
+  entity_id: string;
+  entity_name: string;
+  mentioned_name: string;
+  author_name: string;
+  note_text: string;
+  is_read: boolean;
+  created_at: string;
+}

@@ -7,6 +7,7 @@ import {
   createRenewal,
   updateRenewal,
   deleteRenewal,
+  createFollowUpNote,
 } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
 import { useTopbarControls } from "@/components/layout/topbar-context";
@@ -20,6 +21,7 @@ import {
   KPI_STATUS_STYLES,
 } from "@/lib/utils/constants";
 import { formatMoneyFull, formatDate, formatPhone, formatPercent } from "@/lib/utils/format";
+import { FollowUpLogButton } from "@/components/follow-up-log";
 import { StatCard } from "@/components/ui/stat-card";
 import { DonutChart } from "@/components/ui/donut-chart";
 import { LineChart } from "@/components/ui/line-chart";
@@ -114,7 +116,7 @@ function getDaysRemainingStyle(days: number) {
 }
 
 export default function RenewalsPage() {
-  const { activeOrgId: orgId } = useAuth();
+  const { activeOrgId: orgId, user: authUser } = useAuth();
   const [renewals, setRenewals] = useState<Renewal[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -384,8 +386,23 @@ export default function RenewalsPage() {
       };
 
       if (editingId) {
+        const oldRenewal = renewals.find((r) => r.id === editingId);
         const updated = await updateRenewal(editingId, payload);
         setRenewals((prev) => prev.map((r) => (r.id === editingId ? updated : r)));
+
+        /* Auto-track changes */
+        if (oldRenewal) {
+          const author = authUser?.name || "النظام";
+          const changes: string[] = [];
+          if (oldRenewal.status !== form.status) changes.push(`الحالة: ${oldRenewal.status} ← ${form.status}`);
+          if (oldRenewal.plan_name !== form.plan_name) changes.push(`الباقة: ${oldRenewal.plan_name} ← ${form.plan_name}`);
+          if (oldRenewal.plan_price !== form.plan_price) changes.push(`السعر: ${oldRenewal.plan_price} ← ${form.plan_price} ر.س`);
+          if ((oldRenewal.assigned_rep || "") !== (form.assigned_rep || "")) changes.push(`المسؤول: ${oldRenewal.assigned_rep || "—"} ← ${form.assigned_rep || "—"}`);
+          if (oldRenewal.renewal_date !== form.renewal_date) changes.push(`تاريخ التجديد: ${oldRenewal.renewal_date} ← ${form.renewal_date}`);
+          if (changes.length > 0) {
+            createFollowUpNote("renewal", editingId, `📝 تحديث تلقائي:\n${changes.join("\n")}`, author).catch(console.error);
+          }
+        }
       } else {
         const created = await createRenewal(payload as Omit<Renewal, "id" | "org_id" | "created_at" | "updated_at">);
         setRenewals((prev) => [...prev, created].sort(
@@ -752,6 +769,7 @@ export default function RenewalsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-center gap-1">
+                        <FollowUpLogButton entityType="renewal" entityId={renewal.id} entityName={renewal.customer_name} />
                         <Button
                           variant="ghost"
                           size="icon-xs"

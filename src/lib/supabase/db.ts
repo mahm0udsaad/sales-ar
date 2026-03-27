@@ -1,5 +1,5 @@
 import { createClient } from "./client";
-import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot, Review, Renewal, Referral, MonthlyExpense, Marketer, SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, SalesGuideSetting, SalesMessage, SalesMessageRating } from "@/types";
+import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot, Review, Renewal, Referral, MonthlyExpense, Marketer, SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, SalesGuideSetting, SalesMessage, SalesMessageRating, FollowUpNote, MentionNotification } from "@/types";
 
 const DEFAULT_ORG = "00000000-0000-0000-0000-000000000001";
 
@@ -980,4 +980,108 @@ export async function deleteMarketer(id: string): Promise<void> {
     .eq("id", id)
     .eq("org_id", getOrgId());
   if (error) throw error;
+}
+
+// ─── FOLLOW-UP NOTES ──────────────────────────────────────────────────────────
+
+export async function fetchFollowUpNotes(entityType: "deal" | "renewal", entityId: string): Promise<FollowUpNote[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("follow_up_notes")
+    .select("*")
+    .eq("org_id", getOrgId())
+    .eq("entity_type", entityType)
+    .eq("entity_id", entityId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data || []) as FollowUpNote[];
+}
+
+export async function createFollowUpNote(
+  entityType: "deal" | "renewal",
+  entityId: string,
+  note: string,
+  authorName: string,
+  noteType: string = "note"
+): Promise<FollowUpNote> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("follow_up_notes")
+    .insert({ org_id: getOrgId(), entity_type: entityType, entity_id: entityId, note, author_name: authorName, note_type: noteType })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as FollowUpNote;
+}
+
+export async function fetchFollowUpNotesByDate(dateStr: string): Promise<FollowUpNote[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("follow_up_notes")
+    .select("*")
+    .eq("org_id", getOrgId())
+    .gte("created_at", `${dateStr}T00:00:00`)
+    .lt("created_at", `${dateStr}T23:59:59.999`)
+    .neq("note_type", "note");
+  if (error) throw error;
+  return (data || []) as FollowUpNote[];
+}
+
+export async function fetchFollowUpNotesSince(sinceDate: string): Promise<FollowUpNote[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("follow_up_notes")
+    .select("*")
+    .eq("org_id", getOrgId())
+    .gte("created_at", `${sinceDate}T00:00:00`)
+    .neq("note_type", "note")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data || []) as FollowUpNote[];
+}
+
+// ─── MENTION NOTIFICATIONS ────────────────────────────────────────────────────
+
+export async function createMentionNotification(
+  noteId: string,
+  entityType: "deal" | "renewal",
+  entityId: string,
+  entityName: string,
+  mentionedName: string,
+  authorName: string,
+  noteText: string
+): Promise<void> {
+  const supabase = createClient();
+  await supabase.from("mention_notifications").insert({
+    org_id: getOrgId(),
+    note_id: noteId,
+    entity_type: entityType,
+    entity_id: entityId,
+    entity_name: entityName,
+    mentioned_name: mentionedName,
+    author_name: authorName,
+    note_text: noteText,
+  });
+}
+
+export async function fetchMentionNotifications(userName: string): Promise<MentionNotification[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("mention_notifications")
+    .select("*")
+    .eq("org_id", getOrgId())
+    .eq("mentioned_name", userName)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return (data || []) as MentionNotification[];
+}
+
+export async function markMentionNotificationsRead(ids: string[]): Promise<void> {
+  const supabase = createClient();
+  await supabase
+    .from("mention_notifications")
+    .update({ is_read: true })
+    .in("id", ids)
+    .eq("org_id", getOrgId());
 }

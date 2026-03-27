@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { Deal, Marketer } from "@/types";
-import { fetchDeals, createDeal, updateDeal, deleteDeal, fetchMarketers } from "@/lib/supabase/db";
+import { fetchDeals, createDeal, updateDeal, deleteDeal, fetchMarketers, createFollowUpNote } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
 import { useTopbarControls } from "@/components/layout/topbar-context";
 import { STAGES, SOURCES, SOURCE_COLORS, PLANS } from "@/lib/utils/constants";
 
 import SalesKPIsView from "@/components/SalesKPIsView";
 import { formatMoney, formatMoneyFull, formatDate, formatPhone, formatPercent } from "@/lib/utils/format";
+import { FollowUpLogButton } from "@/components/follow-up-log";
 import { getKpiStatus, KPI_STATUS_STYLES, KPI_TARGETS } from "@/lib/utils/constants";
 import { StatCard } from "@/components/ui/stat-card";
 import { KPICard } from "@/components/ui/kpi-card";
@@ -104,7 +105,7 @@ const EMPTY_FORM = {
 };
 
 export default function SalesPage() {
-  const { activeOrgId: orgId } = useAuth();
+  const { activeOrgId: orgId, user: authUser } = useAuth();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [marketers, setMarketers] = useState<Marketer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,6 +151,86 @@ export default function SalesPage() {
   function deselectAll() {
     setDailyTargetIds(new Set());
     localStorage.setItem(salesTodayKey, JSON.stringify([]));
+  }
+
+  /* ─── Follow-up (متابعة) selection ─── */
+  const [followUpIds, setFollowUpIds] = useState<Set<string>>(new Set());
+  const [showFollowUp, setShowFollowUp] = useState(false);
+
+  function toggleFollowUp(id: string) {
+    setFollowUpIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAllFollowUp() {
+    setFollowUpIds(new Set(nonCompletedDeals.map((d) => d.id)));
+  }
+
+  function clearFollowUp() {
+    setFollowUpIds(new Set());
+  }
+
+  function getRecommendation(deal: Deal): { text: string; color: string; icon: string } {
+    const daysSince = deal.deal_date ? Math.floor((Date.now() - new Date(deal.deal_date).getTime()) / 86400000) : 0;
+
+    if (deal.stage === "انتظار الدفع") {
+      return { text: "تذكير بالدفع — أرسل رسالة تذكير ودية للعميل", color: "text-amber", icon: "💳" };
+    }
+    if (deal.stage === "تفاوض" && deal.probability < 50) {
+      return { text: "قدّم خصم خاص أو عرض محدود لتحفيز القرار", color: "text-cc-purple", icon: "🏷️" };
+    }
+    if (deal.stage === "تفاوض" && deal.probability >= 50) {
+      return { text: "العميل مهتم — ركّز على إبراز القيمة وأرسل عرض سعر نهائي", color: "text-cc-purple", icon: "📋" };
+    }
+    if (deal.stage === "تجريبي") {
+      return { text: "تابع تجربة العميل واسأل عن رأيه ومدى رضاه", color: "text-cc-blue", icon: "🧪" };
+    }
+    if (deal.stage === "تجهيز") {
+      return { text: "أسرع في التجهيز وأبلغ العميل بالتقدم", color: "text-cyan", icon: "⚙️" };
+    }
+    if (daysSince > 14 && deal.stage === "تواصل") {
+      return { text: "مضى أكثر من أسبوعين — اتصل بالعميل مباشرة أو قدّم عرض جديد", color: "text-cc-red", icon: "🔥" };
+    }
+    if (daysSince > 7 && deal.stage === "تواصل") {
+      return { text: "لم يتم التواصل منذ أسبوع — أرسل رسالة متابعة", color: "text-amber", icon: "📱" };
+    }
+    if (deal.deal_value >= 500) {
+      return { text: "صفقة ذات قيمة عالية — أعطها أولوية قصوى", color: "text-cyan", icon: "⭐" };
+    }
+    return { text: "تواصل مع العميل واستفسر عن احتياجاته", color: "text-muted-foreground", icon: "📞" };
+  }
+
+  function buildFollowUpReport() {
+    const followUpDeals = deals.filter((d) => followUpIds.has(d.id));
+    const todayStr = new Date().toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    let report = `📋 قائمة متابعة العملاء\n`;
+    report += `📅 ${todayStr}\n`;
+    report += `${"─".repeat(35)}\n`;
+    report += `📊 عدد العملاء: ${followUpDeals.length}\n`;
+    report += `💰 إجمالي القيمة: ${followUpDeals.reduce((s, d) => s + d.deal_value, 0).toLocaleString()} ر.س\n\n`;
+    followUpDeals.forEach((d, i) => {
+      const rec = getRecommendation(d);
+      report += `${i + 1}. ${d.client_name}\n`;
+      report += `   المرحلة: ${d.stage} | القيمة: ${d.deal_value.toLocaleString()} ر.س\n`;
+      report += `   ${rec.icon} التوصية: ${rec.text}\n`;
+      if (d.assigned_rep_name) report += `   المسؤول: ${d.assigned_rep_name}\n`;
+      report += `\n`;
+    });
+    return report;
+  }
+
+  async function shareFollowUpReport() {
+    const report = buildFollowUpReport();
+    if (navigator.share) {
+      try { await navigator.share({ title: "قائمة متابعة العملاء", text: report }); }
+      catch { await navigator.clipboard.writeText(report); alert("تم نسخ التقرير!"); }
+    } else {
+      await navigator.clipboard.writeText(report);
+      alert("تم نسخ التقرير! يمكنك لصقه في واتساب أو أي تطبيق.");
+    }
   }
 
   function buildSalesReport() {
@@ -214,12 +295,11 @@ export default function SalesPage() {
     ? deals.filter((d) => new Date(d.deal_date || d.created_at) >= filterCutoff)
     : activeMonthIndex
       ? deals.filter((d) => {
-          const dt = d.deal_date ? new Date(d.deal_date) : null;
-          const m = d.month ?? (dt ? dt.getMonth() + 1 : null);
-          const y = d.year ?? (dt ? dt.getFullYear() : null);
-          return m === activeMonthIndex.month && y === activeMonthIndex.year;
+          const dt = new Date(d.deal_date || d.created_at);
+          return dt.getMonth() + 1 === activeMonthIndex.month && dt.getFullYear() === activeMonthIndex.year;
         })
       : deals;
+  const nonCompletedDeals = monthDeals.filter((d) => d.stage !== "مكتملة" && d.stage !== "مرفوض مع سبب");
   const stageFilteredDeals = stageFilter ? monthDeals.filter((d) => d.stage === stageFilter) : monthDeals;
   const filteredDeals = clientSearch
     ? stageFilteredDeals.filter((d) => d.client_name.toLowerCase().includes(clientSearch.toLowerCase()))
@@ -260,14 +340,15 @@ export default function SalesPage() {
 
   /* Rep performance */
   const repPerformance = (() => {
-    const repMap: Record<string, { deals: number; closed: number; value: number; cycleDays: number }> = {};
+    const repMap: Record<string, { deals: number; closed: number; value: number; cycleDays: number; plans: Record<string, number> }> = {};
     monthDeals.forEach((d) => {
       const rep = d.assigned_rep_name || "غير محدد";
-      if (!repMap[rep]) repMap[rep] = { deals: 0, closed: 0, value: 0, cycleDays: 0 };
+      if (!repMap[rep]) repMap[rep] = { deals: 0, closed: 0, value: 0, cycleDays: 0, plans: {} };
       repMap[rep].deals++;
       repMap[rep].value += d.deal_value;
       repMap[rep].cycleDays += d.cycle_days;
       if (d.stage === "مكتملة") repMap[rep].closed++;
+      if (d.plan) repMap[rep].plans[d.plan] = (repMap[rep].plans[d.plan] || 0) + 1;
     });
     return Object.entries(repMap)
       .map(([name, data]) => ({
@@ -275,6 +356,7 @@ export default function SalesPage() {
         deals: data.deals,
         closed: data.closed,
         value: data.value,
+        plans: data.plans,
         winRate: data.deals > 0 ? Math.round((data.closed / data.deals) * 100) : 0,
         avgCycle: data.deals > 0 ? Math.round(data.cycleDays / data.deals) : 0,
       }))
@@ -348,6 +430,7 @@ export default function SalesPage() {
       const marketerName = form.source === "تسويق بالعمولة" ? form.marketer_name : undefined;
 
       if (editingId) {
+        const oldDeal = deals.find((d) => d.id === editingId);
         const updated = await updateDeal(editingId, {
           client_name: form.client_name,
           client_phone: form.client_phone,
@@ -363,6 +446,21 @@ export default function SalesPage() {
           year,
         });
         setDeals((prev) => prev.map((d) => (d.id === editingId ? updated : d)));
+
+        /* Auto-track changes */
+        if (oldDeal) {
+          const author = authUser?.name || "النظام";
+          const changes: string[] = [];
+          if (oldDeal.stage !== form.stage) changes.push(`المرحلة: ${oldDeal.stage} ← ${form.stage}`);
+          if (oldDeal.deal_value !== form.deal_value) changes.push(`القيمة: ${oldDeal.deal_value} ← ${form.deal_value} ر.س`);
+          if (oldDeal.probability !== form.probability) changes.push(`الاحتمالية: ${oldDeal.probability}% ← ${form.probability}%`);
+          if ((oldDeal.assigned_rep_name || "") !== form.assigned_rep_name) changes.push(`المسؤول: ${oldDeal.assigned_rep_name || "—"} ← ${form.assigned_rep_name || "—"}`);
+          if ((oldDeal.plan || "") !== (form.plan || "")) changes.push(`الباقة: ${oldDeal.plan || "—"} ← ${form.plan || "—"}`);
+          if ((oldDeal.source || "") !== form.source) changes.push(`المصدر: ${oldDeal.source || "—"} ← ${form.source}`);
+          if (changes.length > 0) {
+            createFollowUpNote("deal", editingId, `📝 تحديث تلقائي:\n${changes.join("\n")}`, author).catch(console.error);
+          }
+        }
       } else {
         const created = await createDeal({
           client_name: form.client_name,
@@ -497,6 +595,101 @@ export default function SalesPage() {
             })}
       </div>
 
+      {/* ─── Follow-up Section ─── */}
+      {!loading && nonCompletedDeals.length > 0 && (
+        <div className="cc-card rounded-xl border border-amber/20 bg-gradient-to-l from-amber/[0.04] to-transparent">
+          <button
+            onClick={() => setShowFollowUp(!showFollowUp)}
+            className="w-full p-4 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-amber/10 flex items-center justify-center">
+                <Phone className="w-4 h-4 text-amber" />
+              </div>
+              <div className="text-right">
+                <h3 className="text-sm font-bold text-foreground">متابعة العملاء</h3>
+                <span className="text-[10px] text-muted-foreground">{nonCompletedDeals.length} عميل غير مكتمل — {followUpIds.size > 0 ? `${followUpIds.size} محدد` : "اختر للمتابعة"}</span>
+              </div>
+            </div>
+            <svg className={`w-4 h-4 text-muted-foreground transition-transform ${showFollowUp ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {showFollowUp && (
+            <div className="px-4 pb-4 space-y-3">
+              {/* Actions bar */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button onClick={selectAllFollowUp} className="text-[10px] px-2.5 py-1.5 rounded-lg border border-amber/30 text-amber hover:bg-amber/10 transition-colors">
+                  <SquareCheck className="w-3 h-3 inline-block ml-1" />تحديد الكل
+                </button>
+                {followUpIds.size > 0 && (
+                  <>
+                    <button onClick={shareFollowUpReport} className="text-[10px] px-2.5 py-1.5 rounded-lg border border-cc-purple/30 text-cc-purple hover:bg-cc-purple/10 transition-colors">
+                      <Share2 className="w-3 h-3 inline-block ml-1" />مشاركة مع الفريق
+                    </button>
+                    <button onClick={clearFollowUp} className="text-[10px] text-muted-foreground hover:text-cc-red transition-colors">مسح التحديد</button>
+                    <span className="text-[10px] text-muted-foreground mr-auto">
+                      {followUpIds.size} عميل | {formatMoney(deals.filter((d) => followUpIds.has(d.id)).reduce((s, d) => s + d.deal_value, 0))}
+                    </span>
+                  </>
+                )}
+              </div>
+
+              {/* Client cards */}
+              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                {nonCompletedDeals.map((deal) => {
+                  const isSelected = followUpIds.has(deal.id);
+                  const rec = getRecommendation(deal);
+                  const daysSince = deal.deal_date ? Math.floor((Date.now() - new Date(deal.deal_date).getTime()) / 86400000) : 0;
+
+                  return (
+                    <div
+                      key={deal.id}
+                      onClick={() => toggleFollowUp(deal.id)}
+                      className={`flex gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                        isSelected ? "border-amber/40 bg-amber/[0.06]" : "border-border/30 bg-card/30 hover:border-border/60"
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <div className={`w-5 h-5 mt-0.5 rounded border-2 flex-shrink-0 flex items-center justify-center transition-all ${
+                        isSelected ? "border-amber bg-amber/20 text-amber" : "border-muted-foreground/30"
+                      }`}>
+                        {isSelected && (
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-bold text-foreground">{deal.client_name}</span>
+                          <ColorBadge color={STAGE_BADGE_COLOR[deal.stage] || "cyan"} text={deal.stage} />
+                          <span className="text-xs font-bold text-cyan">{formatMoney(deal.deal_value)}</span>
+                          {daysSince > 0 && (
+                            <span className={`text-[10px] ${daysSince > 14 ? "text-cc-red" : daysSince > 7 ? "text-amber" : "text-muted-foreground"}`}>
+                              منذ {daysSince} يوم
+                            </span>
+                          )}
+                          {deal.assigned_rep_name && <span className="text-[10px] text-muted-foreground">{deal.assigned_rep_name}</span>}
+                        </div>
+                        {/* Recommendation */}
+                        <div className={`flex items-start gap-1.5 mt-1.5 ${rec.color}`}>
+                          <span className="text-xs leading-none">{rec.icon}</span>
+                          <span className="text-[11px] leading-relaxed">{rec.text}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ─── Daily Sales Target ─── */}
       {dailyTargetIds.size > 0 && !loading && (() => {
         const targetDeals = deals.filter((d) => dailyTargetIds.has(d.id));
@@ -603,7 +796,7 @@ export default function SalesPage() {
               <TableHead>المصدر</TableHead>
               <TableHead>القيمة</TableHead>
               <TableHead>المرحلة</TableHead>
-              <TableHead className="min-w-[120px]">الاحتمالية</TableHead>
+              <TableHead>الباقة</TableHead>
               <TableHead>المسؤول</TableHead>
               <TableHead className="text-center">إجراءات</TableHead>
             </TableRow>
@@ -618,12 +811,7 @@ export default function SalesPage() {
                   <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-1.5 flex-1 rounded-full" />
-                      <Skeleton className="h-4 w-8" />
-                    </div>
-                  </TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-1">
@@ -689,23 +877,14 @@ export default function SalesPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-cyan transition-all"
-                          style={{ width: `${deal.probability}%` }}
-                        />
-                      </div>
-                      <span className="text-[10px] text-muted-foreground w-7 text-left" dir="ltr">
-                        {deal.probability}%
-                      </span>
-                    </div>
+                    <span className="text-xs text-muted-foreground">{deal.plan || "—"}</span>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     {deal.assigned_rep_name || "—"}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-1">
+                      <FollowUpLogButton entityType="deal" entityId={deal.id} entityName={deal.client_name} />
                       <Button
                         variant="ghost"
                         size="icon-xs"
@@ -744,6 +923,7 @@ export default function SalesPage() {
                   <th className="py-3 px-5 text-right font-medium">المندوب</th>
                   <th className="py-3 px-4 text-center font-medium">الصفقات</th>
                   <th className="py-3 px-4 text-center font-medium">مُغلق</th>
+                  <th className="py-3 px-4 text-right font-medium">الباقات</th>
                   <th className="py-3 px-4 text-right font-medium min-w-[140px]">معدل الإغلاق</th>
                   <th className="py-3 px-4 text-center font-medium">متوسط الدورة</th>
                   <th className="py-3 px-4 text-right font-medium">إجمالي القيمة</th>
@@ -777,6 +957,16 @@ export default function SalesPage() {
                       </td>
                       <td className="py-3.5 px-4 text-center text-muted-foreground">{rep.deals}</td>
                       <td className="py-3.5 px-4 text-center text-muted-foreground">{rep.closed}</td>
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex flex-wrap gap-1 justify-end">
+                          {Object.entries(rep.plans).map(([plan, count]) => (
+                            <span key={plan} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white/5 text-[10px] text-muted-foreground">
+                              {plan} <span className="text-cyan font-bold">{count}</span>
+                            </span>
+                          ))}
+                          {Object.keys(rep.plans).length === 0 && <span className="text-muted-foreground/50">—</span>}
+                        </div>
+                      </td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-2">
                           <span className={`text-sm font-bold ${rep.winRate >= 30 ? "text-amber" : rep.winRate > 0 ? "text-cc-red" : "text-muted-foreground"}`}>
