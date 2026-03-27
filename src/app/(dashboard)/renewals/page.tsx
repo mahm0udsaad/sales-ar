@@ -124,14 +124,25 @@ export default function RenewalsPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  /* month filter */
+  /* month filter — renewal_date for pending, updated_at for completed/cancelled */
   const { activeMonthIndex, filterCutoff } = useTopbarControls();
   const monthRenewals = filterCutoff
-    ? renewals.filter((r) => new Date(r.renewal_date) >= filterCutoff)
+    ? renewals.filter((r) => {
+        const renewalD = new Date(r.renewal_date);
+        const updatedD = new Date(r.updated_at);
+        return renewalD >= filterCutoff || updatedD >= filterCutoff;
+      })
     : activeMonthIndex
       ? renewals.filter((r) => {
-          const d = new Date(r.renewal_date);
-          return d.getMonth() + 1 === activeMonthIndex.month && d.getFullYear() === activeMonthIndex.year;
+          const rd = new Date(r.renewal_date);
+          const byRenewalDate = rd.getMonth() + 1 === activeMonthIndex.month && rd.getFullYear() === activeMonthIndex.year;
+          // For completed/cancelled renewals, also match by updated_at (when status changed)
+          if (r.status === "مكتمل" || r.status === "ملغي بسبب") {
+            const ud = new Date(r.updated_at);
+            const byUpdatedDate = ud.getMonth() + 1 === activeMonthIndex.month && ud.getFullYear() === activeMonthIndex.year;
+            return byRenewalDate || byUpdatedDate;
+          }
+          return byRenewalDate;
         })
       : renewals;
 

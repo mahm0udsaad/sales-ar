@@ -105,10 +105,16 @@ export default function FinancePage() {
     setExpenses((prev) => prev.filter((e) => e.id !== id));
   }
 
-  /* ─── Helper: get renewal month/year from renewal_date ─── */
-  function getRenewalMonth(r: Renewal) {
-    const d = new Date(r.renewal_date);
-    return { month: d.getMonth() + 1, year: d.getFullYear() };
+  /* ─── Helper: match renewal to a month using updated_at for completed ─── */
+  function renewalMatchesMonth(r: Renewal, m: number, y: number) {
+    const rd = new Date(r.renewal_date);
+    if (rd.getMonth() + 1 === m && rd.getFullYear() === y) return true;
+    // For completed renewals, also match by updated_at (when status was changed)
+    if (r.status === "مكتمل") {
+      const ud = new Date(r.updated_at);
+      if (ud.getMonth() + 1 === m && ud.getFullYear() === y) return true;
+    }
+    return false;
   }
 
   /* ─── Computed Metrics (filtered by selected month) ─── */
@@ -120,8 +126,7 @@ export default function FinancePage() {
   /* Renewals revenue for the selected month */
   const monthRenewals = renewals.filter((r) => {
     if (r.status !== "مكتمل") return false;
-    const rm = getRenewalMonth(r);
-    return rm.month === selectedMonth && rm.year === selectedYear;
+    return renewalMatchesMonth(r, selectedMonth, selectedYear);
   });
   const renewalsRevenue = monthRenewals.reduce((s, r) => s + r.plan_price, 0);
 
@@ -146,10 +151,7 @@ export default function FinancePage() {
         .filter((deal) => deal.month === m && deal.year === y)
         .reduce((s, deal) => s + deal.deal_value, 0);
       const rRev = completedRenewals
-        .filter((r) => {
-          const rm = getRenewalMonth(r);
-          return rm.month === m && rm.year === y;
-        })
+        .filter((r) => renewalMatchesMonth(r, m, y))
         .reduce((s, r) => s + r.plan_price, 0);
       months.push({ month: MONTHS_AR[d.getMonth()], salesRev: sRev, renewalsRev: rRev, revenue: sRev + rRev });
     }
