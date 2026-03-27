@@ -236,6 +236,76 @@ export default function SalesGuidePage() {
     return activities.filter((a) => a.activity_date >= start);
   }, [activities]);
 
+  /* Auto-calculate live scores per employee from activities + deals */
+  const liveScores = useMemo(() => {
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - weekStart.getDay());
+    const weekStartStr = weekStart.toISOString().split("T")[0];
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+
+    // Get week's closed deals
+    const weekClosedDeals = deals.filter((d) =>
+      d.stage === "مكتملة" && (d.deal_date || d.created_at.slice(0, 10)) >= weekStartStr
+    );
+
+    // Build per-employee map
+    const empMap: Record<string, {
+      calls: number; demos: number; followups: number; meetings: number;
+      quotes: number; whatsapp: number; deals_closed: number; revenue: number; points: number;
+    }> = {};
+
+    const getEmp = (name: string) => {
+      if (!empMap[name]) empMap[name] = { calls: 0, demos: 0, followups: 0, meetings: 0, quotes: 0, whatsapp: 0, deals_closed: 0, revenue: 0, points: 0 };
+      return empMap[name];
+    };
+
+    // Count activities this week
+    weekActivities.forEach((a) => {
+      const name = a.employee_name || "غير محدد";
+      const emp = getEmp(name);
+      const ap = activityPoints.find((p) => p.key === a.activity_type);
+      const pts = ap?.points ?? 0;
+      emp.points += pts;
+      if (a.activity_type === "call") emp.calls++;
+      else if (a.activity_type === "demo") emp.demos++;
+      else if (a.activity_type === "followup") emp.followups++;
+      else if (a.activity_type === "meeting") emp.meetings++;
+      else if (a.activity_type === "quote") emp.quotes++;
+      else if (a.activity_type === "whatsapp") emp.whatsapp++;
+    });
+
+    // Count closed deals this week
+    weekClosedDeals.forEach((d) => {
+      const name = d.assigned_rep_name || "غير محدد";
+      const emp = getEmp(name);
+      emp.deals_closed++;
+      emp.revenue += d.deal_value;
+      const dealPts = activityPoints.find((p) => p.key === "deal_closed")?.points ?? 50;
+      emp.points += dealPts;
+    });
+
+    // Determine levels based on scoreLevels config
+    const sortedLevels = [...scoreLevels].sort((a, b) => b.minPoints - a.minPoints);
+
+    return Object.entries(empMap)
+      .map(([name, data]) => {
+        const level = sortedLevels.find((l) => data.points >= l.minPoints)?.value || "";
+        return {
+          id: name,
+          employee_name: name,
+          total_points: data.points,
+          calls_count: data.calls + data.whatsapp,
+          demos_count: data.demos,
+          followups_count: data.followups,
+          deals_closed: data.deals_closed,
+          revenue: data.revenue,
+          level,
+        };
+      })
+      .sort((a, b) => b.total_points - a.total_points);
+  }, [weekActivities, deals, activityPoints, scoreLevels]);
+
   const activePips = pipPlans.filter((p) => p.status === "active");
 
   /* ─── Handlers ─── */
@@ -619,15 +689,15 @@ export default function SalesGuidePage() {
               </div>
             </div>
 
-            {scores.length === 0 ? (
+            {liveScores.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Trophy className="w-12 h-12 mx-auto mb-3 opacity-30" />
                 <p>لا توجد نتائج أسبوعية بعد</p>
-                <p className="text-sm mt-1">سيتم حساب النقاط تلقائيا من النشاطات</p>
+                <p className="text-sm mt-1">سجّل نشاطات أو أغلق صفقات لحساب النقاط تلقائياً</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {scores.map((s, idx) => {
+                {liveScores.map((s, idx) => {
                   const levelInfo = s.level ? LEVEL_BADGE[s.level] : null;
                   const emoji = scoreLevels.find((l) => l.value === s.level)?.emoji || "";
                   return (
