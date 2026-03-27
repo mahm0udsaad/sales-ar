@@ -258,14 +258,15 @@ export default function SalesPage() {
 
   /* Rep performance */
   const repPerformance = (() => {
-    const repMap: Record<string, { deals: number; closed: number; value: number; cycleDays: number }> = {};
+    const repMap: Record<string, { deals: number; closed: number; value: number; cycleDays: number; plans: Record<string, number> }> = {};
     monthDeals.forEach((d) => {
       const rep = d.assigned_rep_name || "غير محدد";
-      if (!repMap[rep]) repMap[rep] = { deals: 0, closed: 0, value: 0, cycleDays: 0 };
+      if (!repMap[rep]) repMap[rep] = { deals: 0, closed: 0, value: 0, cycleDays: 0, plans: {} };
       repMap[rep].deals++;
       repMap[rep].value += d.deal_value;
       repMap[rep].cycleDays += d.cycle_days;
       if (d.stage === "مكتملة") repMap[rep].closed++;
+      if (d.plan) repMap[rep].plans[d.plan] = (repMap[rep].plans[d.plan] || 0) + 1;
     });
     return Object.entries(repMap)
       .map(([name, data]) => ({
@@ -273,6 +274,7 @@ export default function SalesPage() {
         deals: data.deals,
         closed: data.closed,
         value: data.value,
+        plans: data.plans,
         winRate: data.deals > 0 ? Math.round((data.closed / data.deals) * 100) : 0,
         avgCycle: data.deals > 0 ? Math.round(data.cycleDays / data.deals) : 0,
       }))
@@ -742,6 +744,7 @@ export default function SalesPage() {
                   <th className="py-3 px-5 text-right font-medium">المندوب</th>
                   <th className="py-3 px-4 text-center font-medium">الصفقات</th>
                   <th className="py-3 px-4 text-center font-medium">مُغلق</th>
+                  <th className="py-3 px-4 text-right font-medium">الباقات</th>
                   <th className="py-3 px-4 text-right font-medium min-w-[140px]">معدل الإغلاق</th>
                   <th className="py-3 px-4 text-center font-medium">متوسط الدورة</th>
                   <th className="py-3 px-4 text-right font-medium">إجمالي القيمة</th>
@@ -775,6 +778,16 @@ export default function SalesPage() {
                       </td>
                       <td className="py-3.5 px-4 text-center text-muted-foreground">{rep.deals}</td>
                       <td className="py-3.5 px-4 text-center text-muted-foreground">{rep.closed}</td>
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex flex-wrap gap-1 justify-end">
+                          {Object.entries(rep.plans).map(([plan, count]) => (
+                            <span key={plan} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white/5 text-[10px] text-muted-foreground">
+                              {plan} <span className="text-cyan font-bold">{count}</span>
+                            </span>
+                          ))}
+                          {Object.keys(rep.plans).length === 0 && <span className="text-muted-foreground/50">—</span>}
+                        </div>
+                      </td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-2">
                           <span className={`text-sm font-bold ${rep.winRate >= 30 ? "text-amber" : rep.winRate > 0 ? "text-cc-red" : "text-muted-foreground"}`}>
