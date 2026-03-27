@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
-import type { SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, Employee, PipelineStageItem, ActivityPointItem, ScoreLevelItem, SalesMessage, SalesMessageRating } from "@/types";
+import type { SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, Employee, PipelineStageItem, ActivityPointItem, ScoreLevelItem, SalesMessage, SalesMessageRating, Deal } from "@/types";
 import {
   fetchSalesActivities,
   createSalesActivity,
@@ -23,6 +23,7 @@ import {
   deleteSalesMessage,
   addMessageRating,
   fetchMessageRatings,
+  fetchDeals,
 } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -137,6 +138,7 @@ export default function SalesGuidePage() {
 
   /* ─── State ─── */
   const [activities, setActivities] = useState<SalesActivity[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [targets, setTargets] = useState<SalesTarget[]>([]);
   const [scores, setScores] = useState<RepWeeklyScore[]>([]);
   const [pipPlans, setPipPlans] = useState<PipPlan[]>([]);
@@ -196,7 +198,7 @@ export default function SalesGuidePage() {
 
   async function load() {
     setLoading(true);
-    const [a, t, s, p, e, gs, msgs] = await Promise.allSettled([
+    const [a, t, s, p, e, gs, msgs, d] = await Promise.allSettled([
       fetchSalesActivities(),
       fetchSalesTargets(),
       fetchRepWeeklyScores(),
@@ -204,9 +206,11 @@ export default function SalesGuidePage() {
       fetchEmployees(),
       fetchSalesGuideSettings(),
       fetchSalesMessages(),
+      fetchDeals(),
     ]);
     if (a.status === "fulfilled") setActivities(a.value);
     if (t.status === "fulfilled") setTargets(t.value);
+    if (d.status === "fulfilled") setDeals(d.value);
     if (s.status === "fulfilled") setScores(s.value);
     if (p.status === "fulfilled") setPipPlans(p.value);
     if (e.status === "fulfilled") setEmployees(e.value);
@@ -686,18 +690,40 @@ export default function SalesGuidePage() {
                       demos: ["demo"],
                       quotes: ["quote"],
                     };
-                    const types = keyToTypes[t.target_key];
-                    if (!types) return 0;
 
-                    if (t.period_type === "daily") {
-                      return todayActivities.filter((a) => types.includes(a.activity_type)).length;
-                    } else if (t.period_type === "weekly") {
-                      return weekActivities.filter((a) => types.includes(a.activity_type)).length;
-                    } else {
-                      // monthly
-                      const now = new Date();
-                      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+                    // Period-based deal filtering
+                    const now = new Date();
+                    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+                    const weekStart = (() => { const d = new Date(now); d.setDate(d.getDate() - d.getDay()); return d.toISOString().split("T")[0]; })();
+                    const periodDeals = (period: string) => {
+                      if (period === "daily") return deals.filter((d) => (d.deal_date || d.created_at.slice(0, 10)) === todayStr);
+                      if (period === "weekly") return deals.filter((d) => (d.deal_date || d.created_at.slice(0, 10)) >= weekStart);
+                      return deals.filter((d) => (d.deal_date || d.created_at.slice(0, 10)) >= monthStart);
+                    };
+
+                    // Activity-based targets
+                    const types = keyToTypes[t.target_key];
+                    if (types) {
+                      if (t.period_type === "daily") return todayActivities.filter((a) => types.includes(a.activity_type)).length;
+                      if (t.period_type === "weekly") return weekActivities.filter((a) => types.includes(a.activity_type)).length;
                       return activities.filter((a) => a.activity_date >= monthStart && types.includes(a.activity_type)).length;
+                    }
+
+                    // Deal-based targets
+                    const pd = periodDeals(t.period_type);
+                    const closedDeals = pd.filter((d) => d.stage === "مكتملة");
+
+                    switch (t.target_key) {
+                      case "deals_closed":
+                      case "closed_deals": return closedDeals.length;
+                      case "revenue": return closedDeals.reduce((s, d) => s + d.deal_value, 0);
+                      case "win_rate": return pd.length > 0 ? Math.round((closedDeals.length / pd.length) * 100) : 0;
+                      case "new_clients": return pd.length;
+                      case "avg_cycle_days": return closedDeals.length > 0 ? Math.round(closedDeals.reduce((s, d) => s + d.cycle_days, 0) / closedDeals.length) : 0;
+                      case "avg_deal_value": return closedDeals.length > 0 ? Math.round(closedDeals.reduce((s, d) => s + d.deal_value, 0) / closedDeals.length) : 0;
+                      case "pipeline_value": return pd.filter((d) => d.stage !== "مكتملة" && d.stage !== "مرفوض مع سبب").reduce((s, d) => s + d.deal_value, 0);
+                      case "lead_response_minutes": return 0; // requires response time tracking
+                      default: return 0;
                     }
                   })();
 
