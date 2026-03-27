@@ -214,10 +214,8 @@ export default function SalesPage() {
     ? deals.filter((d) => new Date(d.deal_date || d.created_at) >= filterCutoff)
     : activeMonthIndex
       ? deals.filter((d) => {
-          const dt = d.deal_date ? new Date(d.deal_date) : null;
-          const m = d.month ?? (dt ? dt.getMonth() + 1 : null);
-          const y = d.year ?? (dt ? dt.getFullYear() : null);
-          return m === activeMonthIndex.month && y === activeMonthIndex.year;
+          const dt = new Date(d.deal_date || d.created_at);
+          return dt.getMonth() + 1 === activeMonthIndex.month && dt.getFullYear() === activeMonthIndex.year;
         })
       : deals;
   const stageFilteredDeals = stageFilter ? monthDeals.filter((d) => d.stage === stageFilter) : monthDeals;
