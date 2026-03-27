@@ -1250,6 +1250,35 @@ export default function SalesGuidePage() {
                 </Select>
               </div>
             </div>
+            {/* Target vs Achieved indicator */}
+            {activityForm.activity_type && (() => {
+              const keyMap: Record<string, string> = { call: "calls", whatsapp: "calls", followup: "followups", demo: "demos", quote: "quotes", meeting: "followups" };
+              const targetKey = keyMap[activityForm.activity_type];
+              const target = targetKey ? targets.find((t) => t.target_key === targetKey && t.period_type === "daily") : null;
+              const todayCount = todayActivities.filter((a) => a.activity_type === activityForm.activity_type).length;
+              const targetVal = target?.target_value ?? 0;
+              const minVal = target?.min_value ?? 0;
+              const pct = targetVal > 0 ? Math.min(Math.round((todayCount / targetVal) * 100), 100) : 0;
+              const typeInfo = ACTIVITY_TYPES.find((t) => t.value === activityForm.activity_type);
+
+              return (
+                <div className="rounded-lg border border-border/50 bg-card/50 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-muted-foreground">{typeInfo?.icon} {typeInfo?.label} — اليوم</span>
+                    <span className={`text-xs font-bold ${todayCount >= targetVal && targetVal > 0 ? "text-cc-green" : todayCount >= minVal && minVal > 0 ? "text-cyan" : "text-muted-foreground"}`}>{pct}%</span>
+                  </div>
+                  <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden mb-2">
+                    <div className={`h-full rounded-full transition-all ${todayCount >= targetVal && targetVal > 0 ? "bg-cc-green" : todayCount >= minVal && minVal > 0 ? "bg-cyan" : "bg-amber"}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-foreground font-bold">المتحقق: <span className="text-cyan">{todayCount}</span></span>
+                    <span className="text-muted-foreground">الحد الأدنى: {minVal}</span>
+                    <span className="text-muted-foreground">المستهدف: <span className="text-amber font-bold">{targetVal}</span></span>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>الموظف</Label>
