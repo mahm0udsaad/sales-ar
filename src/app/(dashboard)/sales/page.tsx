@@ -796,7 +796,7 @@ export default function SalesPage() {
               <TableHead>المصدر</TableHead>
               <TableHead>القيمة</TableHead>
               <TableHead>المرحلة</TableHead>
-              <TableHead className="min-w-[120px]">الاحتمالية</TableHead>
+              <TableHead>الباقة</TableHead>
               <TableHead>المسؤول</TableHead>
               <TableHead className="text-center">إجراءات</TableHead>
             </TableRow>
@@ -811,12 +811,7 @@ export default function SalesPage() {
                   <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-1.5 flex-1 rounded-full" />
-                      <Skeleton className="h-4 w-8" />
-                    </div>
-                  </TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-1">
@@ -882,17 +877,7 @@ export default function SalesPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-cyan transition-all"
-                          style={{ width: `${deal.probability}%` }}
-                        />
-                      </div>
-                      <span className="text-[10px] text-muted-foreground w-7 text-left" dir="ltr">
-                        {deal.probability}%
-                      </span>
-                    </div>
+                    <span className="text-xs text-muted-foreground">{deal.plan || "—"}</span>
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     {deal.assigned_rep_name || "—"}
