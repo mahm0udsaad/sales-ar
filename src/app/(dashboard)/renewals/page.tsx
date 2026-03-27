@@ -62,6 +62,8 @@ import {
   Pencil,
   Trash2,
   CalendarDays,
+  Target,
+  SquareCheck,
 } from "lucide-react";
 
 /* ─── Status badge color mapping ─── */
@@ -123,6 +125,39 @@ export default function RenewalsPage() {
   /* delete confirmation */
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  /* daily target selection — persisted per day in localStorage */
+  const todayKey = `daily_target_${new Date().toISOString().slice(0, 10)}`;
+  const [dailyTargetIds, setDailyTargetIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const saved = localStorage.getItem(todayKey);
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  function toggleDailyTarget(id: string) {
+    setDailyTargetIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      localStorage.setItem(todayKey, JSON.stringify([...next]));
+      return next;
+    });
+  }
+
+  function selectAllVisible() {
+    setDailyTargetIds((prev) => {
+      const next = new Set(prev);
+      filteredRenewals.forEach((r) => next.add(r.id));
+      localStorage.setItem(todayKey, JSON.stringify([...next]));
+      return next;
+    });
+  }
+
+  function deselectAll() {
+    setDailyTargetIds(new Set());
+    localStorage.setItem(todayKey, JSON.stringify([]));
+  }
 
   /* month filter — by month only (ignoring year) based on renewal_date */
   const { activeMonthIndex, filterCutoff } = useTopbarControls();
@@ -412,19 +447,123 @@ export default function RenewalsPage() {
         </div>
       )}
 
+      {/* ─── Daily Target Summary ─── */}
+      {dailyTargetIds.size > 0 && !loading && (() => {
+        const targetRenewals = renewals.filter((r) => dailyTargetIds.has(r.id));
+        const completed = targetRenewals.filter((r) => r.status === "مكتمل").length;
+        const total = targetRenewals.length;
+        const remaining = total - completed;
+        const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+        const allDone = remaining === 0 && total > 0;
+
+        const motivationMsg = allDone
+          ? "ممتاز! أنجزت كل أهداف اليوم"
+          : rate >= 80
+          ? "أنت قريب جداً من الإنجاز!"
+          : rate >= 50
+          ? `باقي ${remaining} فقط، استمر!`
+          : rate > 0
+          ? "بداية جيدة، واصل التقدم"
+          : `${total} عميل بانتظارك، ابدأ الآن!`;
+
+        const borderColor = allDone ? "border-cc-green/30" : "border-cyan/20";
+        const bgGrad = allDone
+          ? "bg-gradient-to-l from-cc-green/[0.06] to-transparent"
+          : "bg-gradient-to-l from-cyan/[0.04] to-transparent";
+
+        return (
+          <div className={`cc-card rounded-xl p-4 border ${borderColor} ${bgGrad} transition-all duration-500`}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${allDone ? "bg-cc-green/15" : "bg-cyan/10"}`}>
+                  <Target className={`w-4 h-4 ${allDone ? "text-cc-green" : "text-cyan"}`} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">الهدف اليومي</h3>
+                  <span className="text-[10px] text-muted-foreground">
+                    {new Date().toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "short" })}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                  allDone ? "bg-cc-green/15 text-cc-green" : rate >= 50 ? "bg-amber/15 text-amber" : "bg-cyan/10 text-cyan"
+                }`}>
+                  {motivationMsg}
+                </span>
+                <button
+                  onClick={deselectAll}
+                  className="text-[10px] text-muted-foreground hover:text-cc-red transition-colors"
+                >
+                  مسح
+                </button>
+              </div>
+            </div>
+
+            {/* Progress bar with segments */}
+            <div className="relative mb-3">
+              <div className="h-3 rounded-full bg-muted/40 overflow-hidden flex">
+                {targetRenewals.map((r) => (
+                  <div
+                    key={r.id}
+                    className={`h-full transition-all duration-700 ${
+                      r.status === "مكتمل" ? "bg-cc-green" : "bg-muted/60"
+                    }`}
+                    style={{ width: `${100 / total}%` }}
+                    title={`${r.customer_name} — ${r.status}`}
+                  />
+                ))}
+              </div>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-[10px] text-muted-foreground">{completed} / {total}</span>
+                <span className={`text-xs font-extrabold ${
+                  allDone ? "text-cc-green" : rate >= 50 ? "text-amber" : "text-cyan"
+                }`}>
+                  {rate}%
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="text-center p-2.5 rounded-lg bg-card/50 border border-border/30">
+                <p className="text-xl font-extrabold text-cyan">{total}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">الهدف</p>
+              </div>
+              <div className="text-center p-2.5 rounded-lg bg-card/50 border border-border/30">
+                <p className="text-xl font-extrabold text-cc-green">{completed}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">مكتمل</p>
+              </div>
+              <div className="text-center p-2.5 rounded-lg bg-card/50 border border-border/30">
+                <p className={`text-xl font-extrabold ${remaining > 0 ? "text-amber" : "text-cc-green"}`}>{remaining}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">متبقي</p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ─── Renewals Table ─── */}
       <div className="cc-card rounded-xl overflow-x-auto">
-        <div className="p-4 pb-0">
+        <div className="p-4 pb-0 flex items-center gap-3">
           <Input
             value={clientSearch}
             onChange={(e) => setClientSearch(e.target.value)}
             placeholder="ابحث باسم العميل..."
             className="max-w-xs"
           />
+          <button
+            onClick={selectAllVisible}
+            className="text-[10px] px-2.5 py-1.5 rounded-lg border border-cyan/30 text-cyan hover:bg-cyan/10 transition-colors whitespace-nowrap"
+            title="تحديد الكل كهدف يومي"
+          >
+            <SquareCheck className="w-3 h-3 inline-block ml-1" />
+            تحديد الكل
+          </button>
         </div>
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10 text-center">هدف</TableHead>
               <TableHead>العميل</TableHead>
               <TableHead>الجوال</TableHead>
               <TableHead>الخطة</TableHead>
@@ -440,14 +579,14 @@ export default function RenewalsPage() {
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 9 }).map((_, j) => (
+                  {Array.from({ length: 10 }).map((_, j) => (
                     <TableCell key={j}><Skeleton className="h-4 w-20" /></TableCell>
                   ))}
                 </TableRow>
               ))
             ) : filteredRenewals.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                   {statusFilter ? "لا توجد تجديدات مطابقة" : "لا توجد تجديدات بعد. اضغط \"إضافة تجديد\" لإضافة أول تجديد."}
                 </TableCell>
               </TableRow>
@@ -457,10 +596,44 @@ export default function RenewalsPage() {
                 const daysStyle = getDaysRemainingStyle(days);
                 const badge = STATUS_BADGE[renewal.status] || STATUS_BADGE["مجدول"];
 
+                const isTarget = dailyTargetIds.has(renewal.id);
+                const isTargetDone = isTarget && renewal.status === "مكتمل";
+
                 return (
-                  <TableRow key={renewal.id}>
+                  <TableRow
+                    key={renewal.id}
+                    className={isTarget ? (isTargetDone ? "bg-cc-green/[0.04]" : "bg-cyan/[0.04]") : ""}
+                  >
+                    <TableCell className="text-center">
+                      <button
+                        onClick={() => toggleDailyTarget(renewal.id)}
+                        className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                          isTargetDone
+                            ? "border-cc-green bg-cc-green text-white"
+                            : isTarget
+                            ? "border-cyan bg-cyan/20 text-cyan"
+                            : "border-muted-foreground/30 hover:border-cyan/50"
+                        }`}
+                      >
+                        {isTarget && (
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    </TableCell>
                     <TableCell className="font-medium text-foreground">
                       {renewal.customer_name}
+                      {isTarget && !isTargetDone && (
+                        <span className="mr-1.5 inline-block text-[9px] px-1.5 py-0.5 rounded bg-cyan/10 text-cyan font-medium">
+                          هدف اليوم
+                        </span>
+                      )}
+                      {isTargetDone && (
+                        <span className="mr-1.5 inline-block text-[9px] px-1.5 py-0.5 rounded bg-cc-green/15 text-cc-green font-medium">
+                          تم الإنجاز
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs font-mono" dir="ltr">
                       {renewal.customer_phone ? formatPhone(renewal.customer_phone) : "—"}
