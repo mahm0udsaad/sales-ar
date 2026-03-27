@@ -64,6 +64,8 @@ import {
   CalendarDays,
   Target,
   SquareCheck,
+  Download,
+  Share2,
 } from "lucide-react";
 
 /* ─── Status badge color mapping ─── */
@@ -157,6 +159,75 @@ export default function RenewalsPage() {
   function deselectAll() {
     setDailyTargetIds(new Set());
     localStorage.setItem(todayKey, JSON.stringify([]));
+  }
+
+  function buildDailyReport() {
+    const targetRenewals = renewals.filter((r) => dailyTargetIds.has(r.id));
+    const completed = targetRenewals.filter((r) => r.status === "مكتمل");
+    const remaining = targetRenewals.filter((r) => r.status !== "مكتمل");
+    const total = targetRenewals.length;
+    const rate = total > 0 ? Math.round((completed.length / total) * 100) : 0;
+    const todayStr = new Date().toLocaleDateString("ar-SA", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    let report = `📋 تقرير الهدف اليومي — التجديدات\n`;
+    report += `📅 ${todayStr}\n`;
+    report += `${"─".repeat(35)}\n\n`;
+    report += `🎯 الهدف: ${total} عميل\n`;
+    report += `✅ مكتمل: ${completed.length}\n`;
+    report += `⏳ متبقي: ${remaining.length}\n`;
+    report += `📊 نسبة الإنجاز: ${rate}%\n\n`;
+
+    if (completed.length > 0) {
+      report += `── ✅ المكتملة ──\n`;
+      completed.forEach((r, i) => {
+        report += `${i + 1}. ${r.customer_name} — ${r.plan_name} — ${r.plan_price} ر.س\n`;
+      });
+      report += `\n`;
+    }
+
+    if (remaining.length > 0) {
+      report += `── ⏳ المتبقية ──\n`;
+      remaining.forEach((r, i) => {
+        report += `${i + 1}. ${r.customer_name} — ${r.plan_name} — ${r.status} — ${r.plan_price} ر.س\n`;
+      });
+    }
+
+    return report;
+  }
+
+  function exportReport() {
+    const report = buildDailyReport();
+    const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `تقرير-الهدف-اليومي-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function shareReport() {
+    const report = buildDailyReport();
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `تقرير الهدف اليومي — ${new Date().toLocaleDateString("ar-SA")}`,
+          text: report,
+        });
+      } catch {
+        // User cancelled or share failed — fallback to copy
+        await navigator.clipboard.writeText(report);
+        alert("تم نسخ التقرير!");
+      }
+    } else {
+      await navigator.clipboard.writeText(report);
+      alert("تم نسخ التقرير! يمكنك لصقه في واتساب أو أي تطبيق.");
+    }
   }
 
   /* month filter — by month only (ignoring year) based on renewal_date */
@@ -486,11 +557,27 @@ export default function RenewalsPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                <span className={`hidden sm:inline text-xs font-medium px-2.5 py-1 rounded-full ${
                   allDone ? "bg-cc-green/15 text-cc-green" : rate >= 50 ? "bg-amber/15 text-amber" : "bg-cyan/10 text-cyan"
                 }`}>
                   {motivationMsg}
                 </span>
+                <button
+                  onClick={shareReport}
+                  className="flex items-center gap-1 text-[10px] px-2 py-1.5 rounded-lg border border-cc-purple/30 text-cc-purple hover:bg-cc-purple/10 transition-colors"
+                  title="مشاركة التقرير"
+                >
+                  <Share2 className="w-3 h-3" />
+                  مشاركة
+                </button>
+                <button
+                  onClick={exportReport}
+                  className="flex items-center gap-1 text-[10px] px-2 py-1.5 rounded-lg border border-cyan/30 text-cyan hover:bg-cyan/10 transition-colors"
+                  title="تحميل التقرير"
+                >
+                  <Download className="w-3 h-3" />
+                  تصدير
+                </button>
                 <button
                   onClick={deselectAll}
                   className="text-[10px] text-muted-foreground hover:text-cc-red transition-colors"
