@@ -1,5 +1,5 @@
 import { createClient } from "./client";
-import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot, Review, Renewal, Referral, MonthlyExpense, Marketer, SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, SalesGuideSetting, SalesMessage, SalesMessageRating, FollowUpNote } from "@/types";
+import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot, Review, Renewal, Referral, MonthlyExpense, Marketer, SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, SalesGuideSetting, SalesMessage, SalesMessageRating, FollowUpNote, MentionNotification } from "@/types";
 
 const DEFAULT_ORG = "00000000-0000-0000-0000-000000000001";
 
@@ -1011,4 +1011,50 @@ export async function createFollowUpNote(
     .single();
   if (error) throw error;
   return data as FollowUpNote;
+}
+
+// ─── MENTION NOTIFICATIONS ────────────────────────────────────────────────────
+
+export async function createMentionNotification(
+  noteId: string,
+  entityType: "deal" | "renewal",
+  entityId: string,
+  entityName: string,
+  mentionedName: string,
+  authorName: string,
+  noteText: string
+): Promise<void> {
+  const supabase = createClient();
+  await supabase.from("mention_notifications").insert({
+    org_id: getOrgId(),
+    note_id: noteId,
+    entity_type: entityType,
+    entity_id: entityId,
+    entity_name: entityName,
+    mentioned_name: mentionedName,
+    author_name: authorName,
+    note_text: noteText,
+  });
+}
+
+export async function fetchMentionNotifications(userName: string): Promise<MentionNotification[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("mention_notifications")
+    .select("*")
+    .eq("org_id", getOrgId())
+    .eq("mentioned_name", userName)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return (data || []) as MentionNotification[];
+}
+
+export async function markMentionNotificationsRead(ids: string[]): Promise<void> {
+  const supabase = createClient();
+  await supabase
+    .from("mention_notifications")
+    .update({ is_read: true })
+    .in("id", ids)
+    .eq("org_id", getOrgId());
 }
