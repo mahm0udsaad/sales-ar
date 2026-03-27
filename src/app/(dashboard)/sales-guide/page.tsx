@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
-import type { SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, Employee, PipelineStageItem, ActivityPointItem, ScoreLevelItem, SalesMessage, SalesMessageRating, Deal } from "@/types";
+import type { SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, Employee, PipelineStageItem, ActivityPointItem, ScoreLevelItem, SalesMessage, SalesMessageRating, Deal, FollowUpNote } from "@/types";
 import {
   fetchSalesActivities,
   createSalesActivity,
@@ -24,6 +24,8 @@ import {
   addMessageRating,
   fetchMessageRatings,
   fetchDeals,
+  fetchFollowUpNotesByDate,
+  fetchFollowUpNotesSince,
 } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -139,6 +141,8 @@ export default function SalesGuidePage() {
   /* ─── State ─── */
   const [activities, setActivities] = useState<SalesActivity[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [todayNotes, setTodayNotes] = useState<FollowUpNote[]>([]);
+  const [monthNotes, setMonthNotes] = useState<FollowUpNote[]>([]);
   const [targets, setTargets] = useState<SalesTarget[]>([]);
   const [scores, setScores] = useState<RepWeeklyScore[]>([]);
   const [pipPlans, setPipPlans] = useState<PipPlan[]>([]);
@@ -198,7 +202,10 @@ export default function SalesGuidePage() {
 
   async function load() {
     setLoading(true);
-    const [a, t, s, p, e, gs, msgs, d] = await Promise.allSettled([
+    const now = new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    const monthStartStr = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+    const [a, t, s, p, e, gs, msgs, d, fn, mn] = await Promise.allSettled([
       fetchSalesActivities(),
       fetchSalesTargets(),
       fetchRepWeeklyScores(),
@@ -207,10 +214,14 @@ export default function SalesGuidePage() {
       fetchSalesGuideSettings(),
       fetchSalesMessages(),
       fetchDeals(),
+      fetchFollowUpNotesByDate(todayStr),
+      fetchFollowUpNotesSince(monthStartStr),
     ]);
     if (a.status === "fulfilled") setActivities(a.value);
     if (t.status === "fulfilled") setTargets(t.value);
     if (d.status === "fulfilled") setDeals(d.value);
+    if (fn.status === "fulfilled") setTodayNotes(fn.value);
+    if (mn.status === "fulfilled") setMonthNotes(mn.value);
     if (s.status === "fulfilled") setScores(s.value);
     if (p.status === "fulfilled") setPipPlans(p.value);
     if (e.status === "fulfilled") setEmployees(e.value);
@@ -228,22 +239,21 @@ export default function SalesGuidePage() {
   /* ─── Stats ─── */
   const todayStr = new Date().toISOString().split("T")[0];
   const todayActivities = activities.filter((a) => a.activity_date === todayStr);
-  const weekActivities = useMemo(() => {
+  const weekStartStr = useMemo(() => {
     const now = new Date();
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - now.getDay());
-    const start = startOfWeek.toISOString().split("T")[0];
-    return activities.filter((a) => a.activity_date >= start);
-  }, [activities]);
+    return startOfWeek.toISOString().split("T")[0];
+  }, []);
+  const weekActivities = useMemo(() => {
+    return activities.filter((a) => a.activity_date >= weekStartStr);
+  }, [activities, weekStartStr]);
+  const weekNotes = useMemo(() => {
+    return monthNotes.filter((n) => n.created_at >= `${weekStartStr}T00:00:00`);
+  }, [monthNotes, weekStartStr]);
 
   /* Auto-calculate live scores per employee from activities + deals */
   const liveScores = useMemo(() => {
-    const now = new Date();
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - weekStart.getDay());
-    const weekStartStr = weekStart.toISOString().split("T")[0];
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-
     // Get week's closed deals
     const weekClosedDeals = deals.filter((d) =>
       d.stage === "مكتملة" && (d.deal_date || d.created_at.slice(0, 10)) >= weekStartStr
@@ -275,6 +285,22 @@ export default function SalesGuidePage() {
       else if (a.activity_type === "whatsapp") emp.whatsapp++;
     });
 
+    // Count follow-up notes this week (note_type maps to activity types)
+    weekNotes.forEach((n) => {
+      const name = n.author_name || "غير محدد";
+      const emp = getEmp(name);
+      const noteType = n.note_type || "note";
+      const ap = activityPoints.find((p) => p.key === noteType);
+      const pts = ap?.points ?? 0;
+      emp.points += pts;
+      if (noteType === "call") emp.calls++;
+      else if (noteType === "demo") emp.demos++;
+      else if (noteType === "followup") emp.followups++;
+      else if (noteType === "meeting") emp.meetings++;
+      else if (noteType === "quote") emp.quotes++;
+      else if (noteType === "whatsapp") emp.whatsapp++;
+    });
+
     // Count closed deals this week
     weekClosedDeals.forEach((d) => {
       const name = d.assigned_rep_name || "غير محدد";
@@ -304,7 +330,7 @@ export default function SalesGuidePage() {
         };
       })
       .sort((a, b) => b.total_points - a.total_points);
-  }, [weekActivities, deals, activityPoints, scoreLevels]);
+  }, [weekActivities, weekNotes, deals, weekStartStr, activityPoints, scoreLevels]);
 
   const activePips = pipPlans.filter((p) => p.status === "active");
 
@@ -771,12 +797,22 @@ export default function SalesGuidePage() {
                       return deals.filter((d) => (d.deal_date || d.created_at.slice(0, 10)) >= monthStart);
                     };
 
-                    // Activity-based targets
+                    // Activity-based targets (from activities + follow-up notes)
                     const types = keyToTypes[t.target_key];
                     if (types) {
-                      if (t.period_type === "daily") return todayActivities.filter((a) => types.includes(a.activity_type)).length;
-                      if (t.period_type === "weekly") return weekActivities.filter((a) => types.includes(a.activity_type)).length;
-                      return activities.filter((a) => a.activity_date >= monthStart && types.includes(a.activity_type)).length;
+                      if (t.period_type === "daily") {
+                        const fromActivities = todayActivities.filter((a) => types.includes(a.activity_type)).length;
+                        const fromNotes = todayNotes.filter((n) => n.note_type && types.includes(n.note_type)).length;
+                        return fromActivities + fromNotes;
+                      }
+                      if (t.period_type === "weekly") {
+                        const fromActivities = weekActivities.filter((a) => types.includes(a.activity_type)).length;
+                        const fromNotes = weekNotes.filter((n) => n.note_type && types.includes(n.note_type)).length;
+                        return fromActivities + fromNotes;
+                      }
+                      const fromActivities = activities.filter((a) => a.activity_date >= monthStart && types.includes(a.activity_type)).length;
+                      const fromNotes = monthNotes.filter((n) => n.note_type && types.includes(n.note_type)).length;
+                      return fromActivities + fromNotes;
                     }
 
                     // Deal-based targets

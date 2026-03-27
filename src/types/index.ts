@@ -385,6 +385,7 @@ export interface FollowUpNote {
   entity_type: "deal" | "renewal";
   entity_id: string;
   note: string;
+  note_type?: "note" | "call" | "whatsapp" | "followup" | "meeting" | "demo" | "quote";
   author_name: string;
   created_at: string;
 }

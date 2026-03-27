@@ -25,7 +25,18 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
   const [newNote, setNewNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [noteType, setNoteType] = useState<string>("note");
   const { user } = useAuth();
+
+  const NOTE_TYPES = [
+    { value: "note", label: "ملاحظة", icon: "📝" },
+    { value: "call", label: "اتصال", icon: "📞" },
+    { value: "whatsapp", label: "واتساب", icon: "💬" },
+    { value: "followup", label: "متابعة", icon: "🔁" },
+    { value: "meeting", label: "اجتماع", icon: "🤝" },
+    { value: "demo", label: "عرض Demo", icon: "🖥" },
+    { value: "quote", label: "عرض سعر", icon: "📄" },
+  ];
 
   /* Employees for @mention */
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -128,7 +139,7 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
     setSaving(true);
     try {
       const authorName = user?.name || user?.email || "مستخدم";
-      const created = await createFollowUpNote(entityType, entityId, newNote.trim(), authorName);
+      const created = await createFollowUpNote(entityType, entityId, newNote.trim(), authorName, noteType);
       setNotes((prev) => [created, ...prev]);
 
       /* Send mention notifications */
@@ -138,6 +149,7 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
       }
 
       setNewNote("");
+      setNoteType("note");
     } catch (err) {
       console.error(err);
     } finally {
@@ -186,6 +198,23 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
               سجل متابعة — {entityName}
             </DialogTitle>
           </DialogHeader>
+
+          {/* Note type selector */}
+          <div className="flex gap-1.5 flex-wrap">
+            {NOTE_TYPES.map((t) => (
+              <button
+                key={t.value}
+                onClick={() => setNoteType(t.value)}
+                className={`text-[11px] px-2.5 py-1.5 rounded-lg border transition-colors ${
+                  noteType === t.value
+                    ? "border-cyan bg-cyan/15 text-cyan font-bold"
+                    : "border-border/50 text-muted-foreground hover:border-border"
+                }`}
+              >
+                {t.icon} {t.label}
+              </button>
+            ))}
+          </div>
 
           {/* Add note input */}
           <div className="relative">
@@ -267,18 +296,26 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
             ) : notes.length === 0 ? (
               <div className="text-center text-muted-foreground text-sm py-8">لا توجد ملاحظات بعد</div>
             ) : (
-              notes.map((n) => (
-                <div key={n.id} className="p-3 rounded-lg border border-border/50 bg-card/50">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold text-cyan">{n.author_name}</span>
-                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <Clock className="w-3 h-3" />
-                      {formatDateTime(n.created_at)}
-                    </span>
+              notes.map((n) => {
+                const typeInfo = NOTE_TYPES.find((t) => t.value === n.note_type) || NOTE_TYPES[0];
+                return (
+                  <div key={n.id} className="p-3 rounded-lg border border-border/50 bg-card/50">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-cyan">{n.author_name}</span>
+                        {n.note_type && n.note_type !== "note" && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan/10 text-cyan">{typeInfo.icon} {typeInfo.label}</span>
+                        )}
+                      </div>
+                      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <Clock className="w-3 h-3" />
+                        {formatDateTime(n.created_at)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{renderNoteText(n.note)}</p>
                   </div>
-                  <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{renderNoteText(n.note)}</p>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </DialogContent>
