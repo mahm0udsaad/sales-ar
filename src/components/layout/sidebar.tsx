@@ -26,21 +26,38 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 
 const NAV_ITEMS = [
-  { label: "نظرة عامة", href: "/dashboard", slug: "dashboard", icon: LayoutDashboard },
-  { label: "المبيعات", href: "/sales", slug: "sales", icon: TrendingUp },
-  { label: "دليل المبيعات", href: "/sales-guide", slug: "sales-guide", icon: BookOpen },
-  { label: "الاجتماع الأسبوعي", href: "/weekly", slug: "weekly", icon: ClipboardList },
-  { label: "التجديدات", href: "/renewals", slug: "renewals", icon: RefreshCw },
-  { label: "رضا العملاء", href: "/satisfaction", slug: "satisfaction", icon: Heart },
-  { label: "الدعم", href: "/support", slug: "support", icon: Headphones },
-  { label: "التطويرات", href: "/development", slug: "development", icon: Code },
-  { label: "الشراكات", href: "/partnerships", slug: "partnerships", icon: Handshake },
-  { label: "المسوقين", href: "/marketers", slug: "marketers", icon: Megaphone },
-  { label: "الفريق", href: "/team", slug: "team", icon: Users },
-  { label: "المالية", href: "/finance", slug: "finance", icon: Banknote },
-  { label: "رفع الملفات", href: "/upload", slug: "upload", icon: Upload },
-  { label: "إدارة المستخدمين", href: "/users", slug: "users", icon: Shield },
+  { label: "نظرة عامة", href: "/dashboard", slug: "dashboard", icon: LayoutDashboard, color: "cyan" },
+  { label: "المبيعات", href: "/sales", slug: "sales", icon: TrendingUp, color: "emerald" },
+  { label: "دليل المبيعات", href: "/sales-guide", slug: "sales-guide", icon: BookOpen, color: "amber" },
+  { label: "الاجتماع الأسبوعي", href: "/weekly", slug: "weekly", icon: ClipboardList, color: "violet" },
+  { label: "التجديدات", href: "/renewals", slug: "renewals", icon: RefreshCw, color: "sky" },
+  { label: "رضا العملاء", href: "/satisfaction", slug: "satisfaction", icon: Heart, color: "rose" },
+  { label: "الدعم", href: "/support", slug: "support", icon: Headphones, color: "orange" },
+  { label: "التطويرات", href: "/development", slug: "development", icon: Code, color: "indigo" },
+  { label: "الشراكات", href: "/partnerships", slug: "partnerships", icon: Handshake, color: "teal" },
+  { label: "المسوقين", href: "/marketers", slug: "marketers", icon: Megaphone, color: "pink" },
+  { label: "الفريق", href: "/team", slug: "team", icon: Users, color: "blue" },
+  { label: "المالية", href: "/finance", slug: "finance", icon: Banknote, color: "lime" },
+  { label: "رفع الملفات", href: "/upload", slug: "upload", icon: Upload, color: "slate" },
+  { label: "إدارة المستخدمين", href: "/users", slug: "users", icon: Shield, color: "red" },
 ];
+
+const COLOR_MAP: Record<string, { bg: string; text: string; ring: string; gradFrom: string; border: string; shadow: string; bar: string }> = {
+  cyan:    { bg: "bg-cyan-500/15",    text: "text-cyan-400",    ring: "ring-cyan-500/20",    gradFrom: "from-cyan-500/[0.12]",    border: "border-cyan-500/[0.15]",    shadow: "shadow-[0_0_20px_rgba(0,212,255,0.08)]",   bar: "from-cyan-400 via-cyan-400 to-cyan-600" },
+  emerald: { bg: "bg-emerald-500/15", text: "text-emerald-400", ring: "ring-emerald-500/20", gradFrom: "from-emerald-500/[0.12]", border: "border-emerald-500/[0.15]", shadow: "shadow-[0_0_20px_rgba(16,185,129,0.08)]",  bar: "from-emerald-400 via-emerald-400 to-emerald-600" },
+  amber:   { bg: "bg-amber-500/15",   text: "text-amber-400",   ring: "ring-amber-500/20",   gradFrom: "from-amber-500/[0.12]",   border: "border-amber-500/[0.15]",   shadow: "shadow-[0_0_20px_rgba(245,158,11,0.08)]",  bar: "from-amber-400 via-amber-400 to-amber-600" },
+  violet:  { bg: "bg-violet-500/15",  text: "text-violet-400",  ring: "ring-violet-500/20",  gradFrom: "from-violet-500/[0.12]",  border: "border-violet-500/[0.15]",  shadow: "shadow-[0_0_20px_rgba(139,92,246,0.08)]",  bar: "from-violet-400 via-violet-400 to-violet-600" },
+  sky:     { bg: "bg-sky-500/15",     text: "text-sky-400",     ring: "ring-sky-500/20",     gradFrom: "from-sky-500/[0.12]",     border: "border-sky-500/[0.15]",     shadow: "shadow-[0_0_20px_rgba(14,165,233,0.08)]",  bar: "from-sky-400 via-sky-400 to-sky-600" },
+  rose:    { bg: "bg-rose-500/15",    text: "text-rose-400",    ring: "ring-rose-500/20",    gradFrom: "from-rose-500/[0.12]",    border: "border-rose-500/[0.15]",    shadow: "shadow-[0_0_20px_rgba(244,63,94,0.08)]",   bar: "from-rose-400 via-rose-400 to-rose-600" },
+  orange:  { bg: "bg-orange-500/15",  text: "text-orange-400",  ring: "ring-orange-500/20",  gradFrom: "from-orange-500/[0.12]",  border: "border-orange-500/[0.15]",  shadow: "shadow-[0_0_20px_rgba(249,115,22,0.08)]",  bar: "from-orange-400 via-orange-400 to-orange-600" },
+  indigo:  { bg: "bg-indigo-500/15",  text: "text-indigo-400",  ring: "ring-indigo-500/20",  gradFrom: "from-indigo-500/[0.12]",  border: "border-indigo-500/[0.15]",  shadow: "shadow-[0_0_20px_rgba(99,102,241,0.08)]",  bar: "from-indigo-400 via-indigo-400 to-indigo-600" },
+  teal:    { bg: "bg-teal-500/15",    text: "text-teal-400",    ring: "ring-teal-500/20",    gradFrom: "from-teal-500/[0.12]",    border: "border-teal-500/[0.15]",    shadow: "shadow-[0_0_20px_rgba(20,184,166,0.08)]",  bar: "from-teal-400 via-teal-400 to-teal-600" },
+  pink:    { bg: "bg-pink-500/15",    text: "text-pink-400",    ring: "ring-pink-500/20",    gradFrom: "from-pink-500/[0.12]",    border: "border-pink-500/[0.15]",    shadow: "shadow-[0_0_20px_rgba(236,72,153,0.08)]",  bar: "from-pink-400 via-pink-400 to-pink-600" },
+  blue:    { bg: "bg-blue-500/15",    text: "text-blue-400",    ring: "ring-blue-500/20",    gradFrom: "from-blue-500/[0.12]",    border: "border-blue-500/[0.15]",    shadow: "shadow-[0_0_20px_rgba(59,130,246,0.08)]",  bar: "from-blue-400 via-blue-400 to-blue-600" },
+  lime:    { bg: "bg-lime-500/15",    text: "text-lime-400",    ring: "ring-lime-500/20",    gradFrom: "from-lime-500/[0.12]",    border: "border-lime-500/[0.15]",    shadow: "shadow-[0_0_20px_rgba(132,204,22,0.08)]",  bar: "from-lime-400 via-lime-400 to-lime-600" },
+  slate:   { bg: "bg-slate-500/15",   text: "text-slate-400",   ring: "ring-slate-500/20",   gradFrom: "from-slate-500/[0.12]",   border: "border-slate-500/[0.15]",   shadow: "shadow-[0_0_20px_rgba(100,116,139,0.08)]", bar: "from-slate-400 via-slate-400 to-slate-600" },
+  red:     { bg: "bg-red-500/15",     text: "text-red-400",     ring: "ring-red-500/20",     gradFrom: "from-red-500/[0.12]",     border: "border-red-500/[0.15]",     shadow: "shadow-[0_0_20px_rgba(239,68,68,0.08)]",   bar: "from-red-400 via-red-400 to-red-600" },
+};
 
 interface SidebarProps {
   open?: boolean;
@@ -173,6 +190,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));
             const Icon = item.icon;
+            const c = COLOR_MAP[item.color] || COLOR_MAP.cyan;
 
             return (
               <Link
@@ -182,17 +200,17 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 className={cn(
                   "group relative flex items-center gap-3 overflow-hidden rounded-2xl px-3.5 py-3 text-[13px] transition-all duration-200",
                   isActive
-                    ? "bg-gradient-to-l from-cyan/[0.12] to-transparent text-foreground font-semibold border border-cyan/[0.15] shadow-[0_0_20px_rgba(0,212,255,0.08)]"
+                    ? `bg-gradient-to-l ${c.gradFrom} to-transparent text-foreground font-semibold border ${c.border} ${c.shadow}`
                     : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground border border-transparent"
                 )}
               >
                 {isActive && (
-                  <span className="absolute inset-y-2 right-0.5 w-[3px] rounded-full bg-gradient-to-b from-cyan via-cyan to-cc-purple shadow-[0_0_8px_rgba(0,212,255,0.6)]" />
+                  <span className={cn("absolute inset-y-2 right-0.5 w-[3px] rounded-full bg-gradient-to-b", c.bar)} />
                 )}
                 <span
                   className={cn(
                     "flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200",
-                    isActive ? "bg-cyan/[0.15] text-cyan ring-1 ring-cyan/20 shadow-[0_0_10px_rgba(0,212,255,0.15)]" : "bg-white/[0.03] text-muted-foreground group-hover:text-foreground group-hover:bg-white/[0.06]"
+                    isActive ? `${c.bg} ${c.text} ring-1 ${c.ring}` : `bg-white/[0.03] ${c.text}/60 group-hover:${c.text} group-hover:bg-white/[0.06]`
                   )}
                 >
                   <Icon className="w-[17px] h-[17px]" />
