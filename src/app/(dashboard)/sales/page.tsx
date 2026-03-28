@@ -109,6 +109,25 @@ export default function SalesPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [marketers, setMarketers] = useState<Marketer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [countdown, setCountdown] = useState({ h: 0, m: 0, s: 0, timeUp: false });
+
+  useEffect(() => {
+    function tick() {
+      const now = new Date();
+      const end = new Date(now);
+      end.setHours(17, 0, 0, 0);
+      const diff = Math.max(0, end.getTime() - now.getTime());
+      setCountdown({
+        h: Math.floor(diff / 3600000),
+        m: Math.floor((diff % 3600000) / 60000),
+        s: Math.floor((diff % 60000) / 1000),
+        timeUp: diff === 0,
+      });
+    }
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   /* modal state */
   const [modalOpen, setModalOpen] = useState(false);
@@ -722,14 +741,7 @@ export default function SalesPage() {
         const allDone = remaining === 0 && total > 0;
         const closedValue = targetDeals.filter((d) => d.stage === "مكتملة").reduce((s, d) => s + d.deal_value, 0);
 
-        // Countdown to end of work day (5 PM)
-        const now = new Date();
-        const endOfDay = new Date(now);
-        endOfDay.setHours(17, 0, 0, 0);
-        const diffMs = Math.max(0, endOfDay.getTime() - now.getTime());
-        const hoursLeft = Math.floor(diffMs / (1000 * 60 * 60));
-        const minutesLeft = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-        const timeUp = diffMs === 0;
+        const { h: hoursLeft, m: minutesLeft, s: secondsLeft, timeUp } = countdown;
 
         const motivationMsg = allDone
           ? "ممتاز! أنجزت كل أهداف اليوم 🏆"
@@ -811,7 +823,7 @@ export default function SalesPage() {
                 <p className={`text-xl font-extrabold ${
                   allDone ? "text-cc-green" : timeUp ? "text-cc-red" : hoursLeft < 2 ? "text-amber" : "text-cyan"
                 }`}>
-                  {allDone ? "تم!" : timeUp ? "انتهى" : `${hoursLeft}:${String(minutesLeft).padStart(2, "0")}`}
+                  {allDone ? "تم!" : timeUp ? "انتهى" : `${hoursLeft}:${String(minutesLeft).padStart(2, "0")}:${String(secondsLeft).padStart(2, "0")}`}
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">{allDone ? "أنجزت الهدف" : "الوقت المتبقي"}</p>
               </div>
