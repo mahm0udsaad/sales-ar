@@ -12,7 +12,7 @@ import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { OrgProvider } from "@/lib/org-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DEMO_TICKETS, DEMO_PROJECTS, DEMO_PARTNERSHIPS } from "@/lib/demo-data";
-import { fetchDeals, fetchSalesTargets, fetchSalesActivities, fetchTickets, fetchMentionNotifications, markMentionNotificationsRead } from "@/lib/supabase/db";
+import { fetchDeals, fetchSalesTargets, fetchSalesActivities, fetchTickets, fetchMentionNotifications, markMentionNotificationsRead, fetchRecentFollowUpNotes } from "@/lib/supabase/db";
 import type { AppNotification } from "@/types";
 
 const PAGE_SLUG_MAP: Record<string, string> = {
@@ -234,6 +234,29 @@ async function generateLiveNotifications(): Promise<AppNotification[]> {
             isRead: false,
           });
         });
+    }
+
+    // Recent follow-up notes (last 24 hours)
+    try {
+      const recentNotes = await fetchRecentFollowUpNotes(30);
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      recentNotes
+        .filter((n) => new Date(n.created_at).getTime() > oneDayAgo)
+        .forEach((n) => {
+          const entityLabel = n.entity_type === "deal" ? "صفقة" : "تجديد";
+          const entityName = n.entity_name || "";
+          notifications.push({
+            id: `followup-${n.id}`,
+            type: "crud_action",
+            icon: "📝",
+            message: `${n.author_name} أضاف متابعة على ${entityLabel} "${entityName}": ${n.note.slice(0, 60)}${n.note.length > 60 ? "..." : ""}`,
+            section: n.entity_type === "deal" ? "sales" : "renewals",
+            timestamp: n.created_at,
+            isRead: false,
+          });
+        });
+    } catch {
+      // Silently fail
     }
 
     // Unmet daily targets

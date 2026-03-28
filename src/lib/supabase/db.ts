@@ -1013,7 +1013,37 @@ export async function createFollowUpNote(
   return data as FollowUpNote;
 }
 
-// ─── MENTION NOTIFICATIONS ────────────────────────────────────────────────────
+export async function fetchRecentFollowUpNotes(limit = 20): Promise<(FollowUpNote & { entity_name?: string })[]> {
+  const supabase = createClient();
+  const orgId = getOrgId();
+
+  // Fetch recent notes
+  const { data: notes, error } = await supabase
+    .from("follow_up_notes")
+    .select("*")
+    .eq("org_id", orgId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  if (!notes || notes.length === 0) return [];
+
+  // Get entity names from deals and renewals
+  const dealIds = notes.filter(n => n.entity_type === "deal").map(n => n.entity_id);
+  const renewalIds = notes.filter(n => n.entity_type === "renewal").map(n => n.entity_id);
+
+  const nameMap: Record<string, string> = {};
+
+  if (dealIds.length > 0) {
+    const { data: deals } = await supabase.from("deals").select("id, client_name").in("id", dealIds);
+    deals?.forEach(d => { nameMap[d.id] = d.client_name; });
+  }
+  if (renewalIds.length > 0) {
+    const { data: renewals } = await supabase.from("renewals").select("id, business_name").in("id", renewalIds);
+    renewals?.forEach(r => { nameMap[r.id] = r.business_name; });
+  }
+
+  return notes.map(n => ({ ...n, entity_name: nameMap[n.entity_id] || "" })) as (FollowUpNote & { entity_name?: string })[];
+}
 
 export async function createMentionNotification(
   noteId: string,
