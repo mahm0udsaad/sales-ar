@@ -722,12 +722,22 @@ export default function SalesPage() {
         const allDone = remaining === 0 && total > 0;
         const closedValue = targetDeals.filter((d) => d.stage === "مكتملة").reduce((s, d) => s + d.deal_value, 0);
 
+        // Countdown to end of work day (5 PM)
+        const now = new Date();
+        const endOfDay = new Date(now);
+        endOfDay.setHours(17, 0, 0, 0);
+        const diffMs = Math.max(0, endOfDay.getTime() - now.getTime());
+        const hoursLeft = Math.floor(diffMs / (1000 * 60 * 60));
+        const minutesLeft = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        const timeUp = diffMs === 0;
+
         const motivationMsg = allDone
-          ? "ممتاز! أنجزت كل أهداف اليوم"
-          : rate >= 80 ? "أنت قريب جداً!"
-          : rate >= 50 ? `باقي ${remaining} فقط، استمر!`
-          : rate > 0 ? "بداية جيدة، واصل التقدم"
-          : `${total} عميل بانتظارك، ابدأ الآن!`;
+          ? "ممتاز! أنجزت كل أهداف اليوم 🏆"
+          : timeUp ? "انتهى وقت العمل! أكمل ما تبقى"
+          : rate >= 80 ? "أنت قريب جداً! 💪"
+          : rate >= 50 ? `باقي ${remaining} فقط، استمر! 🔥`
+          : rate > 0 ? "بداية جيدة، واصل التقدم ⚡"
+          : `${total} عميل بانتظارك، ابدأ الآن! 🚀`;
 
         return (
           <div className={`cc-card rounded-xl p-4 border transition-all duration-500 ${
@@ -773,22 +783,37 @@ export default function SalesPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-5 gap-3">
               <div className="text-center p-2.5 rounded-lg bg-card/50 border border-border/30">
+                <p className="text-lg mb-0.5">{allDone ? "🏆" : timeUp ? "⏰" : hoursLeft < 2 ? "😰" : "🎯"}</p>
                 <p className="text-xl font-extrabold text-cyan">{total}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">الهدف</p>
               </div>
               <div className="text-center p-2.5 rounded-lg bg-card/50 border border-border/30">
+                <p className="text-lg mb-0.5">{closed > 0 ? "✅" : "⭕"}</p>
                 <p className="text-xl font-extrabold text-cc-green">{closed}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">مكتمل</p>
               </div>
               <div className="text-center p-2.5 rounded-lg bg-card/50 border border-border/30">
+                <p className="text-lg mb-0.5">{remaining === 0 ? "🎉" : remaining <= 2 ? "💪" : "⏳"}</p>
                 <p className={`text-xl font-extrabold ${remaining > 0 ? "text-amber" : "text-cc-green"}`}>{remaining}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">متبقي</p>
               </div>
               <div className="text-center p-2.5 rounded-lg bg-card/50 border border-border/30">
+                <p className="text-lg mb-0.5">💰</p>
                 <p className="text-xl font-extrabold text-cc-purple">{formatMoney(closedValue)}</p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">قيمة المغلقة</p>
+              </div>
+              <div className={`text-center p-2.5 rounded-lg border ${
+                allDone ? "bg-cc-green/10 border-cc-green/30" : timeUp ? "bg-red-500/10 border-red-500/30" : hoursLeft < 2 ? "bg-amber/10 border-amber/30" : "bg-card/50 border-border/30"
+              }`}>
+                <p className="text-lg mb-0.5">{allDone ? "🎊" : timeUp ? "🔴" : hoursLeft < 2 ? "🟡" : "🟢"}</p>
+                <p className={`text-xl font-extrabold ${
+                  allDone ? "text-cc-green" : timeUp ? "text-cc-red" : hoursLeft < 2 ? "text-amber" : "text-cyan"
+                }`}>
+                  {allDone ? "تم!" : timeUp ? "انتهى" : `${hoursLeft}:${String(minutesLeft).padStart(2, "0")}`}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{allDone ? "أنجزت الهدف" : "الوقت المتبقي"}</p>
               </div>
             </div>
           </div>
