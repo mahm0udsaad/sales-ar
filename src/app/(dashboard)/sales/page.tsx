@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { Deal, Marketer } from "@/types";
-import { fetchDeals, createDeal, updateDeal, deleteDeal, fetchMarketers, createFollowUpNote } from "@/lib/supabase/db";
+import { fetchDeals, createDeal, updateDeal, deleteDeal, fetchMarketers, createFollowUpNote, fetchRecentFollowUpNotes } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
 import { useTopbarControls } from "@/components/layout/topbar-context";
 import { STAGES, SOURCES, SOURCE_COLORS, PLANS } from "@/lib/utils/constants";
@@ -233,7 +233,7 @@ export default function SalesPage() {
     }
   }
 
-  function buildSalesReport() {
+  async function buildSalesReport() {
     const targetDeals = deals.filter((d) => dailyTargetIds.has(d.id));
     const closed = targetDeals.filter((d) => d.stage === "مكتملة");
     const remaining = targetDeals.filter((d) => d.stage !== "مكتملة");
@@ -241,6 +241,18 @@ export default function SalesPage() {
     const rate = total > 0 ? Math.round((closed.length / total) * 100) : 0;
     const totalValue = closed.reduce((s, d) => s + d.deal_value, 0);
     const todayStr = new Date().toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+    // Fetch latest follow-up notes for all target deals
+    const latestNotes: Record<string, string> = {};
+    try {
+      const allNotes = await fetchRecentFollowUpNotes(100);
+      const dealNotes = allNotes.filter((n) => n.entity_type === "deal");
+      dealNotes.forEach((n) => {
+        if (!latestNotes[n.entity_id]) {
+          latestNotes[n.entity_id] = n.note;
+        }
+      });
+    } catch { /* ignore */ }
 
     let report = `📋 تقرير الهدف اليومي — المبيعات\n`;
     report += `📅 ${todayStr}\n`;
@@ -253,18 +265,28 @@ export default function SalesPage() {
 
     if (closed.length > 0) {
       report += `── ✅ المغلقة ──\n`;
-      closed.forEach((d, i) => { report += `${i + 1}. ${d.client_name} — ${d.deal_value.toLocaleString()} ر.س\n`; });
+      closed.forEach((d, i) => {
+        report += `${i + 1}. ${d.client_name}${d.client_phone ? ` — ${d.client_phone}` : ""} — ${d.deal_value.toLocaleString()} ر.س\n`;
+        if (latestNotes[d.id]) {
+          report += `   💬 ${latestNotes[d.id]}\n`;
+        }
+      });
       report += `\n`;
     }
     if (remaining.length > 0) {
       report += `── ⏳ المتبقية ──\n`;
-      remaining.forEach((d, i) => { report += `${i + 1}. ${d.client_name} — ${d.stage} — ${d.deal_value.toLocaleString()} ر.س\n`; });
+      remaining.forEach((d, i) => {
+        report += `${i + 1}. ${d.client_name}${d.client_phone ? ` — ${d.client_phone}` : ""} — ${d.stage} — ${d.deal_value.toLocaleString()} ر.س\n`;
+        if (latestNotes[d.id]) {
+          report += `   💬 ${latestNotes[d.id]}\n`;
+        }
+      });
     }
     return report;
   }
 
-  function exportSalesReport() {
-    const report = buildSalesReport();
+  async function exportSalesReport() {
+    const report = await buildSalesReport();
     const blob = new Blob([report], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -275,7 +297,7 @@ export default function SalesPage() {
   }
 
   async function shareSalesReport() {
-    const report = buildSalesReport();
+    const report = await buildSalesReport();
     if (navigator.share) {
       try { await navigator.share({ title: `تقرير المبيعات اليومي`, text: report }); }
       catch { await navigator.clipboard.writeText(report); alert("تم نسخ التقرير!"); }
