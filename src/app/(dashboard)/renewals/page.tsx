@@ -273,7 +273,7 @@ export default function RenewalsPage() {
       : monthRenewals.filter((r) => r.status === statusFilter)
     : monthRenewals;
   const filteredRenewals = clientSearch
-    ? statusFilteredRenewals.filter((r) => r.customer_name.toLowerCase().includes(clientSearch.toLowerCase()))
+    ? statusFilteredRenewals.filter((r) => r.customer_name.toLowerCase().includes(clientSearch.toLowerCase()) || (r.client_code && r.client_code.toLowerCase().includes(clientSearch.toLowerCase())))
     : statusFilteredRenewals;
 
   useEffect(() => {
@@ -688,6 +688,7 @@ export default function RenewalsPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-10 text-center">هدف</TableHead>
+              <TableHead className="w-20">الكود</TableHead>
               <TableHead>العميل</TableHead>
               <TableHead>الجوال</TableHead>
               <TableHead>الخطة</TableHead>
@@ -710,7 +711,7 @@ export default function RenewalsPage() {
               ))
             ) : filteredRenewals.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                   {statusFilter ? "لا توجد تجديدات مطابقة" : "لا توجد تجديدات بعد. اضغط \"إضافة تجديد\" لإضافة أول تجديد."}
                 </TableCell>
               </TableRow>
@@ -745,6 +746,9 @@ export default function RenewalsPage() {
                           </svg>
                         )}
                       </button>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-xs font-mono">
+                      {renewal.client_code || "—"}
                     </TableCell>
                     <TableCell className="font-medium text-foreground">
                       {renewal.customer_name}

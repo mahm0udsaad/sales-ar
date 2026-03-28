@@ -302,7 +302,7 @@ export default function SalesPage() {
   const nonCompletedDeals = monthDeals.filter((d) => d.stage !== "مكتملة" && d.stage !== "مرفوض مع سبب");
   const stageFilteredDeals = stageFilter ? monthDeals.filter((d) => d.stage === stageFilter) : monthDeals;
   const filteredDeals = clientSearch
-    ? stageFilteredDeals.filter((d) => d.client_name.toLowerCase().includes(clientSearch.toLowerCase()))
+    ? stageFilteredDeals.filter((d) => d.client_name.toLowerCase().includes(clientSearch.toLowerCase()) || (d.client_code && d.client_code.toLowerCase().includes(clientSearch.toLowerCase())))
     : stageFilteredDeals;
 
   useEffect(() => {
@@ -790,6 +790,7 @@ export default function SalesPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-10 text-center">هدف</TableHead>
+              <TableHead className="w-20">الكود</TableHead>
               <TableHead>العميل</TableHead>
               <TableHead>التاريخ</TableHead>
               <TableHead>الجوال</TableHead>
@@ -823,7 +824,7 @@ export default function SalesPage() {
               ))
             ) : filteredDeals.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                   {stageFilter ? `لا توجد مبيعات في مرحلة "${stageFilter}"` : "لا توجد مبيعات"}
                 </TableCell>
               </TableRow>
@@ -848,6 +849,9 @@ export default function SalesPage() {
                         </svg>
                       )}
                     </button>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs font-mono">
+                    {deal.client_code || "—"}
                   </TableCell>
                   <TableCell className="font-medium text-foreground">
                     {deal.client_name}

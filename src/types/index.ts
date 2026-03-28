@@ -1,6 +1,7 @@
 export interface Deal {
   id: string;
   org_id: string;
+  client_code?: string;
   client_name: string;
   client_phone?: string;
   deal_value: number;
@@ -158,6 +159,7 @@ export interface Review {
 export interface Renewal {
   id: string;
   org_id: string;
+  client_code?: string;
   customer_name: string;
   customer_phone?: string;
   plan_name: string;

@@ -8,6 +8,26 @@ export function getOrgId(): string {
   return localStorage.getItem("cc_org_id") || DEFAULT_ORG;
 }
 
+// ─── CLIENT CODE GENERATOR ──────────────────────────────────────────────────
+
+async function getNextClientCode(table: "deals" | "renewals", prefix: "S" | "R"): Promise<string> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from(table)
+    .select("client_code")
+    .eq("org_id", getOrgId())
+    .not("client_code", "is", null)
+    .order("client_code", { ascending: false })
+    .limit(1);
+
+  let nextNum = 1;
+  if (data && data.length > 0 && data[0].client_code) {
+    const match = data[0].client_code.match(/\d+$/);
+    if (match) nextNum = parseInt(match[0], 10) + 1;
+  }
+  return `${prefix}-${String(nextNum).padStart(4, "0")}`;
+}
+
 // ─── DEALS ───────────────────────────────────────────────────────────────────
 
 export async function fetchDeals(): Promise<Deal[]> {
@@ -25,9 +45,10 @@ export async function createDeal(
   deal: Omit<Deal, "id" | "org_id" | "created_at" | "updated_at">
 ): Promise<Deal> {
   const supabase = createClient();
+  const client_code = await getNextClientCode("deals", "S");
   const { data, error } = await supabase
     .from("deals")
-    .insert({ ...deal, org_id: getOrgId() })
+    .insert({ ...deal, org_id: getOrgId(), client_code })
     .select()
     .single();
   if (error) throw error;
@@ -327,9 +348,10 @@ export async function createRenewal(
   renewal: Omit<Renewal, "id" | "org_id" | "created_at" | "updated_at">
 ): Promise<Renewal> {
   const supabase = createClient();
+  const client_code = await getNextClientCode("renewals", "R");
   const { data, error } = await supabase
     .from("renewals")
-    .insert({ ...renewal, org_id: getOrgId() })
+    .insert({ ...renewal, org_id: getOrgId(), client_code })
     .select()
     .single();
   if (error) throw error;
