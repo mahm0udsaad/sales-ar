@@ -867,9 +867,21 @@ export default function RenewalsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-medium ${badge.bg} ${badge.color}`}>
-                        {badge.text}
-                      </span>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-medium ${badge.bg} ${badge.color}`}>
+                          {badge.text}
+                          {renewal.status === "ملغي بسبب" && renewal.cancel_reason && (
+                            <span className="mr-1 text-[9px] opacity-70">({renewal.cancel_reason})</span>
+                          )}
+                        </span>
+                        {renewal.status === "ملغي بسبب" && ["قلة الاستخدام", "الادارة رفضت", "مشكلات تقنية", "مو حاب يجدد بدون سبب"].includes(renewal.cancel_reason || "") && (
+                          <span title="قابل لإعادة الاستهداف" className="flex items-center justify-center w-6 h-6 rounded-full bg-amber/10 text-amber cursor-default animate-pulse">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs">
                       {renewal.assigned_rep || "—"}
