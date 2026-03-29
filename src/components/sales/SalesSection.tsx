@@ -77,6 +77,7 @@ const STAGE_BADGE_COLOR: Record<string, "green" | "amber" | "purple" | "cyan" | 
   "تاجيل": "blue",
   "اعادة الاتصال في وقت اخر": "amber",
   "تجريبي": "purple",
+  "كنسل التجربة": "red",
   "مرفوض مع سبب": "red",
 };
 

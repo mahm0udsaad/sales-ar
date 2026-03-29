@@ -5,6 +5,15 @@ import { useParams } from "next/navigation";
 import { submitPendingDeal } from "@/lib/supabase/db";
 import { SOURCES, PLANS } from "@/lib/utils/constants";
 
+const SUBMIT_STAGES = [
+  { key: "تواصل", label: "تواصل", color: "emerald" },
+  { key: "تفاوض", label: "جاري التفاوض", color: "purple" },
+  { key: "تجريبي", label: "يوزر تجريبي", color: "blue" },
+  { key: "انتظار الدفع", label: "بانتظار الدفع", color: "amber" },
+  { key: "كنسل التجربة", label: "كنسل التجربة", color: "red" },
+  { key: "مكتملة", label: "مكتملة", color: "green" },
+] as const;
+
 export default function SubmitDealPage() {
   const params = useParams();
   const orgId = params.orgId as string;
@@ -15,6 +24,7 @@ export default function SubmitDealPage() {
     deal_value: 0,
     source: "حملة اعلانية",
     plan: "",
+    stage: "تواصل",
     assigned_rep_name: "",
     notes: "",
     submitter_name: "",
@@ -41,6 +51,7 @@ export default function SubmitDealPage() {
         client_phone: form.client_phone.trim() || undefined,
         deal_value: form.deal_value || 0,
         source: form.source,
+        stage: form.stage,
         plan: form.plan || undefined,
         assigned_rep_name: form.assigned_rep_name.trim() || undefined,
         notes: form.notes.trim() || undefined,
@@ -66,7 +77,7 @@ export default function SubmitDealPage() {
           <h1 className="text-2xl font-bold text-white">تم إرسال الطلب بنجاح!</h1>
           <p className="text-gray-400 text-sm">سيتم مراجعة الطلب والموافقة عليه من قبل الإدارة.</p>
           <button
-            onClick={() => { setSubmitted(false); setForm({ client_name: "", client_phone: "", deal_value: 0, source: "حملة اعلانية", plan: "", assigned_rep_name: "", notes: "", submitter_name: "", sales_type: "office" }); }}
+            onClick={() => { setSubmitted(false); setForm({ client_name: "", client_phone: "", deal_value: 0, source: "حملة اعلانية", stage: "تواصل", plan: "", assigned_rep_name: "", notes: "", submitter_name: "", sales_type: "office" }); }}
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-cyan-500/15 text-cyan-400 font-medium hover:bg-cyan-500/25 transition-colors"
           >
             إرسال طلب آخر
@@ -174,6 +185,37 @@ export default function SubmitDealPage() {
                   {src}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Stage */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-300">المرحلة</label>
+            <div className="flex flex-wrap gap-2">
+              {SUBMIT_STAGES.map((s) => {
+                const colorMap: Record<string, string> = {
+                  emerald: "border-emerald-500/40 bg-emerald-500/15 text-emerald-400",
+                  purple: "border-purple-500/40 bg-purple-500/15 text-purple-400",
+                  blue: "border-blue-500/40 bg-blue-500/15 text-blue-400",
+                  amber: "border-amber-500/40 bg-amber-500/15 text-amber-400",
+                  red: "border-red-500/40 bg-red-500/15 text-red-400",
+                  green: "border-emerald-500/40 bg-emerald-500/15 text-emerald-400",
+                };
+                return (
+                  <button
+                    key={s.key}
+                    type="button"
+                    onClick={() => setForm({ ...form, stage: s.key })}
+                    className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${
+                      form.stage === s.key
+                        ? colorMap[s.color] || "border-cyan-500/40 bg-cyan-500/15 text-cyan-400"
+                        : "border-white/[0.08] text-gray-400 hover:border-white/20"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

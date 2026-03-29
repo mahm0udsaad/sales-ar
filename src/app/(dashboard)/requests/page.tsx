@@ -180,7 +180,8 @@ export default function RequestsPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
-                      {deal.source && <span>{deal.source}</span>}
+                      {deal.stage && <span className="text-cyan-400 font-medium">{deal.stage}</span>}
+                      {deal.source && <span>• {deal.source}</span>}
                       {deal.plan && <span>• {deal.plan}</span>}
                       {deal.submitter_name && <span>• بواسطة: {deal.submitter_name}</span>}
                       <span>• {formatDate(deal.created_at)}</span>
@@ -228,6 +229,7 @@ export default function RequestsPage() {
               <InfoRow label="اسم العميل" value={detailDeal.client_name} />
               <InfoRow label="رقم الجوال" value={detailDeal.client_phone || "—"} />
               <InfoRow label="القيمة" value={detailDeal.deal_value > 0 ? `${detailDeal.deal_value.toLocaleString()} ر.س` : "—"} />
+              <InfoRow label="المرحلة" value={detailDeal.stage || "تواصل"} />
               <InfoRow label="المصدر" value={detailDeal.source || "—"} />
               <InfoRow label="الباقة" value={detailDeal.plan || "—"} />
               <InfoRow label="القسم" value={detailDeal.sales_type === "support" ? "مبيعات الدعم" : "مبيعات المكتب"} />
