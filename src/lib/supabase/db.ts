@@ -10,15 +10,17 @@ export function getOrgId(): string {
 
 // ─── CLIENT CODE GENERATOR ──────────────────────────────────────────────────
 
-async function getNextClientCode(table: "deals" | "renewals", prefix: "S" | "R"): Promise<string> {
+async function getNextClientCode(table: "deals" | "renewals", prefix: "S" | "R" | "D"): Promise<string> {
   const supabase = createClient();
-  const { data } = await supabase
+  let query = supabase
     .from(table)
     .select("client_code")
     .eq("org_id", getOrgId())
-    .not("client_code", "is", null)
-    .order("client_code", { ascending: false })
-    .limit(1);
+    .not("client_code", "is", null);
+  if (table === "deals") {
+    query = query.like("client_code", `${prefix}-%`);
+  }
+  const { data } = await query.order("client_code", { ascending: false }).limit(1);
 
   let nextNum = 1;
   if (data && data.length > 0 && data[0].client_code) {
@@ -30,13 +32,14 @@ async function getNextClientCode(table: "deals" | "renewals", prefix: "S" | "R")
 
 // ─── DEALS ───────────────────────────────────────────────────────────────────
 
-export async function fetchDeals(): Promise<Deal[]> {
+export async function fetchDeals(salesType?: "office" | "support"): Promise<Deal[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("deals")
     .select("*")
-    .eq("org_id", getOrgId())
-    .order("created_at", { ascending: false });
+    .eq("org_id", getOrgId());
+  if (salesType) query = query.eq("sales_type", salesType);
+  const { data, error } = await query.order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as Deal[];
 }
@@ -45,7 +48,8 @@ export async function createDeal(
   deal: Omit<Deal, "id" | "org_id" | "created_at" | "updated_at">
 ): Promise<Deal> {
   const supabase = createClient();
-  const client_code = await getNextClientCode("deals", "S");
+  const prefix = deal.sales_type === "support" ? "D" : "S";
+  const client_code = await getNextClientCode("deals", prefix);
   const { data, error } = await supabase
     .from("deals")
     .insert({ ...deal, org_id: getOrgId(), client_code })

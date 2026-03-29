@@ -104,7 +104,19 @@ const EMPTY_FORM = {
   marketer_name: "",
 };
 
+export interface SalesPageProps {
+  salesType: "office" | "support";
+}
+
 export default function SalesPage() {
+  return <SalesSection salesType="office" />;
+}
+
+export function SalesSection({ salesType }: SalesPageProps) {
+  const isOffice = salesType === "office";
+  const pageTitle = isOffice ? "مبيعات المكتب" : "مبيعات الدعم";
+  const pageDesc = isOffice ? "متابعة مبيعات المكتب وخط الأنابيب" : "متابعة مبيعات الدعم وخط الأنابيب";
+  const clientCodePrefix = isOffice ? "S" : "D";
   const { activeOrgId: orgId, user: authUser } = useAuth();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [marketers, setMarketers] = useState<Marketer[]>([]);
@@ -140,7 +152,7 @@ export default function SalesPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   /* daily target selection — persisted per day in localStorage */
-  const salesTodayKey = `sales_daily_target_${new Date().toISOString().slice(0, 10)}`;
+  const salesTodayKey = `sales_daily_target_${salesType}_${new Date().toISOString().slice(0, 10)}`;
   const [dailyTargetIds, setDailyTargetIds] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     try {
@@ -280,7 +292,7 @@ export default function SalesPage() {
     const statusIcon = allDone ? "🏆" : rate >= 80 ? "💪" : rate >= 50 ? "🔥" : rate > 0 ? "⚡" : "🚀";
     const statusMsg = allDone ? "ممتاز! أنجزت كل الأهداف" : rate >= 80 ? "أنت قريب جداً!" : rate >= 50 ? "استمر، باقي القليل!" : rate > 0 ? "بداية جيدة، واصل!" : "ابدأ الآن!";
 
-    let report = `📋 تقرير الهدف اليومي — المبيعات\n`;
+    let report = `📋 تقرير الهدف اليومي — ${pageTitle}\n`;
     report += `📅 ${todayStr}\n`;
     report += `${"─".repeat(35)}\n\n`;
     report += `${statusIcon} الحالة: ${statusMsg}\n`;
@@ -339,7 +351,7 @@ export default function SalesPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `تقرير-مبيعات-يومي-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.download = `تقرير-${isOffice ? "مبيعات-مكتب" : "مبيعات-دعم"}-يومي-${new Date().toISOString().slice(0, 10)}.txt`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -347,7 +359,7 @@ export default function SalesPage() {
   async function shareSalesReport() {
     const report = await buildSalesReport();
     if (navigator.share) {
-      try { await navigator.share({ title: `تقرير المبيعات اليومي`, text: report }); }
+      try { await navigator.share({ title: `تقرير ${pageTitle} اليومي`, text: report }); }
       catch { await navigator.clipboard.writeText(report); alert("تم نسخ التقرير!"); }
     } else {
       await navigator.clipboard.writeText(report);
@@ -378,12 +390,12 @@ export default function SalesPage() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      fetchDeals().then(setDeals),
+      fetchDeals(salesType).then(setDeals),
       fetchMarketers().then(setMarketers),
     ])
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [orgId]);
+  }, [orgId, salesType]);
 
   /* ─── Computed values ─── */
   const totalDeals = monthDeals.length;
@@ -546,6 +558,7 @@ export default function SalesPage() {
           cycle_days: 0,
           month,
           year,
+          sales_type: salesType,
         });
         setDeals((prev) => [created, ...prev]);
       }
@@ -580,12 +593,12 @@ export default function SalesPage() {
       {/* ─── Page Header ─── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-cyan-dim flex items-center justify-center">
-            <TrendingUp className="w-4 h-4 text-cyan" />
+          <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isOffice ? "bg-cyan-dim" : "bg-orange-500/15"}`}>
+            <TrendingUp className={`w-4 h-4 ${isOffice ? "text-cyan" : "text-orange-400"}`} />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-foreground">المبيعات</h1>
-            <p className="text-xs text-muted-foreground">متابعة المبيعات وخط الأنابيب</p>
+            <h1 className="text-lg font-bold text-foreground">{pageTitle}</h1>
+            <p className="text-xs text-muted-foreground">{pageDesc}</p>
             {(() => {
               const quotes = [
                 { text: "النجاح ليس نهائياً والفشل ليس قاتلاً، الشجاعة للاستمرار هي ما يهم", author: "وينستون تشرشل" },
@@ -840,7 +853,7 @@ export default function SalesPage() {
                   <Target className={`w-4 h-4 ${allDone ? "text-cc-green" : "text-cyan"}`} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-foreground">هدف المبيعات اليومي</h3>
+                  <h3 className="text-sm font-bold text-foreground">هدف {pageTitle} اليومي</h3>
                   <span className="text-[10px] text-muted-foreground">
                     {new Date().toLocaleDateString("ar-SA", { weekday: "long", day: "numeric", month: "short" })}
                   </span>

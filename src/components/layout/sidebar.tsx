@@ -27,7 +27,8 @@ import { useAuth } from "@/lib/auth-context";
 
 const NAV_ITEMS = [
   { label: "نظرة عامة", href: "/dashboard", slug: "dashboard", icon: LayoutDashboard, color: "cyan" },
-  { label: "المبيعات", href: "/sales", slug: "sales", icon: TrendingUp, color: "emerald" },
+  { label: "مبيعات المكتب", href: "/sales", slug: "sales", icon: TrendingUp, color: "emerald" },
+  { label: "مبيعات الدعم", href: "/support-sales", slug: "support-sales", icon: TrendingUp, color: "orange" },
   { label: "دليل المبيعات", href: "/sales-guide", slug: "sales-guide", icon: BookOpen, color: "amber" },
   { label: "الاجتماع الأسبوعي", href: "/weekly", slug: "weekly", icon: ClipboardList, color: "violet" },
   { label: "التجديدات", href: "/renewals", slug: "renewals", icon: RefreshCw, color: "sky" },
