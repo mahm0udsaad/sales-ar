@@ -49,6 +49,8 @@ import {
   Minus,
   Search,
   CalendarDays,
+  Quote,
+  Sparkles,
 } from "lucide-react";
 
 /* ---------- constants ---------- */
@@ -76,6 +78,47 @@ const SATISFACTION = {
 type ContactStatus = keyof typeof CONTACT_STATUS;
 type SatisfactionResult = keyof typeof SATISFACTION;
 type ViewFilter = "all" | "daily" | "pending" | "contacted" | "no_answer" | "postponed";
+
+const DAILY_QUOTES = [
+  { text: "أنت لا تبيع منتجاً فقط، أنت تصنع تجربة — اجعلها تجربة لا تُنسى!", author: "توني هسيه", book: "توصيل السعادة" },
+  { text: "أفضل إعلان لك هو عميل راضٍ — كل مكالمة تقوم بها اليوم قد تصنع سفيراً جديداً لك", author: "بيل غيتس", book: "الأعمال بسرعة الفكر" },
+  { text: "العميل الذي يشتكي يمنحك فرصة ذهبية — اغتنمها وحوّله إلى أكبر معجبيك", author: "بيل غيتس", book: "الأعمال بسرعة الفكر" },
+  { text: "اقترب من عملائك لدرجة أن تفهم احتياجاتهم قبل أن يعبّروا عنها — هذا هو التميز الحقيقي", author: "ستيف جوبز", book: "فلسفة Apple" },
+  { text: "خدمة العملاء ليست مجرد وظيفة، بل هي فرصتك لتترك أثراً إيجابياً في حياة شخص آخر", author: "توني هسيه", book: "توصيل السعادة" },
+  { text: "كل تواصل مع العميل هو فرصة لبناء ولاء يدوم سنوات — قدّم أفضل ما لديك!", author: "شيب هايكن", book: "كن مذهلاً" },
+  { text: "الخدمة المتميزة تبدأ منك أنت — ابتسامتك وحماسك يصنعان الفرق الذي يشعر به العميل", author: "ريتشارد برانسون", book: "أسلوب فيرجن" },
+  { text: "لا تقيس نجاحك بعدد المبيعات فقط، بل بعدد العملاء الذين يعودون إليك بثقة", author: "فريد رايكهيلد", book: "السؤال الحاسم" },
+  { text: "التجربة التي تقدمها أهم من المنتج نفسه — أنت من يصنع هذه التجربة بلمستك الشخصية", author: "توني هسيه", book: "توصيل السعادة" },
+  { text: "عندما تهتم بعملائك الحاليين من قلبك، العملاء الجدد سيأتون تلقائياً — ثق بذلك", author: "مايكل لوبوف", book: "كيف تكسب العملاء مدى الحياة" },
+  { text: "الولاء لا يُشترى بالخصومات، بل يُبنى بالاهتمام الصادق — وأنت قادر على ذلك", author: "فريد رايكهيلد", book: "تأثير الولاء" },
+  { text: "استمع بقلبك قبل أذنك — العميل يحتاج من يفهمه وأنت أفضل من يفعل ذلك", author: "ديل كارنيغي", book: "كيف تكسب الأصدقاء" },
+  { text: "العميل الذي يعود إليك هو أعظم شهادة على تميزك — واصل ما تفعله!", author: "مايكل لوبوف", book: "كيف تكسب العملاء مدى الحياة" },
+  { text: "عامل كل عميل كأنه الوحيد — لأنه في تلك اللحظة هو بالفعل أهم شخص", author: "غاري فاينرتشوك", book: "اقتصاد الشكر" },
+  { text: "العملاء ينسون ما قلته، لكنهم لا ينسون أبداً كيف جعلتهم يشعرون — اجعلهم يشعرون بالتقدير", author: "مايا أنجيلو", book: "حكم الحياة" },
+  { text: "الجودة الحقيقية هي أن يعود العميل إليك باختياره — وهذا يبدأ بتواصلك معه اليوم", author: "هيرمان تيتز", book: "أساسيات التجارة" },
+  { text: "كل مشكلة عميل هي فرصتك لتتألق — حوّل التحدي إلى قصة نجاح!", author: "شيب هايكن", book: "ثورة الدهشة" },
+  { text: "إذا لم تعتنِ بعميلك اليوم، سيفعل منافسك غداً — كن الأفضل دائماً", author: "بوب هوي", book: "استراتيجية الخدمة" },
+  { text: "استثمارك في رضا العميل هو أذكى استثمار — عميل سعيد يساوي عشرة إعلانات", author: "توني هسيه", book: "توصيل السعادة" },
+  { text: "العميل لا يهمه كم تعرف، حتى يعرف كم تهتم — أظهر اهتمامك في كل مكالمة", author: "ديل كارنيغي", book: "كيف تكسب الأصدقاء" },
+  { text: "أنت لست مجرد موظف خدمة — أنت سفير الشركة وصانع الانطباع الأول والأخير", author: "ريتشارد برانسون", book: "أسلوب فيرجن" },
+  { text: "النجاح الحقيقي هو أن يختارك العميل مرة أخرى رغم وجود خيارات — كن الخيار الأول دائماً!", author: "شيب هايكن", book: "كن مذهلاً" },
+  { text: "أعظم أصول الشركة هي عملاؤها — وأنت حارس هذا الكنز ومفتاح نموّه", author: "مايكل لوبوف", book: "كيف تكسب العملاء مدى الحياة" },
+  { text: "اصنع عميلاً مدى الحياة وليس مجرد صفقة — العلاقات أثمن من الأرقام", author: "كاثرين بارشيتي", book: "فن البيع" },
+  { text: "حماسك مُعدٍ — عندما تتحدث بشغف عن خدمتك، العميل يشعر بذلك ويثق بك أكثر", author: "زيغ زيغلار", book: "أسرار إنهاء الصفقات" },
+  { text: "لا تخف من المتابعة — العميل يقدّر من يتذكره ويسأل عنه، هذا يصنع الفرق", author: "جيفري غيتومر", book: "كتاب البيع الصغير" },
+  { text: "كل يوم هو فرصة جديدة لتجعل عميلاً يبتسم — ابدأ يومك بهذه النية وسترى النتائج", author: "شيب هايكن", book: "ثورة الدهشة" },
+  { text: "التميز ليس فعلاً واحداً، بل عادة يومية — قدّم أفضل خدمة في كل تواصل", author: "أرسطو", book: "فلسفة التميز" },
+  { text: "العميل الراضي يخبر ثلاثة، والعميل المبهور يخبر عشرة — اسعَ دائماً للإبهار!", author: "فيليب كوتلر", book: "إدارة التسويق" },
+  { text: "أنت تملك القدرة على تحويل يوم عميلك من عادي إلى استثنائي — استخدم هذه القوة!", author: "غاري فاينرتشوك", book: "اقتصاد الشكر" },
+  { text: "الاحتفاظ بعميل واحد أقوى من جلب عشرة — ركّز على من يثق بك واجعله يبقى", author: "فيليب كوتلر", book: "إدارة التسويق" },
+];
+
+function getDailyQuote() {
+  const start = new Date(2025, 0, 1).getTime();
+  const now = new Date().getTime();
+  const dayIndex = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+  return DAILY_QUOTES[dayIndex % DAILY_QUOTES.length];
+}
 
 const EMPTY_FORM = {
   client_name: "",
@@ -120,6 +163,9 @@ export default function TargetingPage() {
   // Delete confirmation
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Daily quote
+  const quote = getDailyQuote();
 
   /* ---------- fetch ---------- */
   useEffect(() => {
@@ -302,6 +348,24 @@ export default function TargetingPage() {
           <p className="text-xs text-muted-foreground">
             حدد العملاء المستهدفين شهرياً وتواصل معهم يومياً لمعرفة رضاهم
           </p>
+        </div>
+      </div>
+
+      {/* Daily motivational quote */}
+      <div className="cc-card rounded-xl p-5 border border-fuchsia-500/10 bg-gradient-to-l from-fuchsia-500/[0.04] to-transparent">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-lg bg-fuchsia-500/15 flex items-center justify-center shrink-0 mt-0.5">
+            <Sparkles className="w-4 h-4 text-fuchsia-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-foreground leading-relaxed font-medium">
+              &ldquo;{quote.text}&rdquo;
+            </p>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-xs text-fuchsia-400 font-medium">{quote.author}</span>
+              <span className="text-[10px] text-muted-foreground">— {quote.book}</span>
+            </div>
+          </div>
         </div>
       </div>
 
