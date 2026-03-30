@@ -1350,3 +1350,52 @@ export async function markGiftRejected(id: string): Promise<void> {
     .update({ status: "rejected", rejected_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq("id", id);
 }
+
+export async function createGiftBundle(
+  clientInfo: { client_name: string; client_phone?: string; entity_type: "renewal" | "deal"; entity_id?: string; box_color?: string },
+  gifts: { gift_title: string; gift_description?: string; gift_type: string; gift_value?: string; gift_emoji?: string }[]
+): Promise<{ bundle_id: string; offers: GiftOffer[] }> {
+  const supabase = createClient();
+  const bundleId = crypto.randomUUID();
+  const rows = gifts.map((g) => {
+    const row: Record<string, unknown> = {
+      org_id: getOrgId(),
+      bundle_id: bundleId,
+      client_name: clientInfo.client_name,
+      entity_type: clientInfo.entity_type,
+      gift_title: g.gift_title,
+      gift_type: g.gift_type,
+      gift_emoji: g.gift_emoji || "🎁",
+      box_color: clientInfo.box_color || "purple",
+      status: "pending",
+    };
+    if (clientInfo.client_phone) row.client_phone = clientInfo.client_phone;
+    if (clientInfo.entity_id) row.entity_id = clientInfo.entity_id;
+    if (g.gift_description) row.gift_description = g.gift_description;
+    if (g.gift_value) row.gift_value = g.gift_value;
+    return row;
+  });
+  const { data, error } = await supabase
+    .from("gift_offers")
+    .insert(rows)
+    .select();
+  if (error) throw error;
+  return { bundle_id: bundleId, offers: (data ?? []) as GiftOffer[] };
+}
+
+export async function fetchGiftBundle(bundleId: string): Promise<GiftOffer[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("gift_offers")
+    .select("*")
+    .eq("bundle_id", bundleId)
+    .order("created_at", { ascending: true });
+  if (error) return [];
+  return (data ?? []) as GiftOffer[];
+}
+
+export async function deleteGiftBundle(bundleId: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.from("gift_offers").delete().eq("bundle_id", bundleId);
+  if (error) throw error;
+}

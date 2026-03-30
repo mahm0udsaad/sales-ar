@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { fetchGiftOffers, createGiftOffer, deleteGiftOffer, fetchDeals, fetchRenewals } from "@/lib/supabase/db";
+import { fetchGiftOffers, createGiftOffer, deleteGiftOffer, deleteGiftBundle, createGiftBundle, fetchDeals, fetchRenewals } from "@/lib/supabase/db";
 import type { GiftOffer, Deal, Renewal } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,20 +84,25 @@ export default function GiftsPage() {
   const [loadingClients, setLoadingClients] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
 
-  // Form
-  const [form, setForm] = useState({
+  // Form - client info
+  const [clientForm, setClientForm] = useState({
     client_name: "",
     client_phone: "",
     entity_type: "renewal" as "renewal" | "deal",
-    entity_id: "" as string,
-    gift_title: "",
-    gift_description: "",
-    gift_type: "discount" as GiftOffer["gift_type"],
-    gift_value: "",
-    gift_emoji: "🎁",
+    entity_id: "",
     box_color: "purple",
-    notes: "",
   });
+
+  // Form - gift items (for bundle)
+  interface GiftItem { gift_title: string; gift_description: string; gift_type: GiftOffer["gift_type"]; gift_value: string; gift_emoji: string; }
+  const emptyGift = (): GiftItem => ({ gift_title: "", gift_description: "", gift_type: "discount", gift_value: "", gift_emoji: "🎁" });
+  const [giftItems, setGiftItems] = useState<GiftItem[]>([emptyGift()]);
+
+  function updateGiftItem(idx: number, updates: Partial<GiftItem>) {
+    setGiftItems(prev => prev.map((g, i) => i === idx ? { ...g, ...updates } : g));
+  }
+  function addGiftItem() { setGiftItems(prev => [...prev, emptyGift()]); }
+  function removeGiftItem(idx: number) { setGiftItems(prev => prev.filter((_, i) => i !== idx)); }
 
   // Copied link
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -141,54 +146,54 @@ export default function GiftsPage() {
   }
 
   function selectClient(name: string, phone: string | undefined, type: "renewal" | "deal", entityId: string) {
-    setForm((prev) => ({
-      ...prev,
-      client_name: name,
-      client_phone: phone || "",
-      entity_type: type,
-      entity_id: entityId,
-    }));
+    setClientForm({ client_name: name, client_phone: phone || "", entity_type: type, entity_id: entityId, box_color: "purple" });
+    setGiftItems([emptyGift()]);
     setSelectOpen(false);
     setCreateOpen(true);
   }
 
   function openCreateDirect() {
-    setForm({
-      client_name: "",
-      client_phone: "",
-      entity_type: "renewal",
-      entity_id: "",
-      gift_title: "",
-      gift_description: "",
-      gift_type: "discount",
-      gift_value: "",
-      gift_emoji: "🎁",
-      box_color: "purple",
-      notes: "",
-    });
+    setClientForm({ client_name: "", client_phone: "", entity_type: "renewal", entity_id: "", box_color: "purple" });
+    setGiftItems([emptyGift()]);
     setCreateOpen(true);
   }
 
   async function handleCreate() {
-    if (!form.client_name.trim() || !form.gift_title.trim()) return;
+    const validGifts = giftItems.filter(g => g.gift_title.trim());
+    if (!clientForm.client_name.trim() || validGifts.length === 0) return;
     setSaving(true);
     try {
-      const payload: Parameters<typeof createGiftOffer>[0] = {
-        client_name: form.client_name,
-        entity_type: form.entity_type,
-        gift_title: form.gift_title,
-        gift_type: form.gift_type,
-        gift_emoji: form.gift_emoji,
-        box_color: form.box_color,
-      };
-      if (form.client_phone) payload.client_phone = form.client_phone;
-      if (form.entity_id) payload.entity_id = form.entity_id;
-      if (form.gift_description) payload.gift_description = form.gift_description;
-      if (form.gift_value) payload.gift_value = form.gift_value;
-      if (form.notes) payload.notes = form.notes;
-
-      const created = await createGiftOffer(payload);
-      setOffers((prev) => [created, ...prev]);
+      if (validGifts.length === 1) {
+        // Single gift - use original method
+        const g = validGifts[0];
+        const payload: Parameters<typeof createGiftOffer>[0] = {
+          client_name: clientForm.client_name,
+          entity_type: clientForm.entity_type,
+          gift_title: g.gift_title,
+          gift_type: g.gift_type,
+          gift_emoji: g.gift_emoji,
+          box_color: clientForm.box_color,
+        };
+        if (clientForm.client_phone) payload.client_phone = clientForm.client_phone;
+        if (clientForm.entity_id) payload.entity_id = clientForm.entity_id;
+        if (g.gift_description) payload.gift_description = g.gift_description;
+        if (g.gift_value) payload.gift_value = g.gift_value;
+        const created = await createGiftOffer(payload);
+        setOffers((prev) => [created, ...prev]);
+      } else {
+        // Multiple gifts - create bundle
+        const { offers } = await createGiftBundle(
+          {
+            client_name: clientForm.client_name,
+            client_phone: clientForm.client_phone || undefined,
+            entity_type: clientForm.entity_type,
+            entity_id: clientForm.entity_id || undefined,
+            box_color: clientForm.box_color,
+          },
+          validGifts
+        );
+        setOffers((prev) => [...offers, ...prev]);
+      }
       setCreateOpen(false);
     } catch (err) {
       console.error(err);
@@ -197,10 +202,14 @@ export default function GiftsPage() {
     }
   }
 
-  function copyLink(offerId: string) {
-    const url = `${window.location.origin}/gift/${offerId}`;
+  function copyLink(offer: GiftOffer) {
+    // If offer has a bundle_id and there are other offers with same bundle_id, use bundle link
+    const siblings = offers.filter(o => o.bundle_id && o.bundle_id === offer.bundle_id);
+    const url = siblings.length > 1
+      ? `${window.location.origin}/gift/b/${offer.bundle_id}`
+      : `${window.location.origin}/gift/${offer.id}`;
     navigator.clipboard.writeText(url).then(() => {
-      setCopiedId(offerId);
+      setCopiedId(offer.id);
       setTimeout(() => setCopiedId(null), 2000);
     });
   }
@@ -208,8 +217,16 @@ export default function GiftsPage() {
   async function handleDelete() {
     if (!deleteId) return;
     try {
-      await deleteGiftOffer(deleteId);
-      setOffers((prev) => prev.filter((o) => o.id !== deleteId));
+      const offer = offers.find(o => o.id === deleteId);
+      const siblings = offer?.bundle_id ? offers.filter(o => o.bundle_id === offer.bundle_id) : [];
+      if (siblings.length > 1) {
+        // Delete entire bundle
+        await deleteGiftBundle(offer!.bundle_id!);
+        setOffers(prev => prev.filter(o => o.bundle_id !== offer!.bundle_id));
+      } else {
+        await deleteGiftOffer(deleteId);
+        setOffers(prev => prev.filter(o => o.id !== deleteId));
+      }
     } catch (err) {
       console.error(err);
     }
@@ -326,6 +343,8 @@ export default function GiftsPage() {
           {filteredOffers.map((offer) => {
             const status = STATUS_MAP[offer.status] || STATUS_MAP.pending;
             const StatusIcon = status.icon;
+            const bundleSiblings = offer.bundle_id ? offers.filter(o => o.bundle_id === offer.bundle_id) : [];
+            const isBundle = bundleSiblings.length > 1;
             return (
               <div key={offer.id} className="cc-card rounded-xl p-5 space-y-3">
                 <div className="flex items-start justify-between">
@@ -338,10 +357,17 @@ export default function GiftsPage() {
                       )}
                     </div>
                   </div>
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium ${status.bg} ${status.color}`}>
-                    <StatusIcon className="w-3 h-3" />
-                    {status.label}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {isBundle && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-fuchsia-500/10 text-fuchsia-400 text-[10px] font-medium">
+                        🎰 {bundleSiblings.length} هدايا
+                      </span>
+                    )}
+                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium ${status.bg} ${status.color}`}>
+                      <StatusIcon className="w-3 h-3" />
+                      {status.label}
+                    </span>
+                  </div>
                 </div>
 
                 <div>
@@ -369,7 +395,7 @@ export default function GiftsPage() {
                     variant="ghost"
                     size="sm"
                     className="flex-1 gap-1 text-xs"
-                    onClick={() => copyLink(offer.id)}
+                    onClick={() => copyLink(offer)}
                   >
                     {copiedId === offer.id ? (
                       <><Check className="w-3.5 h-3.5 text-emerald-400" /><span className="text-emerald-400">تم النسخ</span></>
@@ -381,7 +407,11 @@ export default function GiftsPage() {
                     variant="ghost"
                     size="sm"
                     className="gap-1 text-xs"
-                    onClick={() => window.open(`/gift/${offer.id}`, "_blank")}
+                    onClick={() => {
+                      const siblings = offers.filter(o => o.bundle_id && o.bundle_id === offer.bundle_id);
+                      const url = siblings.length > 1 ? `/gift/b/${offer.bundle_id}` : `/gift/${offer.id}`;
+                      window.open(url, "_blank");
+                    }}
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
                   </Button>
@@ -482,13 +512,13 @@ export default function GiftsPage() {
 
       {/* ─── Create Gift Modal ─── */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-amber-400" />
               إنشاء هدية جديدة
             </DialogTitle>
-            <DialogDescription>صمم هدية مخصصة لعميلك</DialogDescription>
+            <DialogDescription>صمم هدية أو مجموعة هدايا عشوائية لعميلك — أضف أكثر من هدية ليختار البوكس واحدة عشوائياً</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
@@ -497,72 +527,20 @@ export default function GiftsPage() {
               <div className="space-y-1.5">
                 <Label>اسم العميل</Label>
                 <Input
-                  value={form.client_name}
-                  onChange={(e) => setForm({ ...form, client_name: e.target.value })}
+                  value={clientForm.client_name}
+                  onChange={(e) => setClientForm({ ...clientForm, client_name: e.target.value })}
                   placeholder="اسم العميل"
                 />
               </div>
               <div className="space-y-1.5">
                 <Label>رقم الجوال</Label>
                 <Input
-                  value={form.client_phone}
-                  onChange={(e) => setForm({ ...form, client_phone: e.target.value })}
+                  value={clientForm.client_phone}
+                  onChange={(e) => setClientForm({ ...clientForm, client_phone: e.target.value })}
                   placeholder="05xxxxxxxx"
                   dir="ltr"
                 />
               </div>
-            </div>
-
-            {/* Gift title */}
-            <div className="space-y-1.5">
-              <Label>عنوان الهدية</Label>
-              <Input
-                value={form.gift_title}
-                onChange={(e) => setForm({ ...form, gift_title: e.target.value })}
-                placeholder="مثال: خصم خاص لأنك عميلنا المميز!"
-              />
-            </div>
-
-            {/* Gift type */}
-            <div className="space-y-1.5">
-              <Label>نوع الهدية</Label>
-              <div className="flex items-center gap-2 flex-wrap">
-                {GIFT_TYPES.map((t) => (
-                  <button
-                    key={t.key}
-                    onClick={() => setForm({ ...form, gift_type: t.key })}
-                    className={`px-3 py-2 rounded-lg text-xs border transition-colors ${
-                      form.gift_type === t.key
-                        ? "bg-amber-500/10 text-amber-400 border-amber-500/30 font-medium"
-                        : "border-border text-muted-foreground hover:border-muted-foreground"
-                    }`}
-                  >
-                    {t.emoji} {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Gift value */}
-            <div className="space-y-1.5">
-              <Label>قيمة العرض</Label>
-              <Input
-                value={form.gift_value}
-                onChange={(e) => setForm({ ...form, gift_value: e.target.value })}
-                placeholder="مثال: خصم 30% — شهر مجاني — ترقية VIP"
-              />
-            </div>
-
-            {/* Description */}
-            <div className="space-y-1.5">
-              <Label>وصف العرض</Label>
-              <textarea
-                value={form.gift_description}
-                onChange={(e) => setForm({ ...form, gift_description: e.target.value })}
-                placeholder="اكتب تفاصيل العرض التي سيراها العميل..."
-                rows={3}
-                className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
             </div>
 
             {/* Box color */}
@@ -572,9 +550,9 @@ export default function GiftsPage() {
                 {BOX_COLORS.map((c) => (
                   <button
                     key={c.key}
-                    onClick={() => setForm({ ...form, box_color: c.key })}
+                    onClick={() => setClientForm({ ...clientForm, box_color: c.key })}
                     className={`w-9 h-9 rounded-lg ${c.class} transition-all ${
-                      form.box_color === c.key ? "ring-2 ring-white ring-offset-2 ring-offset-background scale-110" : "opacity-60 hover:opacity-100"
+                      clientForm.box_color === c.key ? "ring-2 ring-white ring-offset-2 ring-offset-background scale-110" : "opacity-60 hover:opacity-100"
                     }`}
                     title={c.label}
                   />
@@ -582,32 +560,84 @@ export default function GiftsPage() {
               </div>
             </div>
 
-            {/* Emoji */}
-            <div className="space-y-1.5">
-              <Label>إيموجي الهدية</Label>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {GIFT_EMOJIS.map((e) => (
-                  <button
-                    key={e}
-                    onClick={() => setForm({ ...form, gift_emoji: e })}
-                    className={`w-9 h-9 rounded-lg text-xl flex items-center justify-center transition-all ${
-                      form.gift_emoji === e ? "bg-white/10 ring-2 ring-amber-500/50 scale-110" : "hover:bg-white/5"
-                    }`}
-                  >
-                    {e}
-                  </button>
-                ))}
+            {/* Gift items */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-base">الهدايا ({giftItems.length})</Label>
+                <Button variant="outline" size="sm" onClick={addGiftItem} className="gap-1 text-xs">
+                  <Plus className="w-3.5 h-3.5" /> إضافة هدية أخرى
+                </Button>
               </div>
-            </div>
 
-            {/* Notes */}
-            <div className="space-y-1.5">
-              <Label>ملاحظات داخلية</Label>
-              <Input
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                placeholder="ملاحظات للفريق (لا تظهر للعميل)"
-              />
+              {giftItems.length > 1 && (
+                <p className="text-xs text-fuchsia-400 bg-fuchsia-500/10 px-3 py-2 rounded-lg">
+                  🎰 وضع البوكس العشوائي — العميل سيفتح الصندوق وتظهر له هدية واحدة عشوائياً من {giftItems.length} هدايا
+                </p>
+              )}
+
+              {giftItems.map((item, idx) => (
+                <div key={idx} className="cc-card rounded-xl p-4 space-y-3 border border-border">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">هدية {idx + 1}</span>
+                    {giftItems.length > 1 && (
+                      <button onClick={() => removeGiftItem(idx)} className="text-red-400 hover:text-red-300 text-xs">حذف</button>
+                    )}
+                  </div>
+
+                  <Input
+                    value={item.gift_title}
+                    onChange={(e) => updateGiftItem(idx, { gift_title: e.target.value })}
+                    placeholder="عنوان الهدية"
+                  />
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {GIFT_TYPES.map((t) => (
+                          <button
+                            key={t.key}
+                            onClick={() => updateGiftItem(idx, { gift_type: t.key })}
+                            className={`px-2 py-1 rounded text-[10px] border transition-colors ${
+                              item.gift_type === t.key
+                                ? "bg-amber-500/10 text-amber-400 border-amber-500/30 font-medium"
+                                : "border-border text-muted-foreground"
+                            }`}
+                          >
+                            {t.emoji} {t.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <Input
+                      value={item.gift_value}
+                      onChange={(e) => updateGiftItem(idx, { gift_value: e.target.value })}
+                      placeholder="القيمة: خصم 30%"
+                    />
+                  </div>
+
+                  <textarea
+                    value={item.gift_description}
+                    onChange={(e) => updateGiftItem(idx, { gift_description: e.target.value })}
+                    placeholder="وصف العرض (اختياري)"
+                    rows={2}
+                    className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+
+                  <div className="flex items-center gap-1">
+                    {GIFT_EMOJIS.map((e) => (
+                      <button
+                        key={e}
+                        onClick={() => updateGiftItem(idx, { gift_emoji: e })}
+                        className={`w-7 h-7 rounded text-sm flex items-center justify-center transition-all ${
+                          item.gift_emoji === e ? "bg-white/10 ring-1 ring-amber-500/50 scale-110" : "hover:bg-white/5"
+                        }`}
+                      >
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -615,7 +645,7 @@ export default function GiftsPage() {
             <Button variant="outline" onClick={() => setCreateOpen(false)}>إلغاء</Button>
             <Button onClick={handleCreate} disabled={saving} className="gap-1.5 bg-amber-600 hover:bg-amber-700">
               {saving ? "جاري الإنشاء..." : (
-                <><Gift className="w-4 h-4" />إنشاء الهدية</>
+                <><Gift className="w-4 h-4" />{giftItems.length > 1 ? `إنشاء ${giftItems.length} هدايا` : "إنشاء الهدية"}</>
               )}
             </Button>
           </DialogFooter>

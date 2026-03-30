@@ -447,6 +447,7 @@ export interface PendingDeal {
 export interface GiftOffer {
   id: string;
   org_id: string;
+  bundle_id?: string;
   client_name: string;
   client_phone?: string;
   entity_type: "renewal" | "deal";
