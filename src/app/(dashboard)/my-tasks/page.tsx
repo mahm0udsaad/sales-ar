@@ -726,13 +726,19 @@ export default function MyTasksPage() {
 
       {/* ─── Add Client Modal ─── */}
       {showClientForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" dir="rtl">
-          <div className="bg-[#111827] rounded-2xl border border-white/10 w-full max-w-lg p-6 my-8">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Plus className="w-5 h-5 text-cyan-400" /> إضافة عميل جديد
-              </h2>
-              <button onClick={() => setShowClientForm(false)} className="p-2 rounded-lg hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto" dir="rtl">
+          <div className="min-h-full flex items-start justify-center p-4 pt-8 pb-8">
+          <div className="bg-[#111827] rounded-2xl border border-white/10 w-full max-w-lg p-6 relative">
+            {/* Close button - sticky top */}
+            <button
+              onClick={() => setShowClientForm(false)}
+              className="absolute top-4 left-4 z-10 w-9 h-9 rounded-xl bg-white/[0.08] hover:bg-white/[0.15] flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2 mb-5">
+              <Plus className="w-5 h-5 text-cyan-400" />
+              <h2 className="text-lg font-bold text-white">إضافة عميل جديد</h2>
             </div>
 
             <div className="space-y-4">
@@ -888,6 +894,7 @@ export default function MyTasksPage() {
                 )}
               </button>
             </div>
+          </div>
           </div>
         </div>
       )}
