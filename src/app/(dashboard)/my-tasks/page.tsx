@@ -4,10 +4,15 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
 import {
   fetchEmployeeTasks,
+  createEmployeeTask,
   updateEmployeeTask,
   fetchMyTaskStats,
   fetchTeamTaskStats,
+  fetchUserProfiles,
+  submitPendingDeal,
+  getOrgId,
 } from "@/lib/supabase/db";
+import { SOURCES, PLANS } from "@/lib/utils/constants";
 import type { EmployeeTask } from "@/types";
 import {
   CheckCircle2,
@@ -25,6 +30,12 @@ import {
   ChevronRight,
   MessageCircle,
   Sparkles,
+  Plus,
+  UserPlus,
+  ArrowUpRight,
+  Send,
+  X,
+  Users,
 } from "lucide-react";
 
 /* ─── Motivational Quotes ─── */
@@ -87,6 +98,35 @@ const STATUSES: Record<string, { label: string; color: string; bg: string }> = {
 
 type ViewMode = "today" | "week" | "month" | "all";
 
+const CLIENT_STAGES = [
+  { key: "تواصل", label: "تواصل", color: "emerald" },
+  { key: "تفاوض", label: "جاري التفاوض", color: "purple" },
+  { key: "تجريبي", label: "يوزر تجريبي", color: "blue" },
+  { key: "انتظار الدفع", label: "بانتظار الدفع", color: "amber" },
+  { key: "كنسل التجربة", label: "كنسل التجربة", color: "red" },
+  { key: "مكتملة", label: "مكتملة", color: "green" },
+];
+
+const STAGE_COLORS: Record<string, string> = {
+  emerald: "border-emerald-500/40 bg-emerald-500/15 text-emerald-400",
+  purple: "border-purple-500/40 bg-purple-500/15 text-purple-400",
+  blue: "border-blue-500/40 bg-blue-500/15 text-blue-400",
+  amber: "border-amber-500/40 bg-amber-500/15 text-amber-400",
+  red: "border-red-500/40 bg-red-500/15 text-red-400",
+  green: "border-emerald-500/40 bg-emerald-500/15 text-emerald-400",
+};
+
+const EMPTY_CLIENT_FORM = {
+  client_name: "",
+  client_phone: "",
+  deal_value: 0,
+  source: "حملة اعلانية",
+  plan: "",
+  stage: "تواصل",
+  notes: "",
+  sales_type: "office" as "office" | "support",
+};
+
 export default function MyTasksPage() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<EmployeeTask[]>([]);
@@ -95,6 +135,16 @@ export default function MyTasksPage() {
   const [stats, setStats] = useState({ total: 0, completed: 0, pending: 0, in_progress: 0, overdue: 0 });
   const [myRank, setMyRank] = useState<{ rank: number; total: number; rate: number }>({ rank: 0, total: 0, rate: 0 });
   const [completionNote, setCompletionNote] = useState<{ taskId: string; note: string } | null>(null);
+
+  /* Client form */
+  const [showClientForm, setShowClientForm] = useState(false);
+  const [clientForm, setClientForm] = useState(EMPTY_CLIENT_FORM);
+  const [clientSaving, setClientSaving] = useState(false);
+
+  /* Transfer modal */
+  const [transferTask, setTransferTask] = useState<EmployeeTask | null>(null);
+  const [transferTo, setTransferTo] = useState("");
+  const [teamUsers, setTeamUsers] = useState<{ id: string; name: string }[]>([]);
 
   const todayQuote = useMemo(() => {
     const start = new Date("2025-01-01").getTime();
@@ -128,6 +178,88 @@ export default function MyTasksPage() {
   }, [user]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  /* ─── Add Client Handler ─── */
+  const handleAddClient = async () => {
+    if (!user || !clientForm.client_name.trim()) return;
+    setClientSaving(true);
+    try {
+      await createEmployeeTask({
+        title: `${clientForm.stage} — ${clientForm.client_name}`,
+        description: `${clientForm.sales_type === "office" ? "مبيعات المكتب" : "مبيعات الدعم"} | المصدر: ${clientForm.source}${clientForm.plan ? ` | الباقة: ${clientForm.plan}` : ""}${clientForm.deal_value ? ` | القيمة: ${clientForm.deal_value} ر.س` : ""}`,
+        task_type: "followup",
+        priority: "medium",
+        status: "in_progress",
+        assigned_to: user.id,
+        assigned_to_name: user.name,
+        assigned_by: user.id,
+        assigned_by_name: user.name,
+        due_date: new Date().toISOString().slice(0, 10),
+        client_name: clientForm.client_name.trim(),
+        client_phone: clientForm.client_phone.trim() || undefined,
+        notes: clientForm.notes.trim() || undefined,
+      });
+      setClientForm(EMPTY_CLIENT_FORM);
+      setShowClientForm(false);
+      loadData();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setClientSaving(false);
+    }
+  };
+
+  /* ─── Transfer to another employee ─── */
+  const openTransfer = async (task: EmployeeTask) => {
+    setTransferTask(task);
+    setTransferTo("");
+    try {
+      const users = await fetchUserProfiles();
+      setTeamUsers(users.filter(u => u.id !== user?.id));
+    } catch { /* ignore */ }
+  };
+
+  const handleTransfer = async () => {
+    if (!transferTask || !transferTo) return;
+    const target = teamUsers.find(u => u.id === transferTo);
+    if (!target) return;
+    await updateEmployeeTask(transferTask.id, {
+      assigned_to: target.id,
+      assigned_to_name: target.name,
+      notes: `${transferTask.notes ? transferTask.notes + " | " : ""}محوّل من ${user?.name}`,
+    });
+    setTransferTask(null);
+    loadData();
+  };
+
+  /* ─── Transfer to Admin (send as pending deal) ─── */
+  const handleTransferToAdmin = async (task: EmployeeTask) => {
+    try {
+      const orgId = getOrgId();
+      // Parse sales type from description
+      const isSupport = task.description?.includes("مبيعات الدعم");
+      await submitPendingDeal(orgId, {
+        org_id: orgId,
+        sales_type: isSupport ? "support" : "office",
+        client_name: task.client_name || task.title,
+        client_phone: task.client_phone || undefined,
+        deal_value: 0,
+        source: "من الموظف",
+        stage: "تواصل",
+        notes: `محوّل من ${user?.name} | ${task.description || ""} | ${task.notes || ""}`.trim(),
+        submitter_name: user?.name,
+        assigned_rep_name: user?.name,
+      });
+      // Mark task as completed
+      await updateEmployeeTask(task.id, {
+        status: "completed",
+        completion_notes: "تم التحويل إلى لوحة الإدارة",
+      });
+      loadData();
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -247,9 +379,17 @@ export default function MyTasksPage() {
               </h1>
               <p className="text-gray-400 text-sm">جاهز لإنجاز مهامك اليوم؟ كل مهمة تكملها تقربك من القمة!</p>
             </div>
-            <div className={`text-center px-5 py-3 rounded-xl bg-white/[0.06] border border-white/10`}>
-              <p className="text-xs text-gray-400 mb-1">مستواك</p>
-              <p className={`text-lg font-bold ${level.color}`}>{level.label}</p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => { setClientForm(EMPTY_CLIENT_FORM); setShowClientForm(true); }}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white font-medium text-sm transition-all shadow-lg"
+              >
+                <Plus className="w-4 h-4" /> إضافة عميل
+              </button>
+              <div className={`text-center px-5 py-3 rounded-xl bg-white/[0.06] border border-white/10`}>
+                <p className="text-xs text-gray-400 mb-1">مستواك</p>
+                <p className={`text-lg font-bold ${level.color}`}>{level.label}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -478,6 +618,18 @@ export default function MyTasksPage() {
                       >
                         أنجزت ✓
                       </button>
+                      <button
+                        onClick={() => openTransfer(task)}
+                        className="px-3 py-1.5 rounded-lg bg-violet-500/10 text-violet-400 text-xs font-medium hover:bg-violet-500/20 transition-colors flex items-center gap-1"
+                      >
+                        <Users className="w-3 h-3" /> تحويل لموظف
+                      </button>
+                      <button
+                        onClick={() => handleTransferToAdmin(task)}
+                        className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-medium hover:bg-amber-500/20 transition-colors flex items-center gap-1"
+                      >
+                        <ArrowUpRight className="w-3 h-3" /> تحويل للإدارة
+                      </button>
                     </div>
                   )}
                 </div>
@@ -486,6 +638,225 @@ export default function MyTasksPage() {
           })
         )}
       </div>
+
+      {/* ─── Add Client Modal ─── */}
+      {showClientForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto" dir="rtl">
+          <div className="bg-[#111827] rounded-2xl border border-white/10 w-full max-w-lg p-6 my-8">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Plus className="w-5 h-5 text-cyan-400" /> إضافة عميل جديد
+              </h2>
+              <button onClick={() => setShowClientForm(false)} className="p-2 rounded-lg hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Sales type toggle */}
+              <div>
+                <label className="text-sm text-gray-400 mb-1.5 block">القسم</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setClientForm(f => ({ ...f, sales_type: "office" }))}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                      clientForm.sales_type === "office"
+                        ? "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30"
+                        : "bg-white/[0.04] text-gray-400 hover:bg-white/[0.07]"
+                    }`}
+                  >
+                    مبيعات المكتب
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setClientForm(f => ({ ...f, sales_type: "support" }))}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                      clientForm.sales_type === "support"
+                        ? "bg-orange-500/15 text-orange-400 ring-1 ring-orange-500/30"
+                        : "bg-white/[0.04] text-gray-400 hover:bg-white/[0.07]"
+                    }`}
+                  >
+                    مبيعات الدعم
+                  </button>
+                </div>
+              </div>
+
+              {/* Client name */}
+              <div>
+                <label className="text-sm text-gray-400 mb-1 block">اسم العميل <span className="text-red-400">*</span></label>
+                <input
+                  value={clientForm.client_name}
+                  onChange={(e) => setClientForm(f => ({ ...f, client_name: e.target.value }))}
+                  placeholder="أدخل اسم العميل"
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-cyan-500/50"
+                />
+              </div>
+
+              {/* Phone + Value */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm text-gray-400 mb-1 block">رقم الجوال</label>
+                  <input
+                    value={clientForm.client_phone}
+                    onChange={(e) => setClientForm(f => ({ ...f, client_phone: e.target.value }))}
+                    placeholder="05xxxxxxxx"
+                    dir="ltr"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm text-right placeholder:text-gray-500 focus:outline-none focus:border-cyan-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-400 mb-1 block">القيمة (ر.س)</label>
+                  <input
+                    type="number"
+                    value={clientForm.deal_value || ""}
+                    onChange={(e) => setClientForm(f => ({ ...f, deal_value: Number(e.target.value) || 0 }))}
+                    placeholder="0"
+                    dir="ltr"
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm text-right placeholder:text-gray-500 focus:outline-none focus:border-cyan-500/50"
+                  />
+                </div>
+              </div>
+
+              {/* Source */}
+              <div>
+                <label className="text-sm text-gray-400 mb-1.5 block">المصدر</label>
+                <div className="flex flex-wrap gap-2">
+                  {SOURCES.map((src) => (
+                    <button
+                      key={src}
+                      type="button"
+                      onClick={() => setClientForm(f => ({ ...f, source: src }))}
+                      className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${
+                        clientForm.source === src
+                          ? "border-cyan-500/40 bg-cyan-500/15 text-cyan-400"
+                          : "border-white/[0.08] text-gray-400 hover:border-white/20"
+                      }`}
+                    >
+                      {src}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Stage */}
+              <div>
+                <label className="text-sm text-gray-400 mb-1.5 block">المرحلة</label>
+                <div className="flex flex-wrap gap-2">
+                  {CLIENT_STAGES.map((s) => (
+                    <button
+                      key={s.key}
+                      type="button"
+                      onClick={() => setClientForm(f => ({ ...f, stage: s.key }))}
+                      className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${
+                        clientForm.stage === s.key
+                          ? STAGE_COLORS[s.color] || "border-cyan-500/40 bg-cyan-500/15 text-cyan-400"
+                          : "border-white/[0.08] text-gray-400 hover:border-white/20"
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Plan */}
+              <div>
+                <label className="text-sm text-gray-400 mb-1.5 block">الباقة</label>
+                <div className="flex flex-wrap gap-2">
+                  {PLANS.map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setClientForm(f => ({ ...f, plan: f.plan === p ? "" : p }))}
+                      className={`rounded-lg border px-3 py-1.5 text-xs transition-colors ${
+                        clientForm.plan === p
+                          ? "border-purple-500/40 bg-purple-500/15 text-purple-400"
+                          : "border-white/[0.08] text-gray-400 hover:border-white/20"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="text-sm text-gray-400 mb-1 block">ملاحظات</label>
+                <textarea
+                  value={clientForm.notes}
+                  onChange={(e) => setClientForm(f => ({ ...f, notes: e.target.value }))}
+                  placeholder="أي ملاحظات إضافية..."
+                  rows={2}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-cyan-500/50 resize-none"
+                />
+              </div>
+
+              <button
+                onClick={handleAddClient}
+                disabled={!clientForm.client_name.trim() || clientSaving}
+                className="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-600 disabled:opacity-40 text-white font-medium transition-all flex items-center justify-center gap-2"
+              >
+                {clientSaving ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <><Plus className="w-4 h-4" /> إضافة العميل لمهامي</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Transfer to Employee Modal ─── */}
+      {transferTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" dir="rtl">
+          <div className="bg-[#111827] rounded-2xl border border-white/10 w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Users className="w-5 h-5 text-violet-400" /> تحويل لموظف آخر
+              </h2>
+              <button onClick={() => setTransferTask(null)} className="p-2 rounded-lg hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="bg-white/[0.04] rounded-xl p-3 mb-5 border border-white/[0.06]">
+              <p className="text-sm text-white font-medium">{transferTask.title}</p>
+              {transferTask.client_name && (
+                <p className="text-xs text-gray-400 mt-1">العميل: {transferTask.client_name}</p>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-gray-400 mb-1 block">اختر الموظف</label>
+                <select
+                  value={transferTo}
+                  onChange={(e) => setTransferTo(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none focus:border-violet-500/50"
+                >
+                  <option value="">اختر موظف...</option>
+                  {teamUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleTransfer}
+                  disabled={!transferTo}
+                  className="flex-1 py-3 rounded-xl bg-violet-500 hover:bg-violet-600 disabled:opacity-40 text-white font-medium transition-all flex items-center justify-center gap-2"
+                >
+                  <Send className="w-4 h-4" /> تحويل
+                </button>
+                <button
+                  onClick={() => setTransferTask(null)}
+                  className="px-5 py-3 rounded-xl bg-white/[0.06] hover:bg-white/10 text-gray-400 font-medium transition-all"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Completion note modal */}
       {completionNote && (
