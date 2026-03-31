@@ -10,9 +10,12 @@ import {
   fetchTeamTaskStats,
   fetchUserProfiles,
   submitPendingDeal,
+  fetchDeals,
+  fetchPendingDeals,
   getOrgId,
 } from "@/lib/supabase/db";
 import { SOURCES, PLANS } from "@/lib/utils/constants";
+import { formatMoney } from "@/lib/utils/format";
 import type { EmployeeTask } from "@/types";
 import {
   CheckCircle2,
@@ -136,6 +139,13 @@ export default function MyTasksPage() {
   const [myRank, setMyRank] = useState<{ rank: number; total: number; rate: number }>({ rank: 0, total: 0, rate: 0 });
   const [completionNote, setCompletionNote] = useState<{ taskId: string; note: string } | null>(null);
 
+  /* Sales performance */
+  const [salesStats, setSalesStats] = useState({
+    totalDeals: 0, closedDeals: 0, revenue: 0,
+    pendingApproval: 0, approved: 0, rejected: 0,
+    conversionRate: 0,
+  });
+
   /* Client form */
   const [showClientForm, setShowClientForm] = useState(false);
   const [clientForm, setClientForm] = useState(EMPTY_CLIENT_FORM);
@@ -156,10 +166,12 @@ export default function MyTasksPage() {
   const loadData = useCallback(async () => {
     if (!user) return;
     try {
-      const [myTasks, myStats, teamStats] = await Promise.all([
+      const [myTasks, myStats, teamStats, allDeals, pendingDeals] = await Promise.all([
         fetchEmployeeTasks({ assigned_to: user.id }),
         fetchMyTaskStats(user.id),
         fetchTeamTaskStats(),
+        fetchDeals(),
+        fetchPendingDeals(),
       ]);
       setTasks(myTasks);
       setStats(myStats);
@@ -169,6 +181,24 @@ export default function MyTasksPage() {
         rank: rank || teamStats.length + 1,
         total: teamStats.length,
         rate: myTeam?.completion_rate ?? 0,
+      });
+
+      // Sales performance stats
+      const myDeals = allDeals.filter(d => d.assigned_rep_name?.trim() === user.name.trim());
+      const closedDeals = myDeals.filter(d => d.stage === "مكتملة");
+      const myPending = pendingDeals.filter(d => d.submitter_name?.trim() === user.name.trim() || d.assigned_rep_name?.trim() === user.name.trim());
+      const approved = myPending.filter(d => d.status === "approved").length;
+      const rejected = myPending.filter(d => d.status === "rejected").length;
+      const pending = myPending.filter(d => d.status === "pending").length;
+      const totalSubmitted = approved + rejected + pending;
+      setSalesStats({
+        totalDeals: myDeals.length,
+        closedDeals: closedDeals.length,
+        revenue: closedDeals.reduce((s, d) => s + d.deal_value, 0),
+        pendingApproval: pending,
+        approved,
+        rejected,
+        conversionRate: totalSubmitted > 0 ? Math.round((approved / totalSubmitted) * 100) : 0,
       });
     } catch (e) {
       console.error(e);
@@ -236,17 +266,23 @@ export default function MyTasksPage() {
   const handleTransferToAdmin = async (task: EmployeeTask) => {
     try {
       const orgId = getOrgId();
-      // Parse sales type from description
-      const isSupport = task.description?.includes("مبيعات الدعم");
+      const desc = task.description || "";
+      const isSupport = desc.includes("مبيعات الدعم");
+      // Parse deal value, source, plan, stage from description
+      const valueMatch = desc.match(/القيمة:\s*([\d.]+)/);
+      const sourceMatch = desc.match(/المصدر:\s*([^|]+)/);
+      const planMatch = desc.match(/الباقة:\s*([^|]+)/);
+      const stageMatch = task.title?.match(/^(.+?)\s*—/);
       await submitPendingDeal(orgId, {
         org_id: orgId,
         sales_type: isSupport ? "support" : "office",
         client_name: task.client_name || task.title,
         client_phone: task.client_phone || undefined,
-        deal_value: 0,
-        source: "من الموظف",
-        stage: "تواصل",
-        notes: `محوّل من ${user?.name} | ${task.description || ""} | ${task.notes || ""}`.trim(),
+        deal_value: valueMatch ? parseFloat(valueMatch[1]) : 0,
+        source: sourceMatch ? sourceMatch[1].trim() : "من الموظف",
+        stage: stageMatch ? stageMatch[1].trim() : "تواصل",
+        plan: planMatch ? planMatch[1].trim() : undefined,
+        notes: `محوّل من ${user?.name} | ${task.notes || ""}`.trim(),
         submitter_name: user?.name,
         assigned_rep_name: user?.name,
       });
@@ -474,6 +510,55 @@ export default function MyTasksPage() {
           {myRank.rate > 0 && myRank.rate < 50 && (
             <p className="text-blue-400 text-xs mt-2">🚀 بداية قوية! كل مهمة تنجزها تقربك من هدفك</p>
           )}
+        </div>
+      )}
+
+      {/* ─── Sales Performance Section ─── */}
+      {(salesStats.totalDeals > 0 || salesStats.pendingApproval > 0 || salesStats.approved > 0) && (
+        <div className="glass-surface rounded-2xl p-5 border border-white/[0.06]">
+          <h2 className="text-white font-bold text-sm mb-4 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-emerald-400" /> أدائي في المبيعات
+          </h2>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <div className="bg-white/[0.03] rounded-xl p-3 text-center border border-white/[0.06]">
+              <p className="text-2xl font-bold text-white">{salesStats.totalDeals}</p>
+              <p className="text-gray-400 text-xs mt-1">إجمالي الصفقات</p>
+            </div>
+            <div className="bg-white/[0.03] rounded-xl p-3 text-center border border-white/[0.06]">
+              <p className="text-2xl font-bold text-emerald-400">{salesStats.closedDeals}</p>
+              <p className="text-gray-400 text-xs mt-1">صفقات مكتملة</p>
+            </div>
+            <div className="bg-white/[0.03] rounded-xl p-3 text-center border border-white/[0.06]">
+              <p className="text-2xl font-bold text-cyan-400">{formatMoney(salesStats.revenue)}</p>
+              <p className="text-gray-400 text-xs mt-1">إجمالي الإيرادات</p>
+            </div>
+            <div className="bg-white/[0.03] rounded-xl p-3 text-center border border-white/[0.06]">
+              <p className={`text-2xl font-bold ${salesStats.conversionRate >= 70 ? "text-emerald-400" : salesStats.conversionRate >= 40 ? "text-amber-400" : "text-red-400"}`}>
+                {salesStats.conversionRate}%
+              </p>
+              <p className="text-gray-400 text-xs mt-1">نسبة الاعتماد</p>
+            </div>
+          </div>
+
+          {/* Submission pipeline */}
+          <div className="flex items-center gap-3 flex-wrap">
+            {salesStats.pendingApproval > 0 && (
+              <span className="px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-400 text-xs font-medium">
+                ⏳ بانتظار الموافقة: {salesStats.pendingApproval}
+              </span>
+            )}
+            {salesStats.approved > 0 && (
+              <span className="px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-medium">
+                ✅ تم الاعتماد: {salesStats.approved}
+              </span>
+            )}
+            {salesStats.rejected > 0 && (
+              <span className="px-3 py-1.5 rounded-full bg-red-500/10 text-red-400 text-xs font-medium">
+                ❌ مرفوض: {salesStats.rejected}
+              </span>
+            )}
+          </div>
         </div>
       )}
 
