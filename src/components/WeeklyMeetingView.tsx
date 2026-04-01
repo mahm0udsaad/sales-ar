@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { fetchWeeklyRetentionStats, fetchWeeklyReferralStats, fetchEmployees, fetchDeals } from "@/lib/supabase/db";
 import type { Employee, Deal } from "@/types";
 
@@ -19,7 +19,7 @@ const WEEKLY_TARGET = 17500;
 /* ─── Types ─── */
 interface Member { name: string; calls: string; demos: string; closed: string; avgVal: string; rate: string; status: string; }
 interface WeeklyRev { w: string; rev: string; tgt: number; }
-interface Task { task: string; owner: string; deadline: string; }
+interface Task { task: string; owner: string; deadline: string; timeEstimate?: number; timeSpent?: number; completed?: boolean; }
 interface WeeklyData {
   weekLabel: string;
   revenue: string; closed: string; closeRate: string; renewRate: string;
@@ -216,7 +216,7 @@ export default function WeeklyMeetingView() {
     });
   }
 
-  function updateTask(idx: number, field: keyof Task, val: string) {
+  function updateTask(idx: number, field: keyof Task, val: string | number | boolean) {
     setData(prev => {
       const tasks = prev.tasks.map((t, i) => i === idx ? { ...t, [field]: val } : t);
       const next = { ...prev, tasks };
@@ -636,13 +636,96 @@ function Tab4Retention({ data, update, retentionStats, referralStats, loadingSta
 /* ═══════════════════════════════════════════════════════════════
    TAB 5 — قرارات ومهام
    ═══════════════════════════════════════════════════════════════ */
+const TIMER_PRESETS_W = [15, 25, 30, 45, 60, 90];
+const EARLY_MSGS = [
+  "🏆 ماشاء الله! أنجزت قبل الوقت",
+  "⚡ سرعة خارقة! أداء ممتاز",
+  "🔥 أنت آلة إنجاز! استمر",
+  "💪 كفو! أثبتّ إنك تقدر",
+  "🎯 دقيق وسريع. هذا هو التميز",
+];
+
+const HOURLY_TIPS_W: Record<number, string> = {
+  7: "🌅 صباح الإنجاز! ابدأ بأصعب مهمة",
+  8: "🎯 الساعة الذهبية — ركّز بدون مقاطعات",
+  9: "🧠 التركيز العميق يبدأ الآن",
+  10: "⚡ ذروة الإنتاجية. استثمر كل دقيقة",
+  11: "🔥 أنجز المهام المعقدة قبل التعب",
+  12: "☕ وقت الاستراحة! جدد طاقتك",
+  13: "🌿 ابدأ بمهمة خفيفة بعد الغداء",
+  14: "📋 اعمل على المهام المتوسطة",
+  15: "📊 راجع إنجازاتك. كل مهمة = خطوة للأمام",
+  16: "🏁 أنهِ المهام المعلقة وجهّز لبكرة",
+  17: "📝 رتّب مهام بكرة. التخطيط = إنتاجية",
+  18: "🌙 أحسنت! استرح واشحن طاقتك",
+};
+
 function Tab5Decisions({ data, update, updateTask, addTask, removeTask }: {
   data: WeeklyData;
   update: (p: Partial<WeeklyData>) => void;
-  updateTask: (i: number, f: keyof Task, v: string) => void;
+  updateTask: (i: number, f: keyof Task, v: string | number | boolean) => void;
   addTask: () => void;
   removeTask: (i: number) => void;
 }) {
+  const [activeTimer, setActiveTimer] = useState<{ idx: number; remaining: number; total: number; paused: boolean } | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [pickerIdx, setPickerIdx] = useState<number | null>(null);
+  const [customMin, setCustomMin] = useState(25);
+  const [earlyMsg, setEarlyMsg] = useState<string | null>(null);
+
+  const hourlyTip = useMemo(() => {
+    const h = new Date().getHours();
+    return HOURLY_TIPS_W[h] || (h < 7 ? "🌙 وقت مبكر! جهّز خطتك" : "⭐ أحسنت! غداً يوم جديد");
+  }, []);
+
+  // Timer tick
+  useEffect(() => {
+    if (activeTimer && !activeTimer.paused && activeTimer.remaining > 0) {
+      timerRef.current = setInterval(() => {
+        setActiveTimer(prev => {
+          if (!prev || prev.paused) return prev;
+          if (prev.remaining <= 1) { clearInterval(timerRef.current!); return { ...prev, remaining: 0 }; }
+          return { ...prev, remaining: prev.remaining - 1 };
+        });
+      }, 1000);
+      return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    }
+  }, [activeTimer?.idx, activeTimer?.paused, activeTimer?.remaining === 0 ? 0 : 1]);
+
+  const startTimer = (idx: number, minutes: number) => {
+    setPickerIdx(null);
+    setActiveTimer({ idx, remaining: minutes * 60, total: minutes * 60, paused: false });
+    updateTask(idx, "timeEstimate", minutes);
+  };
+
+  const stopTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setActiveTimer(null);
+  };
+
+  const completeTimer = (idx: number) => {
+    if (!activeTimer || activeTimer.idx !== idx) return;
+    const spent = Math.max(1, Math.round((activeTimer.total - activeTimer.remaining) / 60));
+    const isEarly = activeTimer.remaining > 0;
+    updateTask(idx, "timeSpent", spent);
+    updateTask(idx, "completed", true);
+    if (isEarly) {
+      setEarlyMsg(EARLY_MSGS[Math.floor(Math.random() * EARLY_MSGS.length)]);
+      setTimeout(() => setEarlyMsg(null), 4000);
+    }
+    stopTimer();
+  };
+
+  const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+  // Timer stats
+  const timerStats = useMemo(() => {
+    const timed = data.tasks.filter(t => t.timeEstimate && t.timeSpent && t.completed);
+    if (timed.length === 0) return null;
+    const early = timed.filter(t => t.timeSpent! <= t.timeEstimate!).length;
+    return { total: timed.length, earlyRate: Math.round((early / timed.length) * 100) };
+  }, [data.tasks]);
+
   const decisions = [
     { label: "📉 وش الرقم الأسوأ؟", field: "worst" as const, borderColor: T.red },
     { label: "📈 وش الرقم الأفضل؟", field: "best" as const, borderColor: T.green },
@@ -668,16 +751,47 @@ function Tab5Decisions({ data, update, updateTask, addTask, removeTask }: {
         ))}
       </div>
 
+      {/* Hourly tip + timer stats */}
+      <div style={{ ...cardStyle, display: "flex", alignItems: "center", gap: 14, padding: "14px 20px" }}>
+        <span style={{ fontSize: 22 }}>{hourlyTip.split(" ")[0]}</span>
+        <p style={{ flex: 1, fontSize: 13, color: T.mid }}>{hourlyTip.slice(hourlyTip.indexOf(" ") + 1)}</p>
+        {timerStats && (
+          <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+            <div style={{ textAlign: "center", padding: "4px 12px", borderRadius: 8, background: `${T.green}15`, border: `1px solid ${T.green}30` }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: T.green }}>{timerStats.earlyRate}%</span>
+              <p style={{ fontSize: 10, color: T.dim, marginTop: 2 }}>إنجاز مبكر</p>
+            </div>
+            <div style={{ textAlign: "center", padding: "4px 12px", borderRadius: 8, background: `${T.border}40` }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{timerStats.total}</span>
+              <p style={{ fontSize: 10, color: T.dim, marginTop: 2 }}>مهام بتوقيت</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Early completion celebration */}
+      {earlyMsg && (
+        <div style={{
+          position: "fixed", top: 24, left: "50%", transform: "translateX(-50%)", zIndex: 100,
+          background: `linear-gradient(135deg, ${T.green}E6, ${T.teal}E6)`,
+          color: "#fff", padding: "16px 28px", borderRadius: 16, textAlign: "center",
+          boxShadow: `0 8px 32px ${T.green}40`, animation: "bounce 0.6s ease",
+        }}>
+          <p style={{ fontSize: 16, fontWeight: 700 }}>{earlyMsg}</p>
+          <p style={{ fontSize: 11, opacity: 0.8, marginTop: 4 }}>وقتك ثمين وأنت أثبتّ ذلك!</p>
+        </div>
+      )}
+
       {/* Tasks table */}
       <div style={cardStyle}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 700 }}>المهام</h3>
+          <h3 style={{ fontSize: 15, fontWeight: 700, color: T.text }}>المهام</h3>
           <button onClick={addTask} style={{ ...btnStyle, fontSize: 12, padding: "6px 14px" }}>+ إضافة مهمة</button>
         </div>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>
-              {["#", "المهمة", "المسؤول", "الديدلاين", "×"].map(h => (
+              {["#", "المهمة", "المسؤول", "الديدلاين", "⏱ مؤقت", "×"].map(h => (
                 <th key={h} style={{ padding: "10px 8px", textAlign: h === "×" ? "center" : "right", fontWeight: 600, color: T.mid, borderBottom: `1px solid ${T.border}`, whiteSpace: "nowrap" }}>
                   {h}
                 </th>
@@ -685,39 +799,126 @@ function Tab5Decisions({ data, update, updateTask, addTask, removeTask }: {
             </tr>
           </thead>
           <tbody>
-            {data.tasks.map((t, i) => (
-              <tr key={i}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = T.surface; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                <td style={{ padding: "8px", color: T.dim, fontSize: 12, borderBottom: `1px solid ${T.border}20` }}>{i + 1}</td>
-                <td style={{ padding: "8px", borderBottom: `1px solid ${T.border}20` }}>
-                  <input value={t.task} onChange={e => updateTask(i, "task", e.target.value)}
-                    style={{ ...inputBase, fontSize: 13, fontFamily: "inherit" }}
-                    placeholder="المهمة..."
-                    onFocus={e => { e.target.style.borderBottomColor = T.teal; }}
-                    onBlur={e => { e.target.style.borderBottomColor = T.border; }} />
-                </td>
-                <td style={{ padding: "8px", borderBottom: `1px solid ${T.border}20` }}>
-                  <input value={t.owner} onChange={e => updateTask(i, "owner", e.target.value)}
-                    style={{ ...inputBase, fontSize: 13, fontFamily: "inherit", width: 100 }}
-                    placeholder="المسؤول"
-                    onFocus={e => { e.target.style.borderBottomColor = T.teal; }}
-                    onBlur={e => { e.target.style.borderBottomColor = T.border; }} />
-                </td>
-                <td style={{ padding: "8px", borderBottom: `1px solid ${T.border}20` }}>
-                  <input type="date" value={t.deadline} onChange={e => updateTask(i, "deadline", e.target.value)}
-                    style={{ ...inputBase, fontSize: 12, fontFamily: "monospace", width: 130, direction: "ltr" as const, textAlign: "right" as const }}
-                    onFocus={e => { e.target.style.borderBottomColor = T.teal; }}
-                    onBlur={e => { e.target.style.borderBottomColor = T.border; }} />
-                </td>
-                <td style={{ padding: "8px", textAlign: "center", borderBottom: `1px solid ${T.border}20` }}>
-                  <button onClick={() => removeTask(i)} style={{
-                    background: `${T.red}20`, border: "none", borderRadius: 6, color: T.red,
-                    cursor: "pointer", padding: "4px 10px", fontSize: 14, fontWeight: 700,
-                  }}>×</button>
-                </td>
-              </tr>
-            ))}
+            {data.tasks.map((t, i) => {
+              const isTimerActive = activeTimer?.idx === i;
+              const isCompleted = t.completed;
+
+              return (
+                <tr key={i}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = T.surface; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                  style={{ opacity: isCompleted ? 0.5 : 1 }}
+                >
+                  <td style={{ padding: "8px", color: T.dim, fontSize: 12, borderBottom: `1px solid ${T.border}20` }}>
+                    {isCompleted ? "✅" : i + 1}
+                  </td>
+                  <td style={{ padding: "8px", borderBottom: `1px solid ${T.border}20` }}>
+                    <input value={t.task} onChange={e => updateTask(i, "task", e.target.value)}
+                      style={{ ...inputBase, fontSize: 13, fontFamily: "inherit", textDecoration: isCompleted ? "line-through" : "none" }}
+                      placeholder="المهمة..."
+                      onFocus={e => { e.target.style.borderBottomColor = T.teal; }}
+                      onBlur={e => { e.target.style.borderBottomColor = T.border; }} />
+                  </td>
+                  <td style={{ padding: "8px", borderBottom: `1px solid ${T.border}20` }}>
+                    <input value={t.owner} onChange={e => updateTask(i, "owner", e.target.value)}
+                      style={{ ...inputBase, fontSize: 13, fontFamily: "inherit", width: 100 }}
+                      placeholder="المسؤول"
+                      onFocus={e => { e.target.style.borderBottomColor = T.teal; }}
+                      onBlur={e => { e.target.style.borderBottomColor = T.border; }} />
+                  </td>
+                  <td style={{ padding: "8px", borderBottom: `1px solid ${T.border}20` }}>
+                    <input type="date" value={t.deadline} onChange={e => updateTask(i, "deadline", e.target.value)}
+                      style={{ ...inputBase, fontSize: 12, fontFamily: "monospace", width: 130, direction: "ltr" as const, textAlign: "right" as const }}
+                      onFocus={e => { e.target.style.borderBottomColor = T.teal; }}
+                      onBlur={e => { e.target.style.borderBottomColor = T.border; }} />
+                  </td>
+                  {/* Timer column */}
+                  <td style={{ padding: "8px", borderBottom: `1px solid ${T.border}20`, minWidth: 180 }}>
+                    {isCompleted && t.timeEstimate && t.timeSpent ? (
+                      <span style={{
+                        fontSize: 11, padding: "3px 10px", borderRadius: 20,
+                        background: t.timeSpent <= t.timeEstimate ? `${T.green}15` : `${T.amber}15`,
+                        color: t.timeSpent <= t.timeEstimate ? T.green : T.amber,
+                      }}>
+                        {t.timeSpent <= t.timeEstimate ? "⚡" : "⏰"} {t.timeSpent} من {t.timeEstimate} د
+                      </span>
+                    ) : isTimerActive && activeTimer ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {/* Progress bar */}
+                        <div style={{ flex: 1, height: 4, borderRadius: 4, background: `${T.border}60`, overflow: "hidden" }}>
+                          <div style={{
+                            height: "100%", borderRadius: 4, transition: "width 1s linear",
+                            width: `${((activeTimer.total - activeTimer.remaining) / activeTimer.total) * 100}%`,
+                            background: activeTimer.remaining === 0 ? T.red : activeTimer.remaining <= 60 ? T.amber : T.teal,
+                          }} />
+                        </div>
+                        <span style={{
+                          fontFamily: "monospace", fontSize: 14, fontWeight: 700, minWidth: 50,
+                          color: activeTimer.remaining === 0 ? T.red : activeTimer.remaining <= 60 ? T.amber : T.text,
+                        }}>
+                          {fmt(activeTimer.remaining)}
+                        </span>
+                        <button onClick={() => setActiveTimer(p => p ? { ...p, paused: !p.paused } : null)}
+                          style={{ background: `${T.border}60`, border: "none", borderRadius: 6, color: T.text, cursor: "pointer", padding: "3px 8px", fontSize: 12 }}>
+                          {activeTimer.paused ? "▶" : "⏸"}
+                        </button>
+                        <button onClick={() => stopTimer()}
+                          style={{ background: `${T.border}60`, border: "none", borderRadius: 6, color: T.dim, cursor: "pointer", padding: "3px 8px", fontSize: 12 }}>
+                          ↺
+                        </button>
+                        <button onClick={() => completeTimer(i)}
+                          style={{ background: `${T.green}20`, border: "none", borderRadius: 6, color: T.green, cursor: "pointer", padding: "3px 8px", fontSize: 11, fontWeight: 600 }}>
+                          أنجزت ✓
+                        </button>
+                      </div>
+                    ) : pickerIdx === i ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                          {TIMER_PRESETS_W.map(m => (
+                            <button key={m} onClick={() => startTimer(i, m)}
+                              style={{ background: `${T.teal}15`, border: `1px solid ${T.teal}30`, borderRadius: 6, color: T.teal, cursor: "pointer", padding: "3px 8px", fontSize: 11, fontWeight: 500 }}>
+                              {m} د
+                            </button>
+                          ))}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <input type="number" value={customMin} onChange={e => setCustomMin(Math.max(1, Number(e.target.value) || 1))}
+                            style={{ ...inputBase, width: 50, fontSize: 11, textAlign: "center" as const, direction: "ltr" as const }} min={1} />
+                          <span style={{ fontSize: 10, color: T.dim }}>د</span>
+                          <button onClick={() => startTimer(i, customMin)}
+                            style={{ background: T.teal, border: "none", borderRadius: 6, color: "#fff", cursor: "pointer", padding: "3px 10px", fontSize: 11, fontWeight: 600 }}>
+                            ▶ ابدأ
+                          </button>
+                          <button onClick={() => setPickerIdx(null)}
+                            style={{ background: "transparent", border: "none", color: T.dim, cursor: "pointer", fontSize: 14 }}>
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => !activeTimer && setPickerIdx(i)}
+                        disabled={!!activeTimer}
+                        style={{
+                          background: `${T.teal}12`, border: `1px solid ${T.teal}25`, borderRadius: 8,
+                          color: activeTimer ? T.dim : T.teal, cursor: activeTimer ? "default" : "pointer",
+                          padding: "4px 12px", fontSize: 11, fontWeight: 500,
+                          opacity: activeTimer ? 0.4 : 1,
+                        }}>
+                        ⏱ ابدأ بمؤقت
+                        {t.timeEstimate && <span style={{ marginRight: 6, color: T.dim }}>{t.timeEstimate} د</span>}
+                      </button>
+                    )}
+                  </td>
+                  <td style={{ padding: "8px", textAlign: "center", borderBottom: `1px solid ${T.border}20` }}>
+                    <button onClick={() => removeTask(i)} style={{
+                      background: `${T.red}20`, border: "none", borderRadius: 6, color: T.red,
+                      cursor: "pointer", padding: "4px 10px", fontSize: 14, fontWeight: 700,
+                    }}>×</button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
