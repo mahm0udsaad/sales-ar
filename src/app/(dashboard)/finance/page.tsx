@@ -87,6 +87,7 @@ export default function FinancePage() {
   const [startupDialog, setStartupDialog] = useState(false);
   const [startupForm, setStartupForm] = useState({ category: "", item_name: "", amount: "", paid_date: "", notes: "" });
   const [savingStartup, setSavingStartup] = useState(false);
+  const [startupCustomCat, setStartupCustomCat] = useState("");
 
   const now = new Date();
   const selectedMonth = activeMonthIndex?.month ?? (now.getMonth() + 1);
@@ -240,6 +241,7 @@ export default function FinancePage() {
 
   /* ─── Startup Cost Handlers ─── */
   const STARTUP_CATEGORIES = ["تقنية", "تراخيص", "تجهيزات", "تسويق تأسيسي", "قانونية", "توظيف", "أخرى"];
+  const allStartupCategories = [...new Set([...STARTUP_CATEGORIES, ...startupCosts.map(c => c.category)])];
 
   async function handleAddStartupCost() {
     if (!startupForm.item_name.trim() || !startupForm.amount) return;
@@ -1380,7 +1382,7 @@ export default function FinancePage() {
       </Dialog>
 
       {/* ─── Add Startup Cost Dialog ─── */}
-      <Dialog open={startupDialog} onOpenChange={setStartupDialog}>
+      <Dialog open={startupDialog} onOpenChange={(open) => { setStartupDialog(open); if (!open) setStartupCustomCat(""); }}>
         <DialogContent className="max-w-md" dir="rtl">
           <DialogHeader>
             <DialogTitle>إضافة تكلفة تأسيس</DialogTitle>
@@ -1389,8 +1391,8 @@ export default function FinancePage() {
           <div className="grid gap-4 py-3">
             <div className="grid gap-1.5">
               <Label>التصنيف</Label>
-              <div className="flex flex-wrap gap-2">
-                {STARTUP_CATEGORIES.map((cat) => (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {allStartupCategories.map((cat) => (
                   <button
                     key={cat}
                     type="button"
@@ -1405,6 +1407,29 @@ export default function FinancePage() {
                   </button>
                 ))}
               </div>
+              <div className="flex gap-2">
+                <Input
+                  value={startupCustomCat}
+                  onChange={(e) => setStartupCustomCat(e.target.value)}
+                  placeholder="أو أضف تصنيف جديد..."
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!startupCustomCat.trim()}
+                  onClick={() => {
+                    setStartupForm({ ...startupForm, category: startupCustomCat.trim() });
+                    setStartupCustomCat("");
+                  }}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+              {startupForm.category && (
+                <p className="text-xs text-cc-purple mt-1">التصنيف المختار: {startupForm.category}</p>
+              )}
             </div>
             <div className="grid gap-1.5">
               <Label>البند <span className="text-cc-red">*</span></Label>
