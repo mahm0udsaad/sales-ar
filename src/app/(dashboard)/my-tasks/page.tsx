@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import {
   fetchEmployeeTasks,
@@ -39,6 +39,10 @@ import {
   Send,
   X,
   Users,
+  Timer,
+  Play,
+  Pause,
+  RotateCcw,
 } from "lucide-react";
 
 /* ─── Motivational Quotes ─── */
@@ -74,6 +78,38 @@ const MOTIVATIONAL_QUOTES = [
   { text: "النجاح هو الانتقال من فشل إلى فشل دون فقدان الحماس", author: "ونستون تشرشل" },
   { text: "كل خبير كان مبتدئاً في يوم من الأيام", author: "هيلين هايز" },
   { text: "اجعل هدفك أكبر من خوفك", author: "حكمة" },
+];
+
+/* ─── Hourly Productivity Tips ─── */
+const HOURLY_TIPS: Record<number, { tip: string; emoji: string }> = {
+  7:  { tip: "صباح الإنجاز! ابدأ بأصعب مهمة وأنت في قمة تركيزك", emoji: "🌅" },
+  8:  { tip: "الساعة الذهبية — ركّز على مهمة واحدة بدون مقاطعات", emoji: "🎯" },
+  9:  { tip: "التركيز العميق يبدأ الآن. أغلق الإشعارات وانطلق", emoji: "🧠" },
+  10: { tip: "أنت في ذروة الإنتاجية الصباحية. استثمر كل دقيقة", emoji: "⚡" },
+  11: { tip: "قبل الظهر — أنجز المهام المعقدة قبل ما يبدأ التعب", emoji: "🔥" },
+  12: { tip: "وقت الاستراحة! خذ نفس عميق وجدد طاقتك", emoji: "☕" },
+  13: { tip: "بعد الغداء — ابدأ بمهمة خفيفة لاستعادة التركيز", emoji: "🌿" },
+  14: { tip: "اعمل على المهام المتوسطة. المهام الصعبة خلّها للصباح", emoji: "📋" },
+  15: { tip: "راجع إنجازاتك اليوم. كل مهمة أنجزتها = خطوة للأمام", emoji: "📊" },
+  16: { tip: "الساعة الأخيرة — أنهِ المهام المعلقة وجهّز لبكرة", emoji: "🏁" },
+  17: { tip: "رتّب مهام بكرة الآن. التخطيط المسبق = يوم منتج", emoji: "📝" },
+  18: { tip: "أحسنت! استرح واشحن طاقتك ليوم إنتاجي جديد", emoji: "🌙" },
+};
+function getHourlyTip(): { tip: string; emoji: string } {
+  const h = new Date().getHours();
+  return HOURLY_TIPS[h] || (h < 7
+    ? { tip: "وقت مبكر! جهّز خطتك اليومية وحدد أولوياتك", emoji: "🌙" }
+    : { tip: "أحسنت على جهودك اليوم. غداً يوم جديد!", emoji: "⭐" });
+}
+
+const TIMER_PRESETS = [15, 25, 30, 45, 60, 90];
+
+const EARLY_MESSAGES = [
+  "🏆 ماشاء الله! أنجزت قبل الوقت",
+  "⚡ سرعة خارقة! أداء ممتاز",
+  "🔥 أنت آلة إنجاز! استمر",
+  "💪 كفو! أثبتّ إنك تقدر",
+  "🎯 دقيق وسريع. هذا هو التميز",
 ];
 
 const TASK_TYPES: Record<string, { label: string; emoji: string }> = {
@@ -155,6 +191,91 @@ export default function MyTasksPage() {
   const [transferTask, setTransferTask] = useState<EmployeeTask | null>(null);
   const [transferTo, setTransferTo] = useState("");
   const [teamUsers, setTeamUsers] = useState<{ id: string; name: string }[]>([]);
+
+  /* Timer state */
+  const [activeTimer, setActiveTimer] = useState<{ taskId: string; remaining: number; total: number; paused: boolean } | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [showTimerPicker, setShowTimerPicker] = useState<string | null>(null);
+  const [customMinutes, setCustomMinutes] = useState(25);
+  const [earlyMessage, setEarlyMessage] = useState<string | null>(null);
+  const [hourlyTip, setHourlyTip] = useState(getHourlyTip());
+
+  /* Update hourly tip every 10 minutes */
+  useEffect(() => {
+    const id = setInterval(() => setHourlyTip(getHourlyTip()), 600000);
+    return () => clearInterval(id);
+  }, []);
+
+  /* Timer tick */
+  useEffect(() => {
+    if (activeTimer && !activeTimer.paused && activeTimer.remaining > 0) {
+      timerRef.current = setInterval(() => {
+        setActiveTimer(prev => {
+          if (!prev || prev.paused) return prev;
+          if (prev.remaining <= 1) {
+            clearInterval(timerRef.current!);
+            return { ...prev, remaining: 0 };
+          }
+          return { ...prev, remaining: prev.remaining - 1 };
+        });
+      }, 1000);
+      return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    }
+  }, [activeTimer?.taskId, activeTimer?.paused, activeTimer?.remaining === 0 ? 0 : 1]);
+
+  const startTimer = async (taskId: string, minutes: number) => {
+    setShowTimerPicker(null);
+    setActiveTimer({ taskId, remaining: minutes * 60, total: minutes * 60, paused: false });
+    await updateEmployeeTask(taskId, {
+      status: "in_progress",
+      time_estimate: minutes,
+      time_started_at: new Date().toISOString(),
+    });
+    loadData();
+  };
+
+  const togglePauseTimer = () => {
+    setActiveTimer(prev => prev ? { ...prev, paused: !prev.paused } : null);
+  };
+
+  const stopTimer = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setActiveTimer(null);
+  };
+
+  const completeWithTimer = async (taskId: string) => {
+    if (!activeTimer || activeTimer.taskId !== taskId) return;
+    const elapsedSec = activeTimer.total - activeTimer.remaining;
+    const spentMinutes = Math.max(1, Math.round(elapsedSec / 60));
+    const isEarly = activeTimer.remaining > 0;
+
+    if (isEarly) {
+      setEarlyMessage(EARLY_MESSAGES[Math.floor(Math.random() * EARLY_MESSAGES.length)]);
+      setTimeout(() => setEarlyMessage(null), 4000);
+    }
+
+    stopTimer();
+    setCompletionNote({ taskId, note: "" });
+  };
+
+  const formatTimer = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
+  /* Timer performance stats */
+  const timerStats = useMemo(() => {
+    const timed = tasks.filter(t => t.time_estimate && t.time_spent_minutes && t.status === "completed");
+    if (timed.length === 0) return { total: 0, earlyCount: 0, lateCount: 0, earlyRate: 0 };
+    const earlyCount = timed.filter(t => t.time_spent_minutes! <= t.time_estimate!).length;
+    return {
+      total: timed.length,
+      earlyCount,
+      lateCount: timed.length - earlyCount,
+      earlyRate: Math.round((earlyCount / timed.length) * 100),
+    };
+  }, [tasks]);
 
   const todayQuote = useMemo(() => {
     const start = new Date("2025-01-01").getTime();
@@ -347,10 +468,18 @@ export default function MyTasksPage() {
 
   const handleComplete = async () => {
     if (!completionNote) return;
-    await updateEmployeeTask(completionNote.taskId, {
+    const task = tasks.find(t => t.id === completionNote.taskId);
+    const updates: Partial<EmployeeTask> = {
       status: "completed",
       completion_notes: completionNote.note || undefined,
-    });
+    };
+    // Calculate time spent if timer was used
+    if (task?.time_started_at) {
+      const started = new Date(task.time_started_at).getTime();
+      const spent = Math.max(1, Math.round((Date.now() - started) / 60000));
+      updates.time_spent_minutes = spent;
+    }
+    await updateEmployeeTask(completionNote.taskId, updates);
     setCompletionNote(null);
     loadData();
   };
@@ -443,6 +572,29 @@ export default function MyTasksPage() {
             <p className="text-amber-400/70 text-xs mt-2">— {todayQuote.author}</p>
           </div>
         </div>
+      </div>
+
+      {/* Hourly Productivity Tip */}
+      <div className="glass-surface rounded-2xl p-4 border border-white/[0.06] flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-indigo-500/15 flex items-center justify-center shrink-0 text-xl">
+          {hourlyTip.emoji}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] text-indigo-400 font-medium mb-0.5">نصيحة الساعة</p>
+          <p className="text-white text-sm">{hourlyTip.tip}</p>
+        </div>
+        {timerStats.total > 0 && (
+          <div className="hidden md:flex items-center gap-3 shrink-0">
+            <div className="text-center px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+              <p className="text-emerald-400 text-sm font-bold">{timerStats.earlyRate}%</p>
+              <p className="text-[10px] text-gray-400">إنجاز مبكر</p>
+            </div>
+            <div className="text-center px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.06]">
+              <p className="text-white text-sm font-bold">{timerStats.total}</p>
+              <p className="text-[10px] text-gray-400">مهام بتوقيت</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Stats + Rank Row */}
@@ -683,6 +835,101 @@ export default function MyTasksPage() {
 
                     {task.completion_notes && (
                       <p className="text-emerald-400/70 text-xs mt-2 bg-emerald-500/5 rounded-lg px-3 py-2">✅ {task.completion_notes}</p>
+                    )}
+
+                    {/* Timer section */}
+                    {task.status !== "completed" && task.status !== "cancelled" && (
+                      <div className="mt-3">
+                        {activeTimer && activeTimer.taskId === task.id ? (
+                          <div className="bg-gradient-to-l from-cyan-500/10 to-indigo-500/10 rounded-xl p-3 border border-cyan-500/20">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs text-cyan-400 font-medium flex items-center gap-1.5">
+                                <Timer className="w-3.5 h-3.5" />
+                                {activeTimer.paused ? "متوقف مؤقتاً" : "جاري العمل..."}
+                              </span>
+                              <span className="text-xs text-gray-400">{task.time_estimate} دقيقة</span>
+                            </div>
+                            <div className="w-full h-2 rounded-full bg-white/[0.06] mb-2 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-1000 ${
+                                  activeTimer.remaining === 0 ? "bg-red-500 animate-pulse"
+                                    : activeTimer.remaining <= 60 ? "bg-amber-500"
+                                    : "bg-gradient-to-l from-cyan-400 to-indigo-400"
+                                }`}
+                                style={{ width: `${Math.max(0, ((activeTimer.total - activeTimer.remaining) / activeTimer.total) * 100)}%` }}
+                              />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className={`text-2xl font-mono font-bold ${
+                                activeTimer.remaining === 0 ? "text-red-400 animate-pulse" :
+                                activeTimer.remaining <= 60 ? "text-amber-400" : "text-white"
+                              }`}>
+                                {formatTimer(activeTimer.remaining)}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <button onClick={togglePauseTimer} className="w-9 h-9 rounded-lg bg-white/[0.08] hover:bg-white/[0.15] flex items-center justify-center text-white transition-colors">
+                                  {activeTimer.paused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                                </button>
+                                <button onClick={stopTimer} className="w-9 h-9 rounded-lg bg-white/[0.08] hover:bg-white/[0.15] flex items-center justify-center text-gray-400 transition-colors">
+                                  <RotateCcw className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => completeWithTimer(task.id)} className="px-3 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium transition-colors flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> أنجزت
+                                </button>
+                              </div>
+                            </div>
+                            {activeTimer.remaining === 0 && (
+                              <p className="text-red-400 text-xs mt-2 animate-pulse">⏰ انتهى الوقت! أكمل المهمة أو أعد ضبط المؤقت</p>
+                            )}
+                          </div>
+                        ) : showTimerPicker === task.id ? (
+                          <div className="bg-white/[0.04] rounded-xl p-3 border border-white/[0.06]">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs text-gray-400 font-medium">اختر المدة:</span>
+                              <button onClick={() => setShowTimerPicker(null)} className="text-gray-500 hover:text-white"><X className="w-4 h-4" /></button>
+                            </div>
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              {TIMER_PRESETS.map(min => (
+                                <button key={min} onClick={() => startTimer(task.id, min)} className="px-3 py-2 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 text-xs font-medium border border-cyan-500/20 transition-colors">
+                                  {min} د
+                                </button>
+                              ))}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <input type="number" value={customMinutes} onChange={(e) => setCustomMinutes(Math.max(1, Number(e.target.value) || 1))} className="w-20 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white text-xs text-center focus:outline-none focus:border-cyan-500/50" min={1} dir="ltr" />
+                              <span className="text-xs text-gray-400">دقيقة</span>
+                              <button onClick={() => startTimer(task.id, customMinutes)} className="px-3 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white text-xs font-medium transition-colors flex items-center gap-1">
+                                <Play className="w-3 h-3" /> ابدأ
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            {!activeTimer && (
+                              <button onClick={() => setShowTimerPicker(task.id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 text-xs font-medium border border-cyan-500/20 transition-colors">
+                                <Timer className="w-3.5 h-3.5" /> ابدأ بمؤقت
+                              </button>
+                            )}
+                            {task.time_estimate && !activeTimer && (
+                              <span className="text-[11px] text-gray-500">⏱ {task.time_estimate} د مقدّرة</span>
+                            )}
+                            {task.time_spent_minutes && (
+                              <span className="text-[11px] text-gray-500">⏳ {task.time_spent_minutes} د مستغرقة</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Completed task time info */}
+                    {task.status === "completed" && task.time_estimate && task.time_spent_minutes && (
+                      <div className="mt-2 flex items-center gap-2 text-xs">
+                        {task.time_spent_minutes <= task.time_estimate ? (
+                          <span className="text-emerald-400 bg-emerald-500/10 rounded-full px-2.5 py-1">⚡ أنجزت قبل الوقت ({task.time_spent_minutes} من {task.time_estimate} د)</span>
+                        ) : (
+                          <span className="text-amber-400 bg-amber-500/10 rounded-full px-2.5 py-1">⏰ تجاوزت الوقت ({task.time_spent_minutes} من {task.time_estimate} د)</span>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -946,6 +1193,16 @@ export default function MyTasksPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Early completion celebration */}
+      {earlyMessage && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[60] animate-bounce">
+          <div className="bg-gradient-to-l from-emerald-500/90 to-cyan-500/90 backdrop-blur-md text-white px-6 py-4 rounded-2xl shadow-2xl shadow-emerald-500/30 text-center">
+            <p className="text-lg font-bold">{earlyMessage}</p>
+            <p className="text-white/80 text-xs mt-1">وقتك ثمين وأنت أثبتّ ذلك!</p>
           </div>
         </div>
       )}

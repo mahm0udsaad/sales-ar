@@ -466,6 +466,9 @@ export interface EmployeeTask {
   entity_id?: string;
   notes?: string;
   completion_notes?: string;
+  time_estimate?: number;
+  time_started_at?: string;
+  time_spent_minutes?: number;
   created_at: string;
   updated_at: string;
 }
