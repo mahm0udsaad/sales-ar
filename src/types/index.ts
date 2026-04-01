@@ -339,6 +339,11 @@ export interface PipPlan {
   target_percentage: number;
   actual_percentage: number;
   reason?: string;
+  weekly_goals?: { week: number; goal: string }[];
+  improvement_actions?: string[];
+  evaluation_criteria?: string[];
+  followup_day?: string;
+  consequence?: string;
   created_at: string;
   updated_at: string;
 }

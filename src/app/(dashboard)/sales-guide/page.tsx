@@ -131,7 +131,36 @@ const EMPTY_PIP = {
   end_date: "",
   reason: "",
   target_percentage: 100,
+  weekly_goals: ["", "", "", ""],
+  improvement_actions: [] as string[],
+  evaluation_criteria: [] as string[],
+  followup_day: "",
+  consequence: "",
 };
+
+const IMPROVEMENT_ACTIONS = [
+  "تدريب مكثف على المنتج",
+  "مرافقة مدير المبيعات",
+  "مراجعة يومية للأداء",
+  "تدريب على مهارات التفاوض",
+  "تحسين إدارة الوقت",
+  "ورشة عمل خدمة العملاء",
+  "تدريب على الإغلاق",
+  "مراجعة سكربت المكالمات",
+];
+
+const EVALUATION_CRITERIA = [
+  { label: "عدد المكالمات اليومية", icon: "📞" },
+  { label: "عدد الصفقات المغلقة", icon: "🤝" },
+  { label: "قيمة المبيعات", icon: "💰" },
+  { label: "معدل التحويل", icon: "📊" },
+  { label: "عدد العملاء الجدد", icon: "👥" },
+  { label: "رضا العملاء", icon: "⭐" },
+  { label: "عدد التجديدات", icon: "🔄" },
+  { label: "الحضور والانضباط", icon: "⏰" },
+];
+
+const FOLLOWUP_DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"];
 
 export default function SalesGuidePage() {
   const { user } = useAuth();
@@ -338,6 +367,9 @@ export default function SalesGuidePage() {
     if (!pipForm.employee_name || !pipForm.end_date) return;
     setSaving(true);
     try {
+      const weeklyGoals = pipForm.weekly_goals
+        .map((g, i) => ({ week: i + 1, goal: g }))
+        .filter((g) => g.goal.trim());
       const created = await createPipPlan({
         employee_name: pipForm.employee_name,
         start_date: pipForm.start_date,
@@ -347,6 +379,11 @@ export default function SalesGuidePage() {
         target_percentage: pipForm.target_percentage,
         actual_percentage: 0,
         reason: pipForm.reason || undefined,
+        weekly_goals: weeklyGoals.length > 0 ? weeklyGoals : undefined,
+        improvement_actions: pipForm.improvement_actions.length > 0 ? pipForm.improvement_actions : undefined,
+        evaluation_criteria: pipForm.evaluation_criteria.length > 0 ? pipForm.evaluation_criteria : undefined,
+        followup_day: pipForm.followup_day || undefined,
+        consequence: pipForm.consequence || undefined,
       });
       setPipPlans((prev) => [created, ...prev]);
       setPipDialog(false);
@@ -950,6 +987,77 @@ export default function SalesGuidePage() {
                           style={{ width: `${Math.min(100, progress)}%` }}
                         />
                       </div>
+
+                      {/* Enhanced PIP details */}
+                      {(p.weekly_goals?.length || p.improvement_actions?.length || p.evaluation_criteria?.length || p.followup_day || p.consequence) && (
+                        <div className="mt-3 border-t border-white/6 pt-3 space-y-3">
+                          {/* Weekly goals */}
+                          {p.weekly_goals && p.weekly_goals.length > 0 && (
+                            <div>
+                              <p className="text-[10px] text-muted-foreground mb-1.5">الأهداف الأسبوعية</p>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                {p.weekly_goals.map((g) => (
+                                  <div
+                                    key={g.week}
+                                    className={`rounded-lg p-2 text-xs border ${
+                                      p.current_week === g.week
+                                        ? "border-cyan/30 bg-cyan/10 text-cyan"
+                                        : p.current_week > g.week
+                                        ? "border-cc-green/20 bg-cc-green/5 text-cc-green"
+                                        : "border-white/6 bg-white/[0.02] text-muted-foreground"
+                                    }`}
+                                  >
+                                    <span className="block text-[10px] opacity-70">أسبوع {g.week}</span>
+                                    {g.goal}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {/* Improvement actions & criteria */}
+                          <div className="flex flex-wrap gap-3">
+                            {p.improvement_actions && p.improvement_actions.length > 0 && (
+                              <div className="flex-1 min-w-[200px]">
+                                <p className="text-[10px] text-muted-foreground mb-1.5">إجراءات التحسين</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {p.improvement_actions.map((a) => (
+                                    <span key={a} className="px-2 py-0.5 rounded-md text-[11px] bg-cc-purple/10 text-cc-purple border border-cc-purple/20">
+                                      {a}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {p.evaluation_criteria && p.evaluation_criteria.length > 0 && (
+                              <div className="flex-1 min-w-[200px]">
+                                <p className="text-[10px] text-muted-foreground mb-1.5">معايير التقييم</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {p.evaluation_criteria.map((c) => (
+                                    <span key={c} className="px-2 py-0.5 rounded-md text-[11px] bg-cyan/10 text-cyan border border-cyan/20">
+                                      {c}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          {/* Followup & consequence */}
+                          <div className="flex flex-wrap gap-4 text-xs">
+                            {p.followup_day && (
+                              <div className="flex items-center gap-1 text-muted-foreground">
+                                <Calendar className="w-3 h-3" />
+                                <span>متابعة كل <span className="text-foreground font-medium">{p.followup_day}</span></span>
+                              </div>
+                            )}
+                            {p.consequence && (
+                              <div className="flex items-center gap-1 text-cc-red/80">
+                                <AlertTriangle className="w-3 h-3" />
+                                <span>{p.consequence}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1342,12 +1450,13 @@ export default function SalesGuidePage() {
 
       {/* ─── Add PIP Dialog ─── */}
       <Dialog open={pipDialog} onOpenChange={setPipDialog}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-[560px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>إنشاء خطة تحسين أداء</DialogTitle>
             <DialogDescription>خطة مدتها 4 أسابيع لتحسين أداء الموظف</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="space-y-5 py-2">
+            {/* Employee & Dates */}
             <div>
               <Label>الموظف</Label>
               <Select
@@ -1382,20 +1491,128 @@ export default function SalesGuidePage() {
                 />
               </div>
             </div>
-            <div>
-              <Label>النسبة المستهدفة %</Label>
-              <Input
-                type="number"
-                value={pipForm.target_percentage}
-                onChange={(e) => setPipForm({ ...pipForm, target_percentage: Number(e.target.value) })}
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>النسبة المستهدفة %</Label>
+                <Input
+                  type="number"
+                  value={pipForm.target_percentage}
+                  onChange={(e) => setPipForm({ ...pipForm, target_percentage: Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label>يوم المتابعة الأسبوعي</Label>
+                <Select
+                  value={pipForm.followup_day}
+                  onValueChange={(v) => setPipForm({ ...pipForm, followup_day: v ?? "" })}
+                >
+                  <SelectTrigger><SelectValue placeholder="اختر اليوم..." /></SelectTrigger>
+                  <SelectContent>
+                    {FOLLOWUP_DAYS.map((d) => (
+                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            {/* Reason */}
             <div>
               <Label>سبب الخطة</Label>
               <Textarea
                 value={pipForm.reason}
                 onChange={(e) => setPipForm({ ...pipForm, reason: e.target.value })}
                 placeholder="سبب إنشاء خطة التحسين..."
+                rows={2}
+              />
+            </div>
+
+            {/* Weekly Goals */}
+            <div>
+              <Label className="mb-2 block">أهداف أسبوعية</Label>
+              <div className="space-y-2">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground min-w-[60px]">أسبوع {i + 1}</span>
+                    <Input
+                      value={pipForm.weekly_goals[i]}
+                      onChange={(e) => {
+                        const goals = [...pipForm.weekly_goals];
+                        goals[i] = e.target.value;
+                        setPipForm({ ...pipForm, weekly_goals: goals });
+                      }}
+                      placeholder={
+                        i === 0 ? "مثال: 20 مكالمة يومياً"
+                          : i === 1 ? "مثال: 5 اجتماعات أسبوعياً"
+                          : i === 2 ? "مثال: إغلاق 3 صفقات"
+                          : "مثال: تحقيق 100% من الهدف"
+                      }
+                      className="text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Improvement Actions */}
+            <div>
+              <Label className="mb-2 block">إجراءات التحسين</Label>
+              <div className="flex flex-wrap gap-2">
+                {IMPROVEMENT_ACTIONS.map((action) => (
+                  <button
+                    key={action}
+                    type="button"
+                    onClick={() => {
+                      const actions = pipForm.improvement_actions.includes(action)
+                        ? pipForm.improvement_actions.filter((a) => a !== action)
+                        : [...pipForm.improvement_actions, action];
+                      setPipForm({ ...pipForm, improvement_actions: actions });
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                      pipForm.improvement_actions.includes(action)
+                        ? "bg-cc-purple/15 text-cc-purple border-cc-purple/30"
+                        : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                    }`}
+                  >
+                    {action}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Evaluation Criteria */}
+            <div>
+              <Label className="mb-2 block">معايير التقييم (كيف يُقاس النجاح؟)</Label>
+              <div className="flex flex-wrap gap-2">
+                {EVALUATION_CRITERIA.map((c) => (
+                  <button
+                    key={c.label}
+                    type="button"
+                    onClick={() => {
+                      const criteria = pipForm.evaluation_criteria.includes(c.label)
+                        ? pipForm.evaluation_criteria.filter((x) => x !== c.label)
+                        : [...pipForm.evaluation_criteria, c.label];
+                      setPipForm({ ...pipForm, evaluation_criteria: criteria });
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                      pipForm.evaluation_criteria.includes(c.label)
+                        ? "bg-cyan/15 text-cyan border-cyan/30"
+                        : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                    }`}
+                  >
+                    {c.icon} {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Consequence */}
+            <div>
+              <Label>النتيجة في حال عدم التحسن</Label>
+              <Textarea
+                value={pipForm.consequence}
+                onChange={(e) => setPipForm({ ...pipForm, consequence: e.target.value })}
+                placeholder="مثال: إنهاء العقد، تخفيض الراتب، نقل لقسم آخر..."
                 rows={2}
               />
             </div>
