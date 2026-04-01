@@ -84,6 +84,13 @@ import {
   PhoneCall,
   Star,
   Send,
+  Flame,
+  Clock,
+  Zap,
+  Award,
+  Medal,
+  Shield,
+  Timer,
 } from "lucide-react";
 
 /* ─── Color helpers ─── */
@@ -161,6 +168,40 @@ const EVALUATION_CRITERIA = [
 ];
 
 const FOLLOWUP_DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"];
+
+/* ─── PIP Motivational helpers ─── */
+function getPipDaysLeft(endDate: string) {
+  const end = new Date(endDate);
+  const now = new Date();
+  const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  return diff;
+}
+
+function getPipMotivation(progress: number, daysLeft: number, week: number) {
+  if (progress >= 100) return { icon: "🏆", text: "أداء ممتاز! تجاوز الهدف", color: "text-cc-green", bg: "bg-cc-green/10 border-cc-green/30" };
+  if (progress >= 80) return { icon: "🔥", text: "أداء رائع! على وشك تحقيق الهدف", color: "text-cc-green", bg: "bg-cc-green/10 border-cc-green/20" };
+  if (progress >= 60) return { icon: "⚡", text: "تقدم جيد! استمر بالعمل", color: "text-cyan", bg: "bg-cyan/10 border-cyan/20" };
+  if (progress >= 40) return { icon: "💪", text: "بداية جيدة، تحتاج مزيد من الجهد", color: "text-amber", bg: "bg-amber/10 border-amber/20" };
+  if (daysLeft <= 7 && progress < 40) return { icon: "⏰", text: "تحذير! الوقت ينفد والتقدم بطيء", color: "text-cc-red", bg: "bg-cc-red/10 border-cc-red/20" };
+  if (week >= 3 && progress < 30) return { icon: "🚨", text: "خطر! يجب تسريع الأداء فوراً", color: "text-cc-red", bg: "bg-cc-red/10 border-cc-red/30" };
+  return { icon: "🎯", text: "ابدأ بقوة وحقق أهدافك", color: "text-muted-foreground", bg: "bg-white/[0.03] border-white/6" };
+}
+
+function getPipRank(progress: number) {
+  if (progress >= 100) return { rank: "بطل", icon: Trophy, color: "text-amber", medal: "🥇" };
+  if (progress >= 80) return { rank: "متميز", icon: Award, color: "text-cc-green", medal: "🥈" };
+  if (progress >= 60) return { rank: "مجتهد", icon: Medal, color: "text-cyan", medal: "🥉" };
+  if (progress >= 40) return { rank: "مبادر", icon: Shield, color: "text-cc-purple", medal: "" };
+  return { rank: "مبتدئ", icon: Target, color: "text-muted-foreground", medal: "" };
+}
+
+const MOTIVATIONAL_MSGS = [
+  "النجاح يبدأ بخطوة واحدة",
+  "كل يوم فرصة جديدة للتحسن",
+  "المثابرة مفتاح النجاح",
+  "التحدي يصنع الأبطال",
+  "اجعل هدفك أكبر من عذرك",
+];
 
 export default function SalesGuidePage() {
   const { user } = useAuth();
@@ -949,7 +990,66 @@ export default function SalesGuidePage() {
         </TabsContent>
 
         {/* ── PIP Plans Tab ── */}
-        <TabsContent value="pip" className="mt-4">
+        <TabsContent value="pip" className="mt-4 space-y-4">
+          {/* ── Competitive Leaderboard (when multiple plans) ── */}
+          {pipPlans.filter(p => p.status === "active").length > 1 && (() => {
+            const activeSorted = [...pipPlans]
+              .filter(p => p.status === "active")
+              .sort((a, b) => {
+                const pa = a.target_percentage > 0 ? (a.actual_percentage / a.target_percentage) * 100 : 0;
+                const pb = b.target_percentage > 0 ? (b.actual_percentage / b.target_percentage) * 100 : 0;
+                return pb - pa;
+              });
+            return (
+              <div className="glass-surface rounded-2xl p-4 sm:p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Trophy className="w-5 h-5 text-amber" />
+                  <h3 className="text-lg font-bold">لوحة المنافسة</h3>
+                  <span className="text-xs text-muted-foreground mr-auto">
+                    {MOTIVATIONAL_MSGS[Math.floor(Date.now() / 86400000) % MOTIVATIONAL_MSGS.length]}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {activeSorted.map((p, idx) => {
+                    const prog = p.target_percentage > 0 ? Math.round((p.actual_percentage / p.target_percentage) * 100) : 0;
+                    const rank = getPipRank(prog);
+                    const daysLeft = getPipDaysLeft(p.end_date);
+                    const RankIcon = rank.icon;
+                    return (
+                      <div key={p.id} className={`rounded-xl p-3 border transition-all ${
+                        idx === 0 ? "border-amber/30 bg-amber/5" : "border-white/6 bg-white/[0.02]"
+                      }`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg">{idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}</span>
+                          <p className="font-bold text-sm flex-1">{p.employee_name}</p>
+                          <RankIcon className={`w-4 h-4 ${rank.color}`} />
+                        </div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="flex-1 h-2 bg-white/[0.05] rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                prog >= 80 ? "bg-cc-green" : prog >= 50 ? "bg-amber" : "bg-cc-red"
+                              }`}
+                              style={{ width: `${Math.min(100, prog)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-bold min-w-[36px] text-left">{prog}%</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                          <span className={rank.color}>{rank.medal} {rank.rank}</span>
+                          <span className="flex items-center gap-0.5">
+                            <Clock className="w-3 h-3" />
+                            {daysLeft > 0 ? `${daysLeft} يوم متبقي` : "انتهت المهلة"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="glass-surface rounded-2xl p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold">خطط تحسين الأداء (PIP)</h3>
@@ -971,14 +1071,31 @@ export default function SalesGuidePage() {
                   const progress = p.target_percentage > 0
                     ? Math.round((p.actual_percentage / p.target_percentage) * 100)
                     : 0;
+                  const daysLeft = getPipDaysLeft(p.end_date);
+                  const motivation = getPipMotivation(progress, daysLeft, p.current_week);
+                  const rank = getPipRank(progress);
+                  const RankIcon = rank.icon;
+                  const totalDays = Math.ceil((new Date(p.end_date).getTime() - new Date(p.start_date).getTime()) / (1000 * 60 * 60 * 24));
+                  const elapsedDays = totalDays - daysLeft;
+                  const timeProgress = totalDays > 0 ? Math.min(100, Math.round((elapsedDays / totalDays) * 100)) : 0;
+
                   return (
                     <div
                       key={p.id}
                       className="rounded-2xl p-4 border border-white/6 bg-white/[0.02]"
                     >
+                      {/* Header with rank badge */}
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <p className="font-bold text-foreground">{p.employee_name}</p>
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                            progress >= 80 ? "bg-cc-green/15" : progress >= 60 ? "bg-cyan/15" : progress >= 40 ? "bg-amber/15" : "bg-white/[0.05]"
+                          }`}>
+                            <RankIcon className={`w-4 h-4 ${rank.color}`} />
+                          </div>
+                          <div>
+                            <p className="font-bold text-foreground">{p.employee_name}</p>
+                            <span className={`text-[10px] ${rank.color}`}>{rank.medal} {rank.rank}</span>
+                          </div>
                           <ColorBadge text={statusInfo.label} color={statusInfo.color} />
                         </div>
                         <div className="flex gap-1.5">
@@ -1012,7 +1129,18 @@ export default function SalesGuidePage() {
                           )}
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-muted-foreground">
+
+                      {/* Motivational banner for active plans */}
+                      {p.status === "active" && (
+                        <div className={`rounded-lg px-3 py-2 mb-3 border text-xs flex items-center gap-2 ${motivation.bg}`}>
+                          <span className="text-base">{motivation.icon}</span>
+                          <span className={motivation.color}>{motivation.text}</span>
+                          {progress >= 80 && <Flame className="w-4 h-4 text-amber animate-pulse mr-auto" />}
+                        </div>
+                      )}
+
+                      {/* Stats grid with countdown */}
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs text-muted-foreground">
                         <div>
                           <span className="block text-[10px]">تاريخ البدء</span>
                           <span className="text-foreground">{formatDate(p.start_date)}</span>
@@ -1027,23 +1155,77 @@ export default function SalesGuidePage() {
                         </div>
                         <div>
                           <span className="block text-[10px]">التقدم</span>
-                          <span className="text-foreground">{progress}%</span>
+                          <span className={`text-sm font-bold ${progress >= 80 ? "text-cc-green" : progress >= 50 ? "text-amber" : "text-cc-red"}`}>{progress}%</span>
                         </div>
+                        {p.status === "active" && (
+                          <div>
+                            <span className="block text-[10px]">الوقت المتبقي</span>
+                            <div className="flex items-center gap-1">
+                              <Timer className={`w-3.5 h-3.5 ${daysLeft <= 7 ? "text-cc-red animate-pulse" : "text-cyan"}`} />
+                              <span className={`font-bold ${daysLeft <= 7 ? "text-cc-red" : daysLeft <= 14 ? "text-amber" : "text-foreground"}`}>
+                                {daysLeft > 0 ? `${daysLeft} يوم` : "انتهت!"}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
+
+                      {/* Time progress bar */}
+                      {p.status === "active" && (
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                            <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> الوقت المنقضي</span>
+                            <span>{timeProgress}%</span>
+                          </div>
+                          <div className="w-full h-1 bg-white/[0.05] rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                timeProgress > 75 && progress < 50 ? "bg-cc-red" : "bg-white/20"
+                              }`}
+                              style={{ width: `${timeProgress}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       {p.reason && (
                         <p className="mt-2 text-xs text-muted-foreground border-t border-white/6 pt-2">
                           السبب: {p.reason}
                         </p>
                       )}
-                      {/* Progress bar */}
-                      <div className="mt-3 w-full h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            progress >= 80 ? "bg-cc-green" : progress >= 50 ? "bg-amber" : "bg-cc-red"
-                          }`}
-                          style={{ width: `${Math.min(100, progress)}%` }}
-                        />
+
+                      {/* Performance progress bar */}
+                      <div className="mt-3">
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                          <span className="flex items-center gap-1"><Zap className="w-3 h-3" /> تقدم الأداء</span>
+                          <span>{progress}% من {p.target_percentage}%</span>
+                        </div>
+                        <div className="w-full h-2 bg-white/[0.05] rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              progress >= 80 ? "bg-cc-green" : progress >= 50 ? "bg-amber" : "bg-cc-red"
+                            }`}
+                            style={{ width: `${Math.min(100, progress)}%` }}
+                          />
+                        </div>
                       </div>
+
+                      {/* Speed comparison: time vs performance */}
+                      {p.status === "active" && timeProgress > 0 && (
+                        <div className="mt-2 flex items-center gap-2 text-[10px]">
+                          {progress >= timeProgress ? (
+                            <span className="flex items-center gap-1 text-cc-green">
+                              <TrendingUp className="w-3 h-3" />
+                              الأداء أسرع من الوقت بـ {progress - timeProgress}%
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-cc-red">
+                              <AlertTriangle className="w-3 h-3" />
+                              الأداء متأخر عن الوقت بـ {timeProgress - progress}%
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {/* Enhanced PIP details */}
                       {(p.weekly_goals?.length || p.improvement_actions?.length || p.evaluation_criteria?.length || p.followup_day || p.consequence) && (
@@ -1064,7 +1246,11 @@ export default function SalesGuidePage() {
                                         : "border-white/6 bg-white/[0.02] text-muted-foreground"
                                     }`}
                                   >
-                                    <span className="block text-[10px] opacity-70">أسبوع {g.week}</span>
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-[10px] opacity-70">أسبوع {g.week}</span>
+                                      {p.current_week > g.week && <span className="text-cc-green">✓</span>}
+                                      {p.current_week === g.week && <Flame className="w-3 h-3 text-amber" />}
+                                    </div>
                                     {g.goal}
                                   </div>
                                 ))}
