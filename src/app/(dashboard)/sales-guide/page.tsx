@@ -188,6 +188,8 @@ export default function SalesGuidePage() {
   const [activityForm, setActivityForm] = useState(EMPTY_ACTIVITY);
   const [pipDialog, setPipDialog] = useState(false);
   const [pipForm, setPipForm] = useState(EMPTY_PIP);
+  const [editingPip, setEditingPip] = useState<PipPlan | null>(null);
+  const [editPipForm, setEditPipForm] = useState(EMPTY_PIP);
   const [targetDialog, setTargetDialog] = useState(false);
   const [editingTarget, setEditingTarget] = useState<SalesTarget | null>(null);
   const [targetForm, setTargetForm] = useState({ target_value: 0, min_value: 0 });
@@ -396,6 +398,51 @@ export default function SalesGuidePage() {
   async function handleUpdatePipStatus(id: string, status: PipPlan["status"]) {
     const updated = await updatePipPlan(id, { status });
     setPipPlans((prev) => prev.map((p) => (p.id === id ? updated : p)));
+  }
+
+  function openEditPip(p: PipPlan) {
+    setEditingPip(p);
+    const goals = p.weekly_goals && p.weekly_goals.length > 0
+      ? [0, 1, 2, 3].map((i) => p.weekly_goals?.find((g) => g.week === i + 1)?.goal || "")
+      : ["", "", "", ""];
+    setEditPipForm({
+      employee_name: p.employee_name || "",
+      start_date: p.start_date,
+      end_date: p.end_date,
+      reason: p.reason || "",
+      target_percentage: p.target_percentage,
+      weekly_goals: goals,
+      improvement_actions: p.improvement_actions || [],
+      evaluation_criteria: p.evaluation_criteria || [],
+      followup_day: p.followup_day || "",
+      consequence: p.consequence || "",
+    });
+  }
+
+  async function handleEditPip() {
+    if (!editingPip) return;
+    setSaving(true);
+    try {
+      const weeklyGoals = editPipForm.weekly_goals
+        .map((g, i) => ({ week: i + 1, goal: g }))
+        .filter((g) => g.goal.trim());
+      const updated = await updatePipPlan(editingPip.id, {
+        employee_name: editPipForm.employee_name,
+        start_date: editPipForm.start_date,
+        end_date: editPipForm.end_date,
+        target_percentage: editPipForm.target_percentage,
+        reason: editPipForm.reason || undefined,
+        weekly_goals: weeklyGoals.length > 0 ? weeklyGoals : [],
+        improvement_actions: editPipForm.improvement_actions.length > 0 ? editPipForm.improvement_actions : [],
+        evaluation_criteria: editPipForm.evaluation_criteria.length > 0 ? editPipForm.evaluation_criteria : [],
+        followup_day: editPipForm.followup_day || undefined,
+        consequence: editPipForm.consequence || undefined,
+      });
+      setPipPlans((prev) => prev.map((p) => (p.id === editingPip.id ? updated : p)));
+      setEditingPip(null);
+    } finally {
+      setSaving(false);
+    }
   }
 
   function openEditTarget(target: SalesTarget) {
@@ -934,26 +981,36 @@ export default function SalesGuidePage() {
                           <p className="font-bold text-foreground">{p.employee_name}</p>
                           <ColorBadge text={statusInfo.label} color={statusInfo.color} />
                         </div>
-                        {p.status === "active" && (
-                          <div className="flex gap-1.5">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleUpdatePipStatus(p.id, "completed")}
-                              className="text-cc-green text-xs"
-                            >
-                              اكتمل
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleUpdatePipStatus(p.id, "failed")}
-                              className="text-cc-red text-xs"
-                            >
-                              فشل
-                            </Button>
-                          </div>
-                        )}
+                        <div className="flex gap-1.5">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditPip(p)}
+                            className="text-muted-foreground text-xs"
+                          >
+                            <Pencil className="w-3.5 h-3.5 ml-1" /> تعديل
+                          </Button>
+                          {p.status === "active" && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUpdatePipStatus(p.id, "completed")}
+                                className="text-cc-green text-xs"
+                              >
+                                اكتمل
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUpdatePipStatus(p.id, "failed")}
+                                className="text-cc-red text-xs"
+                              >
+                                فشل
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-muted-foreground">
                         <div>
@@ -1621,6 +1678,184 @@ export default function SalesGuidePage() {
             <Button variant="ghost" onClick={() => setPipDialog(false)}>إلغاء</Button>
             <Button onClick={handleCreatePip} disabled={saving || !pipForm.employee_name || !pipForm.end_date}>
               {saving ? "جارٍ الحفظ..." : "إنشاء الخطة"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Edit PIP Dialog ─── */}
+      <Dialog open={!!editingPip} onOpenChange={(open) => { if (!open) setEditingPip(null); }}>
+        <DialogContent className="sm:max-w-[560px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>تعديل خطة تحسين الأداء</DialogTitle>
+            <DialogDescription>تعديل بيانات خطة {editingPip?.employee_name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 py-2">
+            {/* Employee & Dates */}
+            <div>
+              <Label>الموظف</Label>
+              <Select
+                value={editPipForm.employee_name}
+                onValueChange={(v) => setEditPipForm({ ...editPipForm, employee_name: v ?? "" })}
+              >
+                <SelectTrigger><SelectValue placeholder="اختر الموظف..." /></SelectTrigger>
+                <SelectContent>
+                  {employees.map((e) => (
+                    <SelectItem key={e.id} value={e.name}>
+                      {e.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>تاريخ البدء</Label>
+                <Input
+                  type="date"
+                  value={editPipForm.start_date}
+                  onChange={(e) => setEditPipForm({ ...editPipForm, start_date: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>تاريخ الانتهاء</Label>
+                <Input
+                  type="date"
+                  value={editPipForm.end_date}
+                  onChange={(e) => setEditPipForm({ ...editPipForm, end_date: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>النسبة المستهدفة %</Label>
+                <Input
+                  type="number"
+                  value={editPipForm.target_percentage}
+                  onChange={(e) => setEditPipForm({ ...editPipForm, target_percentage: Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label>يوم المتابعة الأسبوعي</Label>
+                <Select
+                  value={editPipForm.followup_day}
+                  onValueChange={(v) => setEditPipForm({ ...editPipForm, followup_day: v ?? "" })}
+                >
+                  <SelectTrigger><SelectValue placeholder="اختر اليوم..." /></SelectTrigger>
+                  <SelectContent>
+                    {FOLLOWUP_DAYS.map((d) => (
+                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Reason */}
+            <div>
+              <Label>سبب الخطة</Label>
+              <Textarea
+                value={editPipForm.reason}
+                onChange={(e) => setEditPipForm({ ...editPipForm, reason: e.target.value })}
+                placeholder="سبب إنشاء خطة التحسين..."
+                rows={2}
+              />
+            </div>
+
+            {/* Weekly Goals */}
+            <div>
+              <Label className="mb-2 block">أهداف أسبوعية</Label>
+              <div className="space-y-2">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground min-w-[60px]">أسبوع {i + 1}</span>
+                    <Input
+                      value={editPipForm.weekly_goals[i]}
+                      onChange={(e) => {
+                        const goals = [...editPipForm.weekly_goals];
+                        goals[i] = e.target.value;
+                        setEditPipForm({ ...editPipForm, weekly_goals: goals });
+                      }}
+                      placeholder={
+                        i === 0 ? "مثال: 20 مكالمة يومياً"
+                          : i === 1 ? "مثال: 5 اجتماعات أسبوعياً"
+                          : i === 2 ? "مثال: إغلاق 3 صفقات"
+                          : "مثال: تحقيق 100% من الهدف"
+                      }
+                      className="text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Improvement Actions */}
+            <div>
+              <Label className="mb-2 block">إجراءات التحسين</Label>
+              <div className="flex flex-wrap gap-2">
+                {IMPROVEMENT_ACTIONS.map((action) => (
+                  <button
+                    key={action}
+                    type="button"
+                    onClick={() => {
+                      const actions = editPipForm.improvement_actions.includes(action)
+                        ? editPipForm.improvement_actions.filter((a) => a !== action)
+                        : [...editPipForm.improvement_actions, action];
+                      setEditPipForm({ ...editPipForm, improvement_actions: actions });
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                      editPipForm.improvement_actions.includes(action)
+                        ? "bg-cc-purple/15 text-cc-purple border-cc-purple/30"
+                        : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                    }`}
+                  >
+                    {action}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Evaluation Criteria */}
+            <div>
+              <Label className="mb-2 block">معايير التقييم</Label>
+              <div className="flex flex-wrap gap-2">
+                {EVALUATION_CRITERIA.map((c) => (
+                  <button
+                    key={c.label}
+                    type="button"
+                    onClick={() => {
+                      const criteria = editPipForm.evaluation_criteria.includes(c.label)
+                        ? editPipForm.evaluation_criteria.filter((x) => x !== c.label)
+                        : [...editPipForm.evaluation_criteria, c.label];
+                      setEditPipForm({ ...editPipForm, evaluation_criteria: criteria });
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                      editPipForm.evaluation_criteria.includes(c.label)
+                        ? "bg-cyan/15 text-cyan border-cyan/30"
+                        : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                    }`}
+                  >
+                    {c.icon} {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Consequence */}
+            <div>
+              <Label>النتيجة في حال عدم التحسن</Label>
+              <Textarea
+                value={editPipForm.consequence}
+                onChange={(e) => setEditPipForm({ ...editPipForm, consequence: e.target.value })}
+                placeholder="مثال: إنهاء العقد، تخفيض الراتب، نقل لقسم آخر..."
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditingPip(null)}>إلغاء</Button>
+            <Button onClick={handleEditPip} disabled={saving || !editPipForm.employee_name || !editPipForm.end_date}>
+              {saving ? "جارٍ الحفظ..." : "حفظ التعديل"}
             </Button>
           </DialogFooter>
         </DialogContent>
