@@ -904,10 +904,42 @@ export default function FinancePage() {
             {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
           </div>
         ) : startupCosts.length === 0 ? (
-          <div className="text-center py-10 text-muted-foreground">
+          <div className="text-center py-8 text-muted-foreground">
             <Building2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>لا توجد مصاريف تأسيس مسجلة</p>
-            <p className="text-sm mt-1">سجّل تكاليف التأسيس لمتابعة استرداد رأس المال</p>
+            <p className="font-medium text-foreground">لا توجد مصاريف تأسيس مسجلة</p>
+            <p className="text-sm mt-1 mb-5">اختر تصنيف وأضف أول بند لمتابعة استرداد رأس المال</p>
+            {/* Quick-add categories */}
+            <div className="flex flex-wrap justify-center gap-2 mb-4">
+              {allStartupCategories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => { setStartupForm({ ...startupForm, category: cat }); setStartupDialog(true); }}
+                  className="px-4 py-2 rounded-lg text-xs font-medium border border-cc-purple/20 bg-cc-purple/10 text-cc-purple hover:bg-cc-purple/20 hover:border-cc-purple/40 transition-all"
+                >
+                  + {cat}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center justify-center gap-2 max-w-xs mx-auto">
+              <Input
+                value={startupCustomCat}
+                onChange={(e) => setStartupCustomCat(e.target.value)}
+                placeholder="أو اكتب تصنيف جديد..."
+                className="text-center text-sm"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!startupCustomCat.trim()}
+                onClick={() => {
+                  setStartupForm({ ...startupForm, category: startupCustomCat.trim() });
+                  setStartupCustomCat("");
+                  setStartupDialog(true);
+                }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           </div>
         ) : (
           <>
