@@ -401,7 +401,7 @@ export default function TasksPage() {
       {/* Create/Edit Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" dir="rtl">
-          <div className="bg-[#111827] rounded-2xl border border-white/10 w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+          <div className="bg-card rounded-2xl border border-border w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-white">{editingTask ? "تعديل المهمة" : "مهمة جديدة"}</h2>
               <button onClick={resetForm} className="p-2 rounded-lg hover:bg-white/10 text-gray-400">

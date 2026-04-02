@@ -31,7 +31,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#07090F] flex items-center justify-center px-4" dir="rtl">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4" dir="rtl">
       {/* Background effects */}
       <div
         className="fixed inset-0 pointer-events-none"

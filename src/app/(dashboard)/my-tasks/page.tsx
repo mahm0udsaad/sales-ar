@@ -975,7 +975,7 @@ export default function MyTasksPage() {
       {showClientForm && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm overflow-y-auto" dir="rtl">
           <div className="min-h-full flex items-start justify-center p-4 pt-8 pb-8">
-          <div className="bg-[#111827] rounded-2xl border border-white/10 w-full max-w-lg p-6 relative">
+          <div className="bg-card rounded-2xl border border-border w-full max-w-lg p-6 relative">
             {/* Close button - sticky top */}
             <button
               onClick={() => setShowClientForm(false)}
@@ -1149,7 +1149,7 @@ export default function MyTasksPage() {
       {/* ─── Transfer to Employee Modal ─── */}
       {transferTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" dir="rtl">
-          <div className="bg-[#111827] rounded-2xl border border-white/10 w-full max-w-md p-6">
+          <div className="bg-card rounded-2xl border border-border w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <Users className="w-5 h-5 text-violet-400" /> تحويل لموظف آخر
@@ -1210,7 +1210,7 @@ export default function MyTasksPage() {
       {/* Completion note modal */}
       {completionNote && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" dir="rtl">
-          <div className="bg-[#111827] rounded-2xl border border-white/10 w-full max-w-md p-6">
+          <div className="bg-card rounded-2xl border border-border w-full max-w-md p-6">
             <div className="text-center mb-5">
               <div className="w-16 h-16 mx-auto bg-emerald-500/20 rounded-full flex items-center justify-center mb-3">
                 <CheckCircle2 className="w-8 h-8 text-emerald-400" />

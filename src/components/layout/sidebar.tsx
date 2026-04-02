@@ -158,7 +158,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               </button>
 
               {orgMenuOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 rounded-xl bg-[#111827] border border-white/10 shadow-lg overflow-hidden z-50">
+                <div className="absolute top-full left-0 right-0 mt-1 rounded-xl bg-card border border-border shadow-lg overflow-hidden z-50">
                   {orgs.map((o) => (
                     <button
                       key={o.id}
