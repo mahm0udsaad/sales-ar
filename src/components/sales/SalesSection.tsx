@@ -689,7 +689,7 @@ export function SalesSection({ salesType }: SalesPageProps) {
       {/* ─── Financial Summary Row ─── */}
       {!loading && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="cc-card rounded-2xl p-5 text-center" style={{ borderColor: "rgba(0,212,255,0.3)" }}>
+          <div className="cc-card rounded-[14px] p-5 text-center">
             <p className="text-2xl font-extrabold text-cyan">{formatMoney(totalValue)}</p>
             <p className="text-xs text-muted-foreground mt-1">إجمالي قيمة المبيعات</p>
           </div>

@@ -37,7 +37,7 @@ export default function LoginPage() {
         className="fixed inset-0 pointer-events-none"
         style={{
           backgroundImage:
-            "radial-gradient(circle at top right, rgba(0,212,255,0.12), transparent 24%), radial-gradient(circle at top left, rgba(139,92,246,0.08), transparent 22%)",
+            "radial-gradient(circle at top right, rgba(0,212,255,0.06), transparent 24%), radial-gradient(circle at top left, rgba(139,92,246,0.04), transparent 22%)",
         }}
       />
 
@@ -57,8 +57,7 @@ export default function LoginPage() {
           className="rounded-2xl p-6 space-y-5"
           style={{
             backgroundColor: "var(--card)",
-            border: "1px solid rgba(0,212,255,0.2)",
-            boxShadow: "0 0 30px rgba(0,212,255,0.08), inset 0 1px 0 rgba(255,255,255,0.04)",
+            border: "1px solid #1E2A3A",
           }}
         >
           <div className="space-y-2">

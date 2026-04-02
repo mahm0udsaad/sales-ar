@@ -113,8 +113,8 @@
 
   /* Glass & surface */
   --glass-bg: linear-gradient(180deg, #0D1117 0%, #0B0F14 100%);
-  --glass-border: rgba(0, 212, 255, 0.2);
-  --glass-shadow: 0 0 20px rgba(0, 212, 255, 0.08);
+  --glass-border: #1E2A3A;
+  --glass-shadow: none;
   --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   --surface-hover: rgba(255, 255, 255, 0.03);
   --surface-active: rgba(255, 255, 255, 0.06);
@@ -132,8 +132,8 @@
     @apply bg-background text-foreground;
     min-height: 100vh;
     background-image:
-      radial-gradient(circle at top right, rgba(0, 212, 255, 0.16), transparent 24%),
-      radial-gradient(circle at top left, rgba(139, 92, 246, 0.12), transparent 22%),
+      radial-gradient(circle at top right, rgba(0, 212, 255, 0.06), transparent 24%),
+      radial-gradient(circle at top left, rgba(139, 92, 246, 0.04), transparent 22%),
       linear-gradient(180deg, #0D1117 0%, #07090F 45%, #050810 100%);
   }
   html {
