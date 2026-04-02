@@ -119,37 +119,37 @@
 
 /* ─── Light theme ─── */
 .light {
-  --background: #F5F5F7;
-  --foreground: #111111;
+  --background: #FAFAFA;
+  --foreground: #000000;
   --card: #FFFFFF;
-  --card-foreground: #111111;
+  --card-foreground: #000000;
   --popover: #FFFFFF;
-  --popover-foreground: #111111;
-  --primary: #111111;
+  --popover-foreground: #000000;
+  --primary: #000000;
   --primary-foreground: #FFFFFF;
-  --secondary: #F0F0F2;
-  --secondary-foreground: #111111;
-  --muted: #E8E8EC;
-  --muted-foreground: #444444;
-  --accent: #F0F0F2;
-  --accent-foreground: #111111;
+  --secondary: #F2F2F2;
+  --secondary-foreground: #000000;
+  --muted: #E5E5E5;
+  --muted-foreground: #333333;
+  --accent: #F2F2F2;
+  --accent-foreground: #000000;
   --destructive: #DC2626;
-  --border: #D4D4DA;
-  --input: #D4D4DA;
-  --ring: rgba(17, 17, 17, 0.2);
-  --chart-1: #111111;
+  --border: #D1D1D6;
+  --input: #D1D1D6;
+  --ring: rgba(0, 0, 0, 0.2);
+  --chart-1: #000000;
   --chart-2: #059669;
   --chart-3: #D97706;
   --chart-4: #7C3AED;
   --chart-5: #2563EB;
   --sidebar: #FFFFFF;
-  --sidebar-foreground: #111111;
-  --sidebar-primary: #111111;
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #000000;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F0F0F2;
-  --sidebar-accent-foreground: #111111;
-  --sidebar-border: #D4D4DA;
-  --sidebar-ring: rgba(17, 17, 17, 0.12);
+  --sidebar-accent: #F2F2F2;
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #D1D1D6;
+  --sidebar-ring: rgba(0, 0, 0, 0.1);
 
   /* Dim colors for light */
   --cyan-dim: rgba(14, 116, 144, 0.1);
@@ -159,14 +159,14 @@
   --purple-dim: rgba(139, 92, 246, 0.1);
   --blue-dim: rgba(59, 130, 246, 0.1);
 
-  /* Glass & surface - clean white, no glows */
+  /* Glass & surface - pure white, zero effects */
   --glass-bg: #FFFFFF;
-  --glass-border: #D4D4DA;
-  --glass-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --glass-border: #D1D1D6;
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   --glass-inset: none;
   --surface-hover: rgba(0, 0, 0, 0.03);
   --surface-active: rgba(0, 0, 0, 0.05);
-  --scrollbar-track: #F0F0F2;
+  --scrollbar-track: #F2F2F2;
   --scrollbar-thumb: rgba(0, 0, 0, 0.15);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
 }
@@ -193,7 +193,7 @@
   /* Light body background */
   .light body {
     background-image: none;
-    background-color: #F5F5F7;
+    background-color: #FAFAFA;
   }
   html {
     @apply font-sans;
@@ -257,48 +257,57 @@
   background: var(--scrollbar-thumb-hover);
 }
 
-/* ─── Light mode overrides ─── */
+/* ════════════════════════════════════════════════════
+   LIGHT MODE - NUCLEAR OVERRIDES
+   Force maximum contrast and zero transparency
+   ════════════════════════════════════════════════════ */
 
-/* Backgrounds: white-alpha → solid surfaces */
+/* ── MASTER TEXT OVERRIDE: all text must be readable ── */
+.light,
+.light *:not([class*="text-cyan"]):not([class*="text-emerald"]):not([class*="text-amber"]):not([class*="text-violet"]):not([class*="text-sky"]):not([class*="text-rose"]):not([class*="text-orange"]):not([class*="text-indigo"]):not([class*="text-teal"]):not([class*="text-pink"]):not([class*="text-blue"]):not([class*="text-fuchsia"]):not([class*="text-lime"]):not([class*="text-red"]):not([class*="text-green"]):not([class*="text-cc-"]):not([class*="text-destructive"]):not([class*="text-primary-foreground"]):not(button[class*="bg-primary"]) {
+  color: #000000;
+}
+
+/* Muted text - dark gray, NOT light gray */
+.light .text-muted-foreground { color: #333333 !important; }
+
+/* Specific text classes that need to stay dark */
+.light .text-white { color: #000000 !important; }
+.light .text-foreground { color: #000000 !important; }
+
+/* ── BACKGROUNDS: solid, no transparency ── */
 .light .bg-white\/\[0\.02\],
-.light .bg-white\/\[0\.03\] { background-color: #FFFFFF !important; }
-
+.light .bg-white\/\[0\.03\],
 .light .bg-white\/\[0\.04\],
-.light .bg-white\/\[0\.05\],
-.light .bg-white\/\[0\.06\] { background-color: #F5F5F7 !important; }
+.light .bg-white\/\[0\.05\] { background-color: #FFFFFF !important; }
 
+.light .bg-white\/\[0\.06\],
 .light .bg-white\/\[0\.08\],
-.light .bg-white\/10 { background-color: #F0F0F2 !important; }
+.light .bg-white\/10 { background-color: #F2F2F2 !important; }
 
-.light .bg-white\/20 { background-color: #E8E8EC !important; }
+.light .bg-white\/20 { background-color: #E5E5E5 !important; }
 
-/* Borders: white-alpha → solid visible borders */
+/* ── BORDERS: visible gray lines ── */
 .light .border-white\/6,
 .light .border-white\/\[0\.06\],
 .light .border-white\/\[0\.08\],
 .light .border-white\/10,
-.light .border-white\/8 { border-color: #D4D4DA !important; }
+.light .border-white\/8 { border-color: #D1D1D6 !important; }
 
-.light .border-white\/\[0\.15\] { border-color: #BBBBC4 !important; }
+.light .border-white\/\[0\.15\] { border-color: #B0B0B8 !important; }
 
-/* Hover states */
+/* ── HOVER: visible feedback ── */
 .light .hover\:bg-white\/\[0\.04\]:hover,
-.light .hover\:bg-white\/\[0\.06\]:hover { background-color: #E8E8EC !important; }
-
+.light .hover\:bg-white\/\[0\.06\]:hover { background-color: #E9E9E9 !important; }
 .light .hover\:bg-white\/\[0\.08\]:hover,
-.light .hover\:bg-white\/10:hover { background-color: #E0E0E5 !important; }
+.light .hover\:bg-white\/10:hover { background-color: #DFDFDF !important; }
+.light .hover\:border-white\/\[0\.15\]:hover { border-color: #A0A0A8 !important; }
 
-.light .hover\:border-white\/\[0\.15\]:hover { border-color: #ADADB8 !important; }
-
-/* Text - force dark black */
-.light .text-white { color: #111111 !important; }
-.light .text-foreground { color: #111111 !important; }
-
-/* Rings */
+/* ── RINGS ── */
 .light .ring-white\/8,
-.light .ring-white\/20 { --tw-ring-color: #D4D4DA !important; }
+.light .ring-white\/20 { --tw-ring-color: #D1D1D6 !important; }
 
-/* Accent backgrounds */
+/* ── ACCENT BACKGROUNDS ── */
 .light .bg-cyan\/10,
 .light .bg-cyan\/15 { background-color: rgba(14, 116, 144, 0.1) !important; }
 .light .bg-cc-purple\/10,
@@ -311,41 +320,42 @@
 .light .bg-amber\/10,
 .light .bg-amber\/5 { background-color: rgba(245, 158, 11, 0.1) !important; }
 
-/* Shadows - minimal */
-.light .shadow-lg { box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08) !important; }
-.light .shadow-xl { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important; }
+/* ── KILL ALL GLOW SHADOWS ── */
+.light .shadow-lg { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important; }
+.light .shadow-xl { box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important; }
+.light [class*="shadow-\[0_0"] { box-shadow: none !important; }
 
-/* Remove all glow shadows */
-.light [class*="shadow-\[0_0_20px"] { box-shadow: none !important; }
-.light [class*="shadow-\[0_0_18px"] { box-shadow: none !important; }
-.light [class*="shadow-\[0_0_30px"] { box-shadow: none !important; }
-
-/* Sidebar nav text - use 700 shades for max contrast */
-.light .text-cyan-400 { color: #0E7490 !important; }
-.light .text-emerald-400 { color: #047857 !important; }
-.light .text-amber-400 { color: #B45309 !important; }
-.light .text-violet-400 { color: #6D28D9 !important; }
-.light .text-sky-400 { color: #0369A1 !important; }
-.light .text-rose-400 { color: #BE123C !important; }
-.light .text-orange-400 { color: #C2410C !important; }
-.light .text-indigo-400 { color: #4338CA !important; }
-.light .text-teal-400 { color: #0F766E !important; }
-.light .text-pink-400 { color: #BE185D !important; }
-.light .text-blue-400 { color: #1D4ED8 !important; }
-.light .text-fuchsia-400 { color: #A21CAF !important; }
-.light .text-lime-400 { color: #4D7C0F !important; }
-.light .text-slate-400 { color: #334155 !important; }
-.light .text-red-400 { color: #B91C1C !important; }
-.light .text-green-400 { color: #15803D !important; }
+/* ── SIDEBAR NAV: use 800 darkest shades ── */
+.light .text-cyan-400 { color: #155E75 !important; }
+.light .text-emerald-400 { color: #065F46 !important; }
+.light .text-amber-400 { color: #92400E !important; }
+.light .text-violet-400 { color: #5B21B6 !important; }
+.light .text-sky-400 { color: #075985 !important; }
+.light .text-rose-400 { color: #9F1239 !important; }
+.light .text-orange-400 { color: #9A3412 !important; }
+.light .text-indigo-400 { color: #3730A3 !important; }
+.light .text-teal-400 { color: #115E59 !important; }
+.light .text-pink-400 { color: #9D174D !important; }
+.light .text-blue-400 { color: #1E40AF !important; }
+.light .text-fuchsia-400 { color: #86198F !important; }
+.light .text-lime-400 { color: #3F6212 !important; }
+.light .text-slate-400 { color: #1E293B !important; }
+.light .text-red-400 { color: #991B1B !important; }
+.light .text-green-400 { color: #166534 !important; }
 
 /* Hover text */
-.light .group-hover\:text-cyan-400 { color: #0E7490 !important; }
-.light .group-hover\:text-emerald-400 { color: #047857 !important; }
+.light .group-hover\:text-cyan-400 { color: #155E75 !important; }
+.light .group-hover\:text-emerald-400 { color: #065F46 !important; }
 
-/* Force opacity override - no fading in light */
-.light .opacity-60 { opacity: 0.75 !important; }
-.light .opacity-30 { opacity: 0.5 !important; }
-.light .opacity-70 { opacity: 0.85 !important; }
+/* ── KILL ALL OPACITY/TRANSPARENCY ── */
+.light .opacity-60 { opacity: 1 !important; }
+.light .opacity-70 { opacity: 1 !important; }
+.light .opacity-30 { opacity: 0.6 !important; }
+
+/* ── Primary button text stays white ── */
+.light button.bg-primary span,
+.light button.bg-primary,
+.light [class*="bg-primary"]:not([class*="bg-primary/"]) { color: #FFFFFF; }
 
 .scrollbar-hide {
   -ms-overflow-style: none;
