@@ -26,7 +26,10 @@ import {
   Gift,
   ListTodo,
   UserCheck,
+  Sun,
+  Moon,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { countPendingDeals } from "@/lib/supabase/db";
@@ -80,6 +83,7 @@ interface SidebarProps {
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { user, loading, signOut, activeOrgId, switchOrg, orgs } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [orgMenuOpen, setOrgMenuOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -247,10 +251,19 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </nav>
 
         {/* User section */}
-        <div className="m-3 mt-0 rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+        <div className="m-3 mt-0 rounded-2xl border border-border/30 bg-[var(--surface-hover)] p-4">
           <div className="mb-3 flex items-center justify-between text-[11px]">
             <span className="text-muted-foreground">الحالة التشغيلية</span>
-            <span className="rounded-full bg-green-dim px-2 py-0.5 text-cc-green">مباشر</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="flex items-center justify-center w-7 h-7 rounded-lg bg-[var(--surface-active)] hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                title={theme === "dark" ? "وضع النهار" : "الوضع الليلي"}
+              >
+                {theme === "dark" ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+              </button>
+              <span className="rounded-full bg-green-dim px-2 py-0.5 text-cc-green">مباشر</span>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-2xl bg-cyan-dim flex items-center justify-center text-cyan text-xs font-bold ring-1 ring-cyan/20">

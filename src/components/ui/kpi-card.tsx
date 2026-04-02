@@ -31,7 +31,7 @@ const STATUS_COLORS: Record<string, { border: string; glow: string; orb: string;
   },
 };
 
-const STATUS_BG = "#111827";
+const STATUS_BG = "var(--card)";
 
 export function KPICard({ label, value, target, status, icon }: KPICardProps) {
   const styles = KPI_STATUS_STYLES[status];

@@ -48,20 +48,21 @@
 
   /* CommandCenter accent colors */
   --color-cyan: #00D4FF;
-  --color-cyan-dim: rgba(0, 212, 255, 0.14);
+  --color-cyan-dim: var(--cyan-dim);
   --color-cc-green: #10B981;
-  --color-green-dim: rgba(16, 185, 129, 0.14);
+  --color-green-dim: var(--green-dim);
   --color-amber: #F59E0B;
-  --color-amber-dim: rgba(245, 158, 11, 0.14);
+  --color-amber-dim: var(--amber-dim);
   --color-cc-red: #EF4444;
-  --color-red-dim: rgba(239, 68, 68, 0.14);
+  --color-red-dim: var(--red-dim);
   --color-cc-purple: #8B5CF6;
-  --color-purple-dim: rgba(139, 92, 246, 0.14);
+  --color-purple-dim: var(--purple-dim);
   --color-cc-blue: #7da6ff;
-  --color-blue-dim: rgba(125, 166, 255, 0.14);
+  --color-blue-dim: var(--blue-dim);
   --color-pink: #EC4899;
 }
 
+/* ─── Dark theme (default) ─── */
 :root {
   --background: #07090F;
   --foreground: #F1F5F9;
@@ -95,6 +96,79 @@
   --sidebar-accent-foreground: #F1F5F9;
   --sidebar-border: #1E2A3A;
   --sidebar-ring: rgba(0, 212, 255, 0.3);
+
+  /* Dim colors for dark */
+  --cyan-dim: rgba(0, 212, 255, 0.14);
+  --green-dim: rgba(16, 185, 129, 0.14);
+  --amber-dim: rgba(245, 158, 11, 0.14);
+  --red-dim: rgba(239, 68, 68, 0.14);
+  --purple-dim: rgba(139, 92, 246, 0.14);
+  --blue-dim: rgba(125, 166, 255, 0.14);
+
+  /* Glass & surface */
+  --glass-bg: linear-gradient(180deg, #0D1117 0%, #0B0F14 100%);
+  --glass-border: rgba(0, 212, 255, 0.2);
+  --glass-shadow: 0 0 20px rgba(0, 212, 255, 0.08);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --surface-hover: rgba(255, 255, 255, 0.03);
+  --surface-active: rgba(255, 255, 255, 0.06);
+  --scrollbar-track: #07090F;
+  --scrollbar-thumb: rgba(30, 42, 58, 0.8);
+  --scrollbar-thumb-hover: rgba(30, 42, 58, 1);
+}
+
+/* ─── Light theme ─── */
+.light {
+  --background: #F8FAFC;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
+  --primary: #0891B2;
+  --primary-foreground: #FFFFFF;
+  --secondary: rgba(241, 245, 249, 0.9);
+  --secondary-foreground: #0F172A;
+  --muted: rgba(241, 245, 249, 0.8);
+  --muted-foreground: #64748B;
+  --accent: rgba(241, 245, 249, 0.9);
+  --accent-foreground: #0F172A;
+  --destructive: #DC2626;
+  --border: #E2E8F0;
+  --input: rgba(203, 213, 225, 0.4);
+  --ring: rgba(8, 145, 178, 0.3);
+  --chart-1: #0891B2;
+  --chart-2: #059669;
+  --chart-3: #D97706;
+  --chart-4: #7C3AED;
+  --chart-5: #4F7DF5;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #0F172A;
+  --sidebar-primary: #0891B2;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: rgba(241, 245, 249, 0.8);
+  --sidebar-accent-foreground: #0F172A;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: rgba(8, 145, 178, 0.2);
+
+  /* Dim colors for light - stronger for visibility */
+  --cyan-dim: rgba(8, 145, 178, 0.1);
+  --green-dim: rgba(5, 150, 105, 0.1);
+  --amber-dim: rgba(217, 119, 6, 0.1);
+  --red-dim: rgba(220, 38, 38, 0.1);
+  --purple-dim: rgba(124, 58, 237, 0.1);
+  --blue-dim: rgba(79, 125, 245, 0.1);
+
+  /* Glass & surface */
+  --glass-bg: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+  --glass-border: rgba(8, 145, 178, 0.15);
+  --glass-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --surface-hover: rgba(0, 0, 0, 0.03);
+  --surface-active: rgba(0, 0, 0, 0.06);
+  --scrollbar-track: #F1F5F9;
+  --scrollbar-thumb: rgba(148, 163, 184, 0.4);
+  --scrollbar-thumb-hover: rgba(148, 163, 184, 0.6);
 }
 
 @layer base {
@@ -103,11 +177,21 @@
   }
   body {
     @apply bg-background text-foreground;
+    min-height: 100vh;
+  }
+  /* Dark body background */
+  :root body {
     background-image:
       radial-gradient(circle at top right, rgba(0, 212, 255, 0.16), transparent 24%),
       radial-gradient(circle at top left, rgba(139, 92, 246, 0.12), transparent 22%),
       linear-gradient(180deg, #0D1117 0%, #07090F 45%, #050810 100%);
-    min-height: 100vh;
+  }
+  /* Light body background */
+  .light body {
+    background-image:
+      radial-gradient(circle at top right, rgba(8, 145, 178, 0.06), transparent 30%),
+      radial-gradient(circle at top left, rgba(124, 58, 237, 0.04), transparent 28%),
+      linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
   }
   html {
     @apply font-sans;
@@ -116,26 +200,27 @@
 
 @layer utilities {
   .glass-surface {
-    background: linear-gradient(180deg, #0D1117 0%, #0B0F14 100%);
-    border: 1px solid rgba(0, 212, 255, 0.2);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     box-shadow:
-      0 0 20px rgba(0, 212, 255, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      var(--glass-shadow),
+      var(--glass-inset);
   }
 
   .cc-card {
-    background-color: #111827;
-    border: 1px solid rgba(0, 212, 255, 0.2);
+    background-color: var(--card);
+    border: 1px solid var(--glass-border);
     box-shadow:
-      0 0 20px rgba(0, 212, 255, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      var(--glass-shadow),
+      var(--glass-inset);
   }
 
   .panel-grid {
     background-image:
-      linear-gradient(rgba(30, 42, 58, 0.4) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(30, 42, 58, 0.4) 1px, transparent 1px);
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
     background-size: 22px 22px;
+    opacity: 0.4;
   }
 }
 
@@ -145,15 +230,44 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #07090F;
+  background: var(--scrollbar-track);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(30, 42, 58, 0.8);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(30, 42, 58, 1);
+  background: var(--scrollbar-thumb-hover);
 }
+
+/* Light mode: invert white-alpha overlays to black-alpha */
+.light {
+  --tw-white-opacity-override: 1;
+}
+
+.light .bg-white\/\[0\.02\] { background-color: rgba(0, 0, 0, 0.02) !important; }
+.light .bg-white\/\[0\.03\] { background-color: rgba(0, 0, 0, 0.03) !important; }
+.light .bg-white\/\[0\.04\] { background-color: rgba(0, 0, 0, 0.04) !important; }
+.light .bg-white\/\[0\.05\] { background-color: rgba(0, 0, 0, 0.05) !important; }
+.light .bg-white\/\[0\.06\] { background-color: rgba(0, 0, 0, 0.06) !important; }
+.light .bg-white\/\[0\.08\] { background-color: rgba(0, 0, 0, 0.06) !important; }
+.light .bg-white\/10 { background-color: rgba(0, 0, 0, 0.06) !important; }
+.light .bg-white\/20 { background-color: rgba(0, 0, 0, 0.08) !important; }
+
+.light .border-white\/6 { border-color: rgba(0, 0, 0, 0.08) !important; }
+.light .border-white\/\[0\.06\] { border-color: rgba(0, 0, 0, 0.08) !important; }
+.light .border-white\/\[0\.08\] { border-color: rgba(0, 0, 0, 0.1) !important; }
+.light .border-white\/\[0\.15\] { border-color: rgba(0, 0, 0, 0.12) !important; }
+.light .border-white\/10 { border-color: rgba(0, 0, 0, 0.08) !important; }
+
+.light .hover\:bg-white\/\[0\.04\]:hover { background-color: rgba(0, 0, 0, 0.04) !important; }
+.light .hover\:bg-white\/\[0\.06\]:hover { background-color: rgba(0, 0, 0, 0.06) !important; }
+.light .hover\:bg-white\/\[0\.08\]:hover { background-color: rgba(0, 0, 0, 0.06) !important; }
+.light .hover\:bg-white\/10:hover { background-color: rgba(0, 0, 0, 0.06) !important; }
+
+.light .hover\:border-white\/\[0\.15\]:hover { border-color: rgba(0, 0, 0, 0.15) !important; }
+
+.light .text-white { color: var(--foreground) !important; }
 
 .scrollbar-hide {
   -ms-overflow-style: none;

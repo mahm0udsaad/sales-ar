@@ -84,7 +84,7 @@ export function StatCard({ value, label, color, progress, icon, subtext, muted, 
         active && "ring-2 ring-offset-1 ring-offset-transparent"
       )}
       style={{
-        backgroundColor: "#111827",
+        backgroundColor: "var(--card)",
         border: `1px solid ${active ? c.border.replace(/0\.35/, "0.8") : c.border}`,
         boxShadow: active ? c.glow.replace(/0\.12/, "0.3") : c.glow,
       }}

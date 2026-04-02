@@ -56,7 +56,7 @@ export default function LoginPage() {
           onSubmit={handleSubmit}
           className="rounded-2xl p-6 space-y-5"
           style={{
-            backgroundColor: "#111827",
+            backgroundColor: "var(--card)",
             border: "1px solid rgba(0,212,255,0.2)",
             boxShadow: "0 0 30px rgba(0,212,255,0.08), inset 0 1px 0 rgba(255,255,255,0.04)",
           }}
