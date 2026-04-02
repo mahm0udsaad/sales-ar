@@ -26,11 +26,7 @@ import {
   Gift,
   ListTodo,
   UserCheck,
-  Sun,
-  Moon,
-  SunDim,
 } from "lucide-react";
-import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { countPendingDeals } from "@/lib/supabase/db";
@@ -84,23 +80,8 @@ interface SidebarProps {
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { user, loading, signOut, activeOrgId, switchOrg, orgs } = useAuth();
-  const { theme, setTheme } = useTheme();
   const [orgMenuOpen, setOrgMenuOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
-  const [brightness, setBrightness] = useState(100);
-  const [showBrightness, setShowBrightness] = useState(false);
-
-  // Load saved brightness
-  useEffect(() => {
-    const saved = localStorage.getItem("cc:brightness");
-    if (saved) setBrightness(Number(saved));
-  }, []);
-
-  // Apply brightness filter
-  useEffect(() => {
-    document.documentElement.style.filter = brightness < 100 ? `brightness(${brightness / 100})` : "";
-    localStorage.setItem("cc:brightness", String(brightness));
-  }, [brightness]);
 
   useEffect(() => {
     countPendingDeals().then(setPendingCount).catch(() => {});
@@ -269,43 +250,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         <div className="m-3 mt-0 rounded-2xl border border-border/30 bg-[var(--surface-hover)] p-4">
           <div className="mb-3 flex items-center justify-between text-[11px]">
             <span className="text-muted-foreground">الحالة التشغيلية</span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowBrightness(!showBrightness)}
-                className="flex items-center justify-center w-7 h-7 rounded-lg bg-[var(--surface-active)] hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                title="التحكم بالسطوع"
-              >
-                <SunDim className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="flex items-center justify-center w-7 h-7 rounded-lg bg-[var(--surface-active)] hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
-                title={theme === "dark" ? "وضع النهار" : "الوضع الليلي"}
-              >
-                {theme === "dark" ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
-              </button>
-              <span className="rounded-full bg-green-dim px-2 py-0.5 text-cc-green">مباشر</span>
+            <span className="rounded-full bg-green-dim px-2 py-0.5 text-cc-green">مباشر</span>
             </div>
           </div>
-          {showBrightness && (
-            <div className="mb-3 flex items-center gap-2">
-              <Moon className="w-3 h-3 text-muted-foreground shrink-0" />
-              <input
-                type="range"
-                min={30}
-                max={100}
-                value={brightness}
-                onChange={(e) => setBrightness(Number(e.target.value))}
-                className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer accent-primary"
-                style={{
-                  background: `linear-gradient(to left, var(--primary) ${brightness - 30}%, var(--border) ${brightness - 30}%)`,
-                }}
-                dir="ltr"
-              />
-              <Sun className="w-3 h-3 text-muted-foreground shrink-0" />
-              <span className="text-[10px] text-muted-foreground min-w-[28px] text-center">{brightness}%</span>
-            </div>
-          )}
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-2xl bg-cyan-dim flex items-center justify-center text-cyan text-xs font-bold ring-1 ring-cyan/20">
               {user?.name?.[0] || "م"}
