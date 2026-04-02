@@ -112,20 +112,20 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          "fixed top-3 right-3 bottom-3 z-50 w-[244px] overflow-hidden rounded-[28px] glass-surface border-l-0 flex flex-col transition-transform duration-300 ease-in-out",
+          "fixed top-3 right-3 bottom-3 z-50 w-[260px] overflow-hidden rounded-[14px] glass-surface border-l-0 flex flex-col transition-transform duration-300 ease-in-out",
           "lg:translate-x-0",
-          open ? "translate-x-0" : "translate-x-[260px] lg:translate-x-0"
+          open ? "translate-x-0" : "translate-x-[276px] lg:translate-x-0"
         )}
       >
         {/* Logo + close button on mobile */}
         <div className="px-5 pt-5 pb-4 border-b border-white/6">
           <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-linear-to-br from-cyan/30 to-cc-purple/30 ring-1 ring-white/10 shrink-0">
-              <span className="text-sm font-extrabold tracking-[0.2em] text-cyan">CC</span>
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br from-cyan/30 to-cc-purple/30 ring-1 ring-white/10 shrink-0">
+              <span className="text-base font-extrabold tracking-[0.2em] text-cyan">CC</span>
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-[1.05rem] font-extrabold text-foreground">لوحة التحكم</h1>
-              <p className="mt-1 text-[11px] text-muted-foreground">مركز متابعة حي للمبيعات والتشغيل</p>
+              <h1 className="text-lg font-extrabold text-foreground">CommandCenter</h1>
+              <p className="mt-0.5 text-xs text-muted-foreground">منصة الإدارة</p>
             </div>
             {/* Close button — only on mobile/tablet */}
             <button
@@ -218,9 +218,9 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 href={item.href}
                 onClick={onClose}
                 className={cn(
-                  "group relative flex items-center gap-3 overflow-hidden rounded-2xl px-3.5 py-3 text-[13px] transition-all duration-200",
+                  "group relative flex items-center gap-3.5 overflow-hidden rounded-[12px] px-3.5 py-3 text-[14px] transition-all duration-200",
                   isActive
-                    ? `bg-gradient-to-l ${c.gradFrom} to-transparent text-foreground font-semibold border ${c.border} ${c.shadow}`
+                    ? `bg-gradient-to-l ${c.gradFrom} to-transparent text-foreground font-bold border ${c.border}`
                     : "text-muted-foreground hover:bg-white/[0.04] hover:text-foreground border border-transparent"
                 )}
               >
@@ -229,15 +229,15 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 )}
                 <span
                   className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200",
+                    "flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200",
                     isActive ? `${c.bg} ${c.text} ring-1 ${c.ring}` : `bg-white/[0.03] ${c.text}/60 group-hover:${c.text} group-hover:bg-white/[0.06]`
                   )}
                 >
-                  <Icon className="w-[17px] h-[17px]" />
+                  <Icon className="w-5 h-5" />
                 </span>
-                <span className="flex-1">{item.label}</span>
+                <span className="flex-1 font-semibold">{item.label}</span>
                 {item.slug === "requests" && pendingCount > 0 && (
-                  <span className="min-w-[20px] h-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1.5 animate-pulse">
+                  <span className="min-w-[22px] h-[22px] flex items-center justify-center rounded-full bg-red-500 text-white text-[11px] font-bold px-1.5 animate-pulse">
                     {pendingCount}
                   </span>
                 )}
@@ -247,26 +247,25 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </nav>
 
         {/* User section */}
-        <div className="m-3 mt-0 rounded-2xl border border-border/30 bg-[var(--surface-hover)] p-4">
-          <div className="mb-3 flex items-center justify-between text-[11px]">
-            <span className="text-muted-foreground">الحالة التشغيلية</span>
-            <span className="rounded-full bg-green-dim px-2 py-0.5 text-cc-green">مباشر</span>
-            </div>
+        <div className="m-3 mt-0 rounded-[14px] border border-border/30 bg-[var(--surface-hover)] p-4">
+          <div className="mb-3 flex items-center justify-between text-xs">
+            <span className="text-muted-foreground font-semibold">الحالة التشغيلية</span>
+            <span className="cc-badge bg-green-dim text-cc-green">مباشر</span>
+          </div>
           <div className="flex items-center gap-3">
-
-            <div className="w-9 h-9 rounded-2xl bg-cyan-dim flex items-center justify-center text-cyan text-xs font-bold ring-1 ring-cyan/20">
+            <div className="w-10 h-10 rounded-2xl bg-cyan-dim flex items-center justify-center text-cyan text-sm font-bold ring-1 ring-cyan/20">
               {user?.name?.[0] || "م"}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground truncate">{user?.name || "..."}</p>
-              <p className="text-[11px] text-muted-foreground truncate">{user?.roleName || ""}</p>
+              <p className="text-sm font-bold text-foreground truncate">{user?.name || "..."}</p>
+              <p className="text-xs text-muted-foreground truncate">{user?.roleName || ""}</p>
             </div>
             <button
               onClick={signOut}
-              className="flex items-center justify-center w-8 h-8 rounded-xl bg-white/[0.04] hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors shrink-0"
+              className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/[0.04] hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors shrink-0"
               title="تسجيل الخروج"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-5 h-5" />
             </button>
           </div>
         </div>
