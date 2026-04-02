@@ -34,7 +34,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-background flex items-center justify-center px-4" dir="rtl">
       {/* Background effects */}
       <div
-        className="fixed inset-0 pointer-events-none dark:block hidden"
+        className="fixed inset-0 pointer-events-none login-bg-effect"
         style={{
           backgroundImage:
             "radial-gradient(circle at top right, rgba(0,212,255,0.12), transparent 24%), radial-gradient(circle at top left, rgba(139,92,246,0.08), transparent 22%)",

@@ -183,8 +183,8 @@
     @apply bg-background text-foreground;
     min-height: 100vh;
   }
-  /* Dark body background */
-  :root body {
+  /* Dark body background – applies by default and when .cc-dark is active */
+  body {
     background-image:
       radial-gradient(circle at top right, rgba(0, 212, 255, 0.16), transparent 24%),
       radial-gradient(circle at top left, rgba(139, 92, 246, 0.12), transparent 22%),
@@ -485,6 +485,9 @@ html.light select:focus {
 
 /* ── 17. MODAL BACKDROP → keep dark ── */
 html.light .backdrop-blur-sm { backdrop-filter: blur(4px) !important; }
+
+/* ── 18. HIDE DARK-ONLY EFFECTS IN LIGHT MODE ── */
+html.light .login-bg-effect { display: none !important; }
 
 .scrollbar-hide {
   -ms-overflow-style: none;
