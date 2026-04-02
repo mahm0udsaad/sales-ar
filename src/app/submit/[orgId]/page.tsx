@@ -100,7 +100,7 @@ export default function SubmitDealPage() {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 backdrop-blur-sm">
+        <form onSubmit={handleSubmit} className="space-y-4 rounded-2xl border border-white/[0.08] bg-white/[0.05] p-6 backdrop-blur-sm">
           {/* Sales type toggle */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-gray-300">القسم</label>

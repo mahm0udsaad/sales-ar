@@ -352,7 +352,7 @@ export default function TargetingPage() {
       </div>
 
       {/* Daily motivational quote */}
-      <div className="cc-card rounded-xl p-5 border border-fuchsia-500/10 bg-gradient-to-l from-fuchsia-500/[0.04] to-transparent">
+      <div className="cc-card rounded-[14px] p-5 border border-fuchsia-500/10 bg-gradient-to-l from-fuchsia-500/[0.04] to-transparent">
         <div className="flex items-start gap-3">
           <div className="w-9 h-9 rounded-lg bg-fuchsia-500/15 flex items-center justify-center shrink-0 mt-0.5">
             <Sparkles className="w-4 h-4 text-fuchsia-400" />
@@ -371,22 +371,22 @@ export default function TargetingPage() {
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="cc-card rounded-xl p-4 text-center">
+        <div className="cc-card rounded-[14px] p-4 text-center">
           <Users className="w-5 h-5 text-fuchsia-400 mx-auto mb-1" />
           <p className="text-2xl font-extrabold text-foreground">{totalCount}</p>
           <p className="text-[11px] text-muted-foreground">إجمالي العملاء</p>
         </div>
-        <div className="cc-card rounded-xl p-4 text-center">
+        <div className="cc-card rounded-[14px] p-4 text-center">
           <CalendarCheck className="w-5 h-5 text-amber-400 mx-auto mb-1" />
           <p className="text-2xl font-extrabold text-foreground">{dailyCount}</p>
           <p className="text-[11px] text-muted-foreground">هدف اليوم</p>
         </div>
-        <div className="cc-card rounded-xl p-4 text-center">
+        <div className="cc-card rounded-[14px] p-4 text-center">
           <CheckCircle2 className="w-5 h-5 text-emerald-400 mx-auto mb-1" />
           <p className="text-2xl font-extrabold text-foreground">{contactedCount}</p>
           <p className="text-[11px] text-muted-foreground">تم التواصل</p>
         </div>
-        <div className="cc-card rounded-xl p-4 text-center">
+        <div className="cc-card rounded-[14px] p-4 text-center">
           <Clock className="w-5 h-5 text-sky-400 mx-auto mb-1" />
           <p className="text-2xl font-extrabold text-foreground">{pendingCount}</p>
           <p className="text-[11px] text-muted-foreground">في الانتظار</p>
@@ -473,7 +473,7 @@ export default function TargetingPage() {
             className={`px-4 py-2 rounded-lg text-xs transition-colors border ${
               viewFilter === f.key
                 ? "bg-white/[0.08] text-foreground border-fuchsia-500/30 font-medium"
-                : "text-muted-foreground border-border hover:text-foreground hover:bg-white/[0.03]"
+                : "text-muted-foreground border-border hover:text-foreground hover:bg-white/[0.05]"
             }`}
           >
             {f.label}
@@ -490,7 +490,7 @@ export default function TargetingPage() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="cc-card rounded-xl p-5 space-y-3">
+            <div key={i} className="cc-card rounded-[14px] p-5 space-y-3">
               <div className="flex items-center gap-3">
                 <Skeleton className="w-10 h-10 rounded-full" />
                 <div className="space-y-1.5 flex-1">
@@ -522,7 +522,7 @@ export default function TargetingPage() {
             return (
               <div
                 key={client.id}
-                className={`cc-card rounded-xl p-5 space-y-3 transition-all ${
+                className={`cc-card rounded-[14px] p-5 space-y-3 transition-all ${
                   isDaily ? "ring-1 ring-amber-500/30 bg-amber-500/[0.03]" : ""
                 } ${selectMode ? "cursor-pointer" : ""} ${
                   isSelected ? "ring-2 ring-fuchsia-500/50 bg-fuchsia-500/[0.05]" : ""

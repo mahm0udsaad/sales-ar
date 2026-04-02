@@ -733,7 +733,7 @@ export function SalesSection({ salesType }: SalesPageProps) {
 
       {/* ─── Follow-up Section ─── */}
       {!loading && nonCompletedDeals.length > 0 && (
-        <div className="cc-card rounded-xl border border-amber/20 bg-gradient-to-l from-amber/[0.04] to-transparent">
+        <div className="cc-card rounded-[14px] border border-amber/20 bg-gradient-to-l from-amber/[0.04] to-transparent">
           <button
             onClick={() => setShowFollowUp(!showFollowUp)}
             className="w-full p-4 flex items-center justify-between"
@@ -847,7 +847,7 @@ export function SalesSection({ salesType }: SalesPageProps) {
           : `${total} عميل بانتظارك، ابدأ الآن! 🚀`;
 
         return (
-          <div className={`cc-card rounded-xl p-4 border transition-all duration-500 ${
+          <div className={`cc-card rounded-[14px] p-4 border transition-all duration-500 ${
             allDone ? "border-cc-green/30 bg-gradient-to-l from-cc-green/[0.06] to-transparent" : "border-cyan/20 bg-gradient-to-l from-cyan/[0.04] to-transparent"
           }`}>
             <div className="flex items-center justify-between mb-3">
@@ -1338,7 +1338,7 @@ export function SalesSection({ salesType }: SalesPageProps) {
                   <p className="text-xs text-muted-foreground/60 text-center py-2">لا توجد صفقات خاسرة</p>
                 ) : (
                   lostDeals.slice(0, 3).map((d) => (
-                    <div key={d.id} className="flex items-center justify-between bg-white/[0.02] rounded-xl p-3 border border-cc-red/10">
+                    <div key={d.id} className="flex items-center justify-between bg-white/[0.02] rounded-[14px] p-3 border border-cc-red/10">
                       <div>
                         <p className="text-xs font-bold text-foreground">{d.client_name}</p>
                         <p className="text-[10px] text-muted-foreground truncate max-w-[180px]">{d.notes || d.loss_reason || ""}</p>
@@ -1674,7 +1674,7 @@ export function SalesSection({ salesType }: SalesPageProps) {
 
 function StatCardSkeleton() {
   return (
-    <div className="cc-card rounded-xl p-4 border-t-2 border-t-muted">
+    <div className="cc-card rounded-[14px] p-4 border-t-2 border-t-muted">
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <Skeleton className="h-7 w-10" />

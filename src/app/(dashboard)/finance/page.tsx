@@ -388,7 +388,7 @@ export default function FinancePage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="cc-card rounded-xl p-4">
+            <div key={i} className="cc-card rounded-[14px] p-4">
               <Skeleton className="h-7 w-20 mb-2" />
               <Skeleton className="h-3 w-24" />
             </div>
@@ -426,7 +426,7 @@ export default function FinancePage() {
       {/* Two charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Monthly Revenue bar chart */}
-        <div className="cc-card rounded-xl p-5">
+        <div className="cc-card rounded-[14px] p-5">
           <h3 className="text-sm font-bold text-foreground mb-4">
             الإيرادات الشهرية ({chartUnit})
           </h3>
@@ -466,7 +466,7 @@ export default function FinancePage() {
         </div>
 
         {/* Revenue by Source donut */}
-        <div className="cc-card rounded-xl p-5">
+        <div className="cc-card rounded-[14px] p-5">
           <h3 className="text-sm font-bold text-foreground mb-4">
             الإيرادات حسب المصدر
           </h3>
@@ -514,7 +514,7 @@ export default function FinancePage() {
       </div>
 
       {/* ─── Monthly Budget Plan vs Actual ─── */}
-      <div className="cc-card rounded-xl p-5">
+      <div className="cc-card rounded-[14px] p-5">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <ClipboardList className="w-5 h-5 text-cyan" />
@@ -734,7 +734,7 @@ export default function FinancePage() {
       </div>
 
       {/* ─── Monthly Expenses Section ─── */}
-      <div className="cc-card rounded-xl p-5">
+      <div className="cc-card rounded-[14px] p-5">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <Receipt className="w-5 h-5 text-cc-red" />
@@ -786,7 +786,7 @@ export default function FinancePage() {
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                       categoryFilter === null
                         ? "bg-cyan/15 text-cyan border-cyan/30"
-                        : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                        : "bg-white/[0.05] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
                     }`}
                   >
                     الكل ({expenses.length})
@@ -801,7 +801,7 @@ export default function FinancePage() {
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                           categoryFilter === cat
                             ? "bg-cyan/15 text-cyan border-cyan/30"
-                            : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                            : "bg-white/[0.05] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
                         }`}
                       >
                         {cat} ({count}) — {formatMoney(catTotal)}
@@ -836,7 +836,7 @@ export default function FinancePage() {
                   const expPct = totalExp > 0 ? Math.round((exp.amount / totalExp) * 100) : 0;
 
                   return (
-                    <div key={exp.id} className="group relative bg-white/[0.02] rounded-xl p-3 border border-white/[0.06] hover:border-white/[0.1] transition-colors">
+                    <div key={exp.id} className="group relative bg-white/[0.02] rounded-[14px] p-3 border border-white/[0.06] hover:border-white/[0.1] transition-colors">
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           <span className={`text-xs font-bold ${textColor} w-8 shrink-0`}>#{idx + 1}</span>
@@ -904,7 +904,7 @@ export default function FinancePage() {
       </div>
 
       {/* ─── Startup Costs & ROI Section ─── */}
-      <div className="cc-card rounded-xl p-5">
+      <div className="cc-card rounded-[14px] p-5">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <Building2 className="w-5 h-5 text-cc-purple" />
@@ -1012,7 +1012,7 @@ export default function FinancePage() {
               return (
                 <div className="space-y-5">
                   {/* Recovery progress */}
-                  <div className={`rounded-xl p-5 border ${
+                  <div className={`rounded-[14px] p-5 border ${
                     isRecovered
                       ? "bg-gradient-to-l from-emerald-500/10 to-emerald-600/5 border-emerald-500/20"
                       : "bg-gradient-to-l from-purple-500/10 to-indigo-500/5 border-purple-500/20"
@@ -1034,7 +1034,7 @@ export default function FinancePage() {
                     </div>
 
                     {/* Progress bar */}
-                    <div className="h-4 bg-white/[0.06] rounded-full overflow-hidden mb-3">
+                    <div className="h-4 bg-white/[0.10] rounded-full overflow-hidden mb-3">
                       <div
                         className={`h-full rounded-full transition-all duration-1000 ${
                           isRecovered
@@ -1119,7 +1119,7 @@ export default function FinancePage() {
                       const maxAmt = Math.max(...startupCosts.map(c => c.amount), 1);
                       const pct = Math.round((cost.amount / maxAmt) * 100);
                       return (
-                        <div key={cost.id} className="group relative bg-white/[0.02] rounded-xl p-3 border border-white/[0.06] hover:border-white/[0.1] transition-colors">
+                        <div key={cost.id} className="group relative bg-white/[0.02] rounded-[14px] p-3 border border-white/[0.06] hover:border-white/[0.1] transition-colors">
                           <div className="flex items-center justify-between mb-1.5">
                             <div className="flex items-center gap-2 flex-1 min-w-0">
                               <span className="text-xs font-bold text-cc-purple w-8 shrink-0">#{idx + 1}</span>
@@ -1171,7 +1171,7 @@ export default function FinancePage() {
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                       expenseForm.category === cat
                         ? "bg-cyan/15 text-cyan border-cyan/30"
-                        : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                        : "bg-white/[0.05] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
                     }`}
                   >
                     {cat}
@@ -1214,7 +1214,7 @@ export default function FinancePage() {
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                         expenseForm.employee_name === emp.name
                           ? "bg-cc-purple/15 text-cc-purple border-cc-purple/30"
-                          : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                          : "bg-white/[0.05] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
                       }`}
                     >
                       {emp.name}
@@ -1284,7 +1284,7 @@ export default function FinancePage() {
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                       editForm.category === cat
                         ? "bg-cyan/15 text-cyan border-cyan/30"
-                        : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                        : "bg-white/[0.05] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
                     }`}
                   >
                     {cat}
@@ -1309,7 +1309,7 @@ export default function FinancePage() {
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                         editForm.employee_name === emp.name
                           ? "bg-cc-purple/15 text-cc-purple border-cc-purple/30"
-                          : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                          : "bg-white/[0.05] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
                       }`}
                     >
                       {emp.name}
@@ -1379,7 +1379,7 @@ export default function FinancePage() {
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                       budgetForm.category === cat
                         ? "bg-cyan/15 text-cyan border-cyan/30"
-                        : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                        : "bg-white/[0.05] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
                     }`}
                   >
                     {cat}
@@ -1496,7 +1496,7 @@ export default function FinancePage() {
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                       startupForm.category === cat
                         ? "bg-cc-purple/15 text-cc-purple border-cc-purple/30"
-                        : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                        : "bg-white/[0.05] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
                     }`}
                   >
                     {cat}

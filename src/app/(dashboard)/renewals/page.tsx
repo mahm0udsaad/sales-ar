@@ -642,14 +642,14 @@ export default function RenewalsPage() {
 
       {/* ─── Achievement Summary ─── */}
       {!loading && (
-        <div className="cc-card rounded-xl p-5 border border-cyan/10 bg-gradient-to-l from-cyan/[0.03] to-transparent">
+        <div className="cc-card rounded-[14px] p-5 border border-cyan/10 bg-gradient-to-l from-cyan/[0.03] to-transparent">
           {/* Header + period selector */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
               <Award className="w-5 h-5 text-cyan" />
               <h3 className="text-sm font-bold text-foreground">ملخص الإنجازات</h3>
             </div>
-            <div className="flex items-center gap-1.5 bg-white/[0.03] rounded-lg p-1 border border-white/[0.06]">
+            <div className="flex items-center gap-1.5 bg-white/[0.05] rounded-lg p-1 border border-white/[0.06]">
               {([
                 { key: "today" as SummaryPeriod, label: "اليوم" },
                 { key: "week" as SummaryPeriod, label: "الأسبوع" },
@@ -663,7 +663,7 @@ export default function RenewalsPage() {
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                     summaryPeriod === p.key
                       ? "bg-cyan text-white shadow-lg"
-                      : "text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/[0.10]"
                   }`}
                 >
                   {p.label}
@@ -674,7 +674,7 @@ export default function RenewalsPage() {
 
           {/* Custom date range */}
           {summaryPeriod === "custom" && (
-            <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+            <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-white/[0.05] border border-white/[0.06]">
               <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
               <div className="flex items-center gap-2 flex-1">
                 <input
@@ -717,7 +717,7 @@ export default function RenewalsPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-4">
             <button
               onClick={() => { setSummaryFilter(summaryFilter === "completed" ? null : "completed"); setStatusFilter(null); document.getElementById("renewals-table")?.scrollIntoView({ behavior: "smooth" }); }}
-              className={`p-3 rounded-xl text-center transition-all cursor-pointer ${
+              className={`p-3 rounded-[14px] text-center transition-all cursor-pointer ${
                 summaryFilter === "completed" ? "bg-cc-green/20 border-2 border-cc-green/50 ring-2 ring-cc-green/20" : "bg-cc-green/10 border border-cc-green/20 hover:bg-cc-green/15 hover:scale-[1.02]"
               }`}
             >
@@ -727,7 +727,7 @@ export default function RenewalsPage() {
             </button>
             <button
               onClick={() => { setSummaryFilter(summaryFilter === "revenue" ? null : "revenue"); setStatusFilter(null); document.getElementById("renewals-table")?.scrollIntoView({ behavior: "smooth" }); }}
-              className={`p-3 rounded-xl text-center transition-all cursor-pointer ${
+              className={`p-3 rounded-[14px] text-center transition-all cursor-pointer ${
                 summaryFilter === "revenue" ? "bg-cyan/20 border-2 border-cyan/50 ring-2 ring-cyan/20" : "bg-cyan/10 border border-cyan/20 hover:bg-cyan/15 hover:scale-[1.02]"
               }`}
             >
@@ -737,7 +737,7 @@ export default function RenewalsPage() {
             </button>
             <button
               onClick={() => { setSummaryFilter(summaryFilter === "contacted" ? null : "contacted"); setStatusFilter(null); document.getElementById("renewals-table")?.scrollIntoView({ behavior: "smooth" }); }}
-              className={`p-3 rounded-xl text-center transition-all cursor-pointer ${
+              className={`p-3 rounded-[14px] text-center transition-all cursor-pointer ${
                 summaryFilter === "contacted" ? "bg-cc-purple/20 border-2 border-cc-purple/50 ring-2 ring-cc-purple/20" : "bg-cc-purple/10 border border-cc-purple/20 hover:bg-cc-purple/15 hover:scale-[1.02]"
               }`}
             >
@@ -747,7 +747,7 @@ export default function RenewalsPage() {
             </button>
             <button
               onClick={() => { setSummaryFilter(summaryFilter === "success" ? null : "success"); setStatusFilter(null); document.getElementById("renewals-table")?.scrollIntoView({ behavior: "smooth" }); }}
-              className={`p-3 rounded-xl text-center transition-all cursor-pointer ${
+              className={`p-3 rounded-[14px] text-center transition-all cursor-pointer ${
                 summaryFilter === "success" ? "bg-amber/20 border-2 border-amber/50 ring-2 ring-amber/20" : "bg-amber/10 border border-amber/20 hover:bg-amber/15 hover:scale-[1.02]"
               }`}
             >
@@ -757,7 +757,7 @@ export default function RenewalsPage() {
             </button>
             <button
               onClick={() => { setSummaryFilter(summaryFilter === "lost" ? null : "lost"); setStatusFilter(null); document.getElementById("renewals-table")?.scrollIntoView({ behavior: "smooth" }); }}
-              className={`p-3 rounded-xl text-center transition-all cursor-pointer col-span-2 md:col-span-1 ${
+              className={`p-3 rounded-[14px] text-center transition-all cursor-pointer col-span-2 md:col-span-1 ${
                 summaryFilter === "lost" ? "bg-cc-red/20 border-2 border-cc-red/50 ring-2 ring-cc-red/20" : "bg-cc-red/10 border border-cc-red/20 hover:bg-cc-red/15 hover:scale-[1.02]"
               }`}
             >
@@ -791,7 +791,7 @@ export default function RenewalsPage() {
             </div>
 
             {achievementSummary.avgDealValue > 0 && (
-              <div className="text-center px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+              <div className="text-center px-3 py-1.5 rounded-lg bg-white/[0.05] border border-white/[0.06]">
                 <p className="text-xs font-bold text-foreground">{formatMoneyFull(achievementSummary.avgDealValue)}</p>
                 <p className="text-[10px] text-muted-foreground">متوسط القيمة</p>
               </div>
@@ -871,7 +871,7 @@ export default function RenewalsPage() {
             status={churnStatus}
             inverted
           />
-          <div className="cc-card rounded-xl p-5">
+          <div className="cc-card rounded-[14px] p-5">
             <div className="flex items-center gap-3 mb-2">
               <TrendingDown className="w-5 h-5 text-cc-red" />
               <p className="text-xs text-muted-foreground">خسارة الإيرادات</p>
@@ -911,7 +911,7 @@ export default function RenewalsPage() {
           : "bg-gradient-to-l from-cyan/[0.04] to-transparent";
 
         return (
-          <div className={`cc-card rounded-xl p-4 border ${borderColor} ${bgGrad} transition-all duration-500`}>
+          <div className={`cc-card rounded-[14px] p-4 border ${borderColor} ${bgGrad} transition-all duration-500`}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${allDone ? "bg-cc-green/15" : "bg-cyan/10"}`}>
@@ -1012,7 +1012,7 @@ export default function RenewalsPage() {
       })()}
 
       {/* ─── Renewals Table ─── */}
-      <div id="renewals-table" className="cc-card rounded-xl overflow-x-auto scroll-mt-4">
+      <div id="renewals-table" className="cc-card rounded-[14px] overflow-x-auto scroll-mt-4">
         <div className="p-4 pb-0 flex items-center gap-3">
           <Input
             value={clientSearch}
@@ -1199,7 +1199,7 @@ export default function RenewalsPage() {
       {!loading && analytics.total > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Donut chart */}
-          <div className="cc-card rounded-xl p-5">
+          <div className="cc-card rounded-[14px] p-5">
             <h3 className="text-sm font-bold text-foreground mb-4">
               توزيع حالات التجديد
             </h3>
@@ -1241,13 +1241,13 @@ export default function RenewalsPage() {
           <div className="space-y-4">
             {/* Revenue cards */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="cc-card rounded-xl p-4 text-center">
+              <div className="cc-card rounded-[14px] p-4 text-center">
                 <p className="text-2xl font-extrabold text-cc-green">
                   {formatMoneyFull(analytics.totalRevenue)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">إيرادات التجديد</p>
               </div>
-              <div className="cc-card rounded-xl p-4 text-center">
+              <div className="cc-card rounded-[14px] p-4 text-center">
                 <p className="text-2xl font-extrabold text-cc-red">
                   {formatMoneyFull(analytics.revenueLoss)}
                 </p>
@@ -1256,7 +1256,7 @@ export default function RenewalsPage() {
             </div>
 
             {/* Rejection reasons */}
-            <div className="cc-card rounded-xl p-5">
+            <div className="cc-card rounded-[14px] p-5">
               <h3 className="text-sm font-bold text-foreground mb-4">
                 أسباب الإلغاء
               </h3>
@@ -1289,7 +1289,7 @@ export default function RenewalsPage() {
 
       {/* ─── 6-Month Trend ─── */}
       {!loading && analytics.total > 0 && (
-        <div className="cc-card rounded-xl p-5">
+        <div className="cc-card rounded-[14px] p-5">
           <div className="mb-4">
             <h3 className="text-sm font-bold text-foreground">اتجاه التجديد والإلغاء</h3>
             <p className="text-xs text-muted-foreground mt-1">
@@ -1525,7 +1525,7 @@ function TargetCard({
   const targetDisplay = formatValue ? formatValue(target) : `${inverted ? "<" : ""}${target}${unit}`;
 
   return (
-    <div className={`cc-card rounded-xl p-5 ${styles.bg}`}>
+    <div className={`cc-card rounded-[14px] p-5 ${styles.bg}`}>
       <p className="text-xs text-muted-foreground mb-2">{label}</p>
       <div className="flex items-center gap-2">
         <span className={`w-2 h-2 rounded-full ${styles.dot}`} />
@@ -1543,7 +1543,7 @@ function TargetCard({
 /* ─── Loading Skeleton ─── */
 function StatCardSkeleton() {
   return (
-    <div className="cc-card rounded-xl p-4 border-t-2 border-t-muted">
+    <div className="cc-card rounded-[14px] p-4 border-t-2 border-t-muted">
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <Skeleton className="h-7 w-10" />

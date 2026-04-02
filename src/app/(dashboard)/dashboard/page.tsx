@@ -156,7 +156,7 @@ export default function DashboardPage() {
               <span className="rounded-full border border-cyan/15 bg-cyan-dim px-3 py-1 text-[11px] font-semibold text-cyan">
                 Overview Signal
               </span>
-              <span className="rounded-full border border-white/6 bg-white/[0.03] px-3 py-1 text-[11px] text-muted-foreground">
+              <span className="rounded-full border border-border bg-white/[0.04] px-3 py-1 text-[11px] text-muted-foreground">
                 القرار السريع يبدأ من هنا
               </span>
             </div>
@@ -391,7 +391,7 @@ export default function DashboardPage() {
               {projects.map((project, index) => (
                 <div
                   key={project.id}
-                  className="rounded-2xl border border-white/6 bg-white/[0.03] px-4 py-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-500"
+                  className="rounded-2xl border border-border bg-white/[0.04] px-4 py-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-500"
                   style={{ animationDelay: `${index * 80}ms` }}
                 >
                   <div className="flex-1 min-w-0">
@@ -409,7 +409,7 @@ export default function DashboardPage() {
                       />
                     </div>
                     <div className="flex items-center gap-2 mt-1.5">
-                      <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                      <div className="flex-1 h-1.5 bg-white/[0.10] rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full bg-cyan transition-all"
                           style={{ width: `${project.progress}%` }}
@@ -459,7 +459,7 @@ export default function DashboardPage() {
               {deals.slice(0, 4).map((deal, index) => (
                 <div
                   key={deal.id}
-                  className="flex items-center justify-between rounded-2xl border border-white/6 bg-white/[0.03] px-4 py-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-500"
+                  className="flex items-center justify-between rounded-2xl border border-border bg-white/[0.04] px-4 py-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-500"
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
                   <div className="flex-1 min-w-0">
@@ -506,7 +506,7 @@ function HeroMiniCard({
 
 function HeroMiniSkeleton() {
   return (
-    <div className="rounded-[14px] border border-white/6 bg-white/[0.04] px-4 py-4">
+    <div className="rounded-[14px] border border-border bg-white/[0.04] px-4 py-4">
       <Skeleton className="h-3 w-20" />
       <Skeleton className="mt-3 h-8 w-14" />
       <Skeleton className="mt-3 h-3 w-full" />

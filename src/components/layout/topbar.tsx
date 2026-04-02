@@ -90,7 +90,7 @@ export function Topbar({ unreadCount = 0, onBellClick, onMenuClick }: TopbarProp
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden shrink-0 rounded-xl bg-white/[0.03] hover:bg-white/[0.06]"
+            className="lg:hidden shrink-0 rounded-[14px] bg-white/[0.05] hover:bg-white/[0.10]"
             onClick={onMenuClick}
           >
             <Menu className="w-5 h-5 text-muted-foreground" />
@@ -115,7 +115,7 @@ export function Topbar({ unreadCount = 0, onBellClick, onMenuClick }: TopbarProp
         {/* Right side: controls */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {showRefresh && (
-            <div className="hidden md:flex items-center gap-2 rounded-2xl border border-white/6 bg-white/[0.03] px-3 py-2">
+            <div className="hidden md:flex items-center gap-2 rounded-2xl border border-border bg-white/[0.05] px-3 py-2">
               {formattedLastUpdated && (
                 <p className="text-[11px] text-muted-foreground">
                   آخر تحديث: {formattedLastUpdated}
@@ -135,7 +135,7 @@ export function Topbar({ unreadCount = 0, onBellClick, onMenuClick }: TopbarProp
           )}
 
           {/* Time filters — hidden on mobile, visible on sm+ */}
-          <div className="hidden sm:flex items-center gap-1 rounded-2xl border border-white/6 bg-white/[0.03] p-1 sm:p-1.5">
+          <div className="hidden sm:flex items-center gap-1 rounded-2xl border border-border bg-white/[0.05] p-1 sm:p-1.5">
             {TIME_FILTERS.map((filter) => (
               <button
                 key={filter}
@@ -143,7 +143,7 @@ export function Topbar({ unreadCount = 0, onBellClick, onMenuClick }: TopbarProp
                   onFilterChange(filter);
                   if (filter !== "الكل") onMonthChange(null);
                 }}
-                className={`px-3 sm:px-4 py-1.5 rounded-xl text-[10px] sm:text-xs transition-all ${
+                className={`px-3 sm:px-4 py-1.5 rounded-[14px] text-[10px] sm:text-xs transition-all ${
                   activeFilter === filter && !activeMonth
                     ? "bg-cyan/15 text-cyan font-medium border border-cyan/30 shadow-[0_0_10px_rgba(0,212,255,0.15)]"
                     : "text-muted-foreground hover:text-foreground border border-transparent"
@@ -156,16 +156,16 @@ export function Topbar({ unreadCount = 0, onBellClick, onMenuClick }: TopbarProp
 
           {/* Clock + Calendar */}
           <div className="hidden sm:flex items-center gap-2">
-            <span className="rounded-xl border border-white/6 bg-white/[0.03] px-3 py-1.5 text-xs text-muted-foreground font-mono" dir="ltr">
+            <span className="rounded-[14px] border border-border bg-white/[0.05] px-3 py-1.5 text-xs text-muted-foreground font-mono" dir="ltr">
               {clockStr}
             </span>
-            <Button variant="ghost" size="icon" className="rounded-xl bg-white/[0.03] hover:bg-white/[0.06]">
+            <Button variant="ghost" size="icon" className="rounded-[14px] bg-white/[0.05] hover:bg-white/[0.10]">
               <CalendarDays className="w-4 h-4 text-muted-foreground" />
             </Button>
           </div>
 
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative rounded-xl sm:rounded-2xl bg-white/[0.03] hover:bg-white/[0.06]" onClick={onBellClick}>
+          <Button variant="ghost" size="icon" className="relative rounded-[14px] sm:rounded-2xl bg-white/[0.05] hover:bg-white/[0.10]" onClick={onBellClick}>
             <Bell className="w-4 h-4 text-amber" />
             {unreadCount > 0 && (
               <span className="absolute -top-0.5 -left-0.5 w-5 h-5 bg-cc-red rounded-full text-[9px] text-white flex items-center justify-center font-bold">
@@ -185,7 +185,7 @@ export function Topbar({ unreadCount = 0, onBellClick, onMenuClick }: TopbarProp
               onFilterChange(filter);
               if (filter !== "الكل") onMonthChange(null);
             }}
-            className={`px-3 py-1.5 rounded-xl text-xs whitespace-nowrap transition-all shrink-0 ${
+            className={`px-3 py-1.5 rounded-[14px] text-xs whitespace-nowrap transition-all shrink-0 ${
               activeFilter === filter && !activeMonth
                 ? "bg-cyan/15 text-cyan font-medium border border-cyan/30"
                 : "text-muted-foreground hover:text-foreground border border-transparent"
@@ -215,11 +215,11 @@ export function Topbar({ unreadCount = 0, onBellClick, onMenuClick }: TopbarProp
                   onFilterChange("الكل");
                 }
               }}
-              className={`relative px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs whitespace-nowrap transition-all shrink-0 font-medium ${
+              className={`relative px-3 sm:px-4 py-1.5 sm:py-2 rounded-[14px] text-[10px] sm:text-xs whitespace-nowrap transition-all shrink-0 font-medium ${
                 isSelected
                   ? "bg-cyan/15 text-cyan border border-cyan/30 shadow-[0_0_12px_rgba(0,212,255,0.15)]"
                   : isCurrentMonth
-                  ? "bg-white/[0.06] text-foreground border border-white/10"
+                  ? "bg-white/[0.10] text-foreground border border-white/10"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04] border border-transparent"
               }`}
             >

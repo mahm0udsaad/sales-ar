@@ -202,7 +202,7 @@ export default function UsersPage() {
       </div>
 
       {/* Users list */}
-      <div className="rounded-2xl border border-white/6 bg-white/[0.02] overflow-hidden">
+      <div className="rounded-2xl border border-border bg-white/[0.02] overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-muted-foreground text-sm">جاري التحميل...</div>
         ) : users.length === 0 ? (
@@ -218,7 +218,7 @@ export default function UsersPage() {
                     className="flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 hover:bg-white/[0.02] transition-colors cursor-pointer"
                     onClick={() => setExpandedUserId(isExpanded ? null : u.id)}
                   >
-                    <div className="w-9 h-9 rounded-xl bg-cyan-dim flex items-center justify-center text-cyan text-xs font-bold ring-1 ring-cyan/20 shrink-0">
+                    <div className="w-9 h-9 rounded-[14px] bg-cyan-dim flex items-center justify-center text-cyan text-xs font-bold ring-1 ring-cyan/20 shrink-0">
                       {u.name?.[0] || "?"}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -262,7 +262,7 @@ export default function UsersPage() {
                   {/* Expanded: show page permissions */}
                   {isExpanded && (
                     <div className="px-4 sm:px-5 pb-3 pt-0">
-                      <div className="rounded-xl bg-white/[0.02] border border-white/6 p-3">
+                      <div className="rounded-[14px] bg-white/[0.02] border border-border p-3">
                         <p className="text-[11px] text-muted-foreground mb-2">الصفحات المسموح بها:</p>
                         {u.is_super_admin ? (
                           <p className="text-xs text-cyan">كل الصفحات (مدير عام)</p>
@@ -360,10 +360,10 @@ export default function UsersPage() {
                     type="button"
                     onClick={() => togglePage(page.slug)}
                     className={cn(
-                      "rounded-xl border px-2.5 py-2 text-xs font-medium transition-all text-right",
+                      "rounded-[14px] border px-2.5 py-2 text-xs font-medium transition-all text-right",
                       userPages.includes(page.slug)
                         ? "bg-cyan/15 border-cyan/30 text-cyan"
-                        : "bg-white/[0.02] border-white/6 text-muted-foreground hover:bg-white/[0.04]"
+                        : "bg-white/[0.02] border-border text-muted-foreground hover:bg-white/[0.04]"
                     )}
                   >
                     {page.label}
@@ -376,7 +376,7 @@ export default function UsersPage() {
             </div>
 
             {formError && (
-              <p className="text-sm text-red-400 bg-red-500/10 rounded-xl px-3 py-2 border border-red-500/20">
+              <p className="text-sm text-red-400 bg-red-500/10 rounded-[14px] px-3 py-2 border border-red-500/20">
                 {formError}
               </p>
             )}

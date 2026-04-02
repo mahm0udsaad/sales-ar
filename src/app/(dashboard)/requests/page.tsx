@@ -89,7 +89,7 @@ export default function RequestsPage() {
 
         {/* Copy submission link */}
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-muted-foreground max-w-[300px]">
+          <div className="flex items-center gap-1.5 px-3 py-2 rounded-[14px] bg-white/[0.04] border border-white/[0.08] text-xs text-muted-foreground max-w-[300px]">
             <ExternalLink className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate" dir="ltr">{submitLink}</span>
           </div>
@@ -111,7 +111,7 @@ export default function RequestsPage() {
           <button
             key={tab.key}
             onClick={() => setFilter(tab.key)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-[14px] text-xs font-medium transition-all ${
               filter === tab.key
                 ? `bg-${tab.color}-500/15 text-${tab.color}-400 ring-1 ring-${tab.color}-500/30`
                 : "bg-white/[0.04] text-muted-foreground hover:bg-white/[0.07]"
@@ -127,7 +127,7 @@ export default function RequestsPage() {
       {loading ? (
         <div className="grid gap-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="cc-card rounded-xl p-5">
+            <div key={i} className="cc-card rounded-[14px] p-5">
               <div className="flex items-center gap-3">
                 <Skeleton className="w-10 h-10 rounded-lg" />
                 <div className="flex-1 space-y-2">
@@ -163,7 +163,7 @@ export default function RequestsPage() {
               <div
                 key={deal.id}
                 onClick={() => setDetailDeal(deal)}
-                className={`cc-card rounded-xl p-5 border cursor-pointer hover:border-white/20 transition-all ${statusColors}`}
+                className={`cc-card rounded-[14px] p-5 border cursor-pointer hover:border-white/20 transition-all ${statusColors}`}
               >
                 <div className="flex items-center gap-4">
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold ${

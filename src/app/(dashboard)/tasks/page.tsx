@@ -211,7 +211,7 @@ export default function TasksPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-            <span className="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center">
+            <span className="w-10 h-10 rounded-[14px] bg-indigo-500/20 flex items-center justify-center">
               <Target className="w-5 h-5 text-indigo-400" />
             </span>
             إدارة المهام
@@ -220,7 +220,7 @@ export default function TasksPage() {
         </div>
         <button
           onClick={() => { resetForm(); setShowForm(true); }}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-medium transition-all"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-[14px] bg-indigo-500 hover:bg-indigo-600 text-white font-medium transition-all"
         >
           <Plus className="w-5 h-5" /> مهمة جديدة
         </button>
@@ -236,7 +236,7 @@ export default function TasksPage() {
         ].map((s) => (
           <div key={s.label} className="glass-surface rounded-2xl p-4 border border-white/[0.06]">
             <div className="flex items-center gap-3 mb-3">
-              <div className={`w-9 h-9 rounded-xl bg-${s.color}-500/15 flex items-center justify-center`}>
+              <div className={`w-9 h-9 rounded-[14px] bg-${s.color}-500/15 flex items-center justify-center`}>
                 <s.icon className={`w-4.5 h-4.5 text-${s.color}-400`} />
               </div>
               <span className="text-gray-400 text-xs">{s.label}</span>
@@ -254,7 +254,7 @@ export default function TasksPage() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {teamStats.map((s, i) => (
-              <div key={s.employee_id} className="flex items-center gap-3 bg-white/[0.03] rounded-xl p-3 border border-white/[0.06]">
+              <div key={s.employee_id} className="flex items-center gap-3 bg-white/[0.05] rounded-[14px] p-3 border border-white/[0.06]">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
                   i === 0 ? "bg-amber-500/20 text-amber-400" :
                   i === 1 ? "bg-gray-400/20 text-gray-300" :
@@ -290,13 +290,13 @@ export default function TasksPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="ابحث بالعنوان أو الموظف أو العميل..."
-            className="w-full pr-10 pl-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white placeholder:text-gray-500 text-sm focus:outline-none focus:border-indigo-500/50"
+            className="w-full pr-10 pl-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white placeholder:text-gray-500 text-sm focus:outline-none focus:border-indigo-500/50"
           />
         </div>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
+          className="px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
         >
           <option value="all">كل الحالات</option>
           {Object.entries(STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
@@ -304,7 +304,7 @@ export default function TasksPage() {
         <select
           value={filterEmployee}
           onChange={(e) => setFilterEmployee(e.target.value)}
-          className="px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
+          className="px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
         >
           <option value="all">كل الموظفين</option>
           {teamStats.map(s => <option key={s.employee_id} value={s.employee_id}>{s.employee_name}</option>)}
@@ -417,7 +417,7 @@ export default function TasksPage() {
                   type="text"
                   value={form.title}
                   onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none focus:border-indigo-500/50"
+                  className="w-full px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none focus:border-indigo-500/50"
                   placeholder="مثال: متابعة عميل أحمد بخصوص التجديد"
                 />
               </div>
@@ -428,7 +428,7 @@ export default function TasksPage() {
                 <textarea
                   value={form.description}
                   onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none focus:border-indigo-500/50 resize-none"
+                  className="w-full px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none focus:border-indigo-500/50 resize-none"
                   rows={3}
                   placeholder="تفاصيل المهمة..."
                 />
@@ -441,7 +441,7 @@ export default function TasksPage() {
                   <select
                     value={form.task_type}
                     onChange={(e) => setForm(f => ({ ...f, task_type: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
+                    className="w-full px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
                   >
                     {Object.entries(TASK_TYPES).map(([k, v]) => <option key={k} value={k}>{v.emoji} {v.label}</option>)}
                   </select>
@@ -451,7 +451,7 @@ export default function TasksPage() {
                   <select
                     value={form.priority}
                     onChange={(e) => setForm(f => ({ ...f, priority: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
+                    className="w-full px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
                   >
                     {Object.entries(PRIORITIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                   </select>
@@ -467,7 +467,7 @@ export default function TasksPage() {
                     const emp = employees.find(em => em.id === e.target.value);
                     setForm(f => ({ ...f, assigned_to: e.target.value, assigned_to_name: emp?.name || "" }));
                   }}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
+                  className="w-full px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
                 >
                   <option value="">اختر الموظف</option>
                   {employees.map(e => <option key={e.id} value={e.id}>{e.name} — {e.role}</option>)}
@@ -482,7 +482,7 @@ export default function TasksPage() {
                     type="date"
                     value={form.due_date}
                     onChange={(e) => setForm(f => ({ ...f, due_date: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
+                    className="w-full px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
                   />
                 </div>
                 <div>
@@ -491,7 +491,7 @@ export default function TasksPage() {
                     type="time"
                     value={form.due_time}
                     onChange={(e) => setForm(f => ({ ...f, due_time: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
+                    className="w-full px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
                   />
                 </div>
               </div>
@@ -506,7 +506,7 @@ export default function TasksPage() {
                       type="text"
                       value={form.client_name}
                       onChange={(e) => setForm(f => ({ ...f, client_name: e.target.value }))}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
+                      className="w-full px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
                     />
                   </div>
                   <div>
@@ -515,7 +515,7 @@ export default function TasksPage() {
                       type="text"
                       value={form.client_phone}
                       onChange={(e) => setForm(f => ({ ...f, client_phone: e.target.value }))}
-                      className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
+                      className="w-full px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
                     />
                   </div>
                 </div>
@@ -524,7 +524,7 @@ export default function TasksPage() {
                   <select
                     value={form.entity_type}
                     onChange={(e) => setForm(f => ({ ...f, entity_type: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
+                    className="w-full px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none"
                   >
                     <option value="">بدون ربط</option>
                     <option value="deal">صفقة</option>
@@ -540,7 +540,7 @@ export default function TasksPage() {
                 <textarea
                   value={form.notes}
                   onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none resize-none"
+                  className="w-full px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none resize-none"
                   rows={2}
                 />
               </div>
@@ -548,7 +548,7 @@ export default function TasksPage() {
               <button
                 onClick={handleSubmit}
                 disabled={!form.title || !form.assigned_to}
-                className="w-full py-3 rounded-xl bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-white font-medium transition-all"
+                className="w-full py-3 rounded-[14px] bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 text-white font-medium transition-all"
               >
                 {editingTask ? "حفظ التعديلات" : "إنشاء المهمة"}
               </button>

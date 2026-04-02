@@ -547,11 +547,11 @@ export default function MyTasksPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => { setClientForm(EMPTY_CLIENT_FORM); setShowClientForm(true); }}
-                className="flex items-center gap-2 px-4 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-600 text-white font-medium text-sm transition-all shadow-lg"
+                className="flex items-center gap-2 px-4 py-3 rounded-[14px] bg-cyan-500 hover:bg-cyan-600 text-white font-medium text-sm transition-all shadow-lg"
               >
                 <Plus className="w-4 h-4" /> إضافة عميل
               </button>
-              <div className={`text-center px-5 py-3 rounded-xl bg-white/[0.06] border border-white/10`}>
+              <div className={`text-center px-5 py-3 rounded-[14px] bg-white/[0.10] border border-white/10`}>
                 <p className="text-xs text-gray-400 mb-1">مستواك</p>
                 <p className={`text-lg font-bold ${level.color}`}>{level.label}</p>
               </div>
@@ -564,7 +564,7 @@ export default function MyTasksPage() {
       <div className="glass-surface rounded-2xl p-5 border border-white/[0.06] relative overflow-hidden">
         <div className="absolute top-3 left-3 text-6xl text-white/[0.03] font-serif">&ldquo;</div>
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-[14px] bg-amber-500/15 flex items-center justify-center shrink-0">
             <MessageCircle className="w-5 h-5 text-amber-400" />
           </div>
           <div>
@@ -576,7 +576,7 @@ export default function MyTasksPage() {
 
       {/* Hourly Productivity Tip */}
       <div className="glass-surface rounded-2xl p-4 border border-white/[0.06] flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-indigo-500/15 flex items-center justify-center shrink-0 text-xl">
+        <div className="w-10 h-10 rounded-[14px] bg-indigo-500/15 flex items-center justify-center shrink-0 text-xl">
           {hourlyTip.emoji}
         </div>
         <div className="flex-1 min-w-0">
@@ -643,7 +643,7 @@ export default function MyTasksPage() {
               myRank.rate >= 50 ? "text-amber-400" : "text-red-400"
             }`}>{myRank.rate}%</span>
           </div>
-          <div className="w-full h-3 rounded-full bg-white/[0.06] overflow-hidden">
+          <div className="w-full h-3 rounded-full bg-white/[0.10] overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-1000 ${
                 myRank.rate >= 75 ? "bg-gradient-to-l from-emerald-400 to-emerald-600" :
@@ -673,19 +673,19 @@ export default function MyTasksPage() {
           </h2>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-            <div className="bg-white/[0.03] rounded-xl p-3 text-center border border-white/[0.06]">
+            <div className="bg-white/[0.05] rounded-[14px] p-3 text-center border border-white/[0.06]">
               <p className="text-2xl font-bold text-white">{salesStats.totalDeals}</p>
               <p className="text-gray-400 text-xs mt-1">إجمالي الصفقات</p>
             </div>
-            <div className="bg-white/[0.03] rounded-xl p-3 text-center border border-white/[0.06]">
+            <div className="bg-white/[0.05] rounded-[14px] p-3 text-center border border-white/[0.06]">
               <p className="text-2xl font-bold text-emerald-400">{salesStats.closedDeals}</p>
               <p className="text-gray-400 text-xs mt-1">صفقات مكتملة</p>
             </div>
-            <div className="bg-white/[0.03] rounded-xl p-3 text-center border border-white/[0.06]">
+            <div className="bg-white/[0.05] rounded-[14px] p-3 text-center border border-white/[0.06]">
               <p className="text-2xl font-bold text-cyan-400">{formatMoney(salesStats.revenue)}</p>
               <p className="text-gray-400 text-xs mt-1">إجمالي الإيرادات</p>
             </div>
-            <div className="bg-white/[0.03] rounded-xl p-3 text-center border border-white/[0.06]">
+            <div className="bg-white/[0.05] rounded-[14px] p-3 text-center border border-white/[0.06]">
               <p className={`text-2xl font-bold ${salesStats.conversionRate >= 70 ? "text-emerald-400" : salesStats.conversionRate >= 40 ? "text-amber-400" : "text-red-400"}`}>
                 {salesStats.conversionRate}%
               </p>
@@ -726,7 +726,7 @@ export default function MyTasksPage() {
       )}
 
       {/* View Mode Tabs */}
-      <div className="flex items-center gap-2 bg-white/[0.03] rounded-xl p-1 border border-white/[0.06]">
+      <div className="flex items-center gap-2 bg-white/[0.05] rounded-[14px] p-1 border border-white/[0.06]">
         {[
           { key: "today" as ViewMode, label: "اليوم" },
           { key: "week" as ViewMode, label: "الأسبوع" },
@@ -739,7 +739,7 @@ export default function MyTasksPage() {
             className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
               viewMode === v.key
                 ? "bg-cyan-500 text-white shadow-lg"
-                : "text-gray-400 hover:text-white hover:bg-white/[0.06]"
+                : "text-gray-400 hover:text-white hover:bg-white/[0.10]"
             }`}
           >
             {v.label}
@@ -841,7 +841,7 @@ export default function MyTasksPage() {
                     {task.status !== "completed" && task.status !== "cancelled" && (
                       <div className="mt-3">
                         {activeTimer && activeTimer.taskId === task.id ? (
-                          <div className="bg-gradient-to-l from-cyan-500/10 to-indigo-500/10 rounded-xl p-3 border border-cyan-500/20">
+                          <div className="bg-gradient-to-l from-cyan-500/10 to-indigo-500/10 rounded-[14px] p-3 border border-cyan-500/20">
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-xs text-cyan-400 font-medium flex items-center gap-1.5">
                                 <Timer className="w-3.5 h-3.5" />
@@ -849,7 +849,7 @@ export default function MyTasksPage() {
                               </span>
                               <span className="text-xs text-gray-400">{task.time_estimate} دقيقة</span>
                             </div>
-                            <div className="w-full h-2 rounded-full bg-white/[0.06] mb-2 overflow-hidden">
+                            <div className="w-full h-2 rounded-full bg-white/[0.10] mb-2 overflow-hidden">
                               <div
                                 className={`h-full rounded-full transition-all duration-1000 ${
                                   activeTimer.remaining === 0 ? "bg-red-500 animate-pulse"
@@ -883,7 +883,7 @@ export default function MyTasksPage() {
                             )}
                           </div>
                         ) : showTimerPicker === task.id ? (
-                          <div className="bg-white/[0.04] rounded-xl p-3 border border-white/[0.06]">
+                          <div className="bg-white/[0.04] rounded-[14px] p-3 border border-white/[0.06]">
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-xs text-gray-400 font-medium">اختر المدة:</span>
                               <button onClick={() => setShowTimerPicker(null)} className="text-gray-500 hover:text-white"><X className="w-4 h-4" /></button>
@@ -979,7 +979,7 @@ export default function MyTasksPage() {
             {/* Close button - sticky top */}
             <button
               onClick={() => setShowClientForm(false)}
-              className="absolute top-4 left-4 z-10 w-9 h-9 rounded-xl bg-white/[0.08] hover:bg-white/[0.15] flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+              className="absolute top-4 left-4 z-10 w-9 h-9 rounded-[14px] bg-white/[0.08] hover:bg-white/[0.15] flex items-center justify-center text-gray-400 hover:text-white transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -996,7 +996,7 @@ export default function MyTasksPage() {
                   <button
                     type="button"
                     onClick={() => setClientForm(f => ({ ...f, sales_type: "office" }))}
-                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    className={`flex-1 py-2.5 rounded-[14px] text-sm font-medium transition-all ${
                       clientForm.sales_type === "office"
                         ? "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30"
                         : "bg-white/[0.04] text-gray-400 hover:bg-white/[0.07]"
@@ -1007,7 +1007,7 @@ export default function MyTasksPage() {
                   <button
                     type="button"
                     onClick={() => setClientForm(f => ({ ...f, sales_type: "support" }))}
-                    className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    className={`flex-1 py-2.5 rounded-[14px] text-sm font-medium transition-all ${
                       clientForm.sales_type === "support"
                         ? "bg-orange-500/15 text-orange-400 ring-1 ring-orange-500/30"
                         : "bg-white/[0.04] text-gray-400 hover:bg-white/[0.07]"
@@ -1025,7 +1025,7 @@ export default function MyTasksPage() {
                   value={clientForm.client_name}
                   onChange={(e) => setClientForm(f => ({ ...f, client_name: e.target.value }))}
                   placeholder="أدخل اسم العميل"
-                  className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-cyan-500/50"
+                  className="w-full px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-cyan-500/50"
                 />
               </div>
 
@@ -1038,7 +1038,7 @@ export default function MyTasksPage() {
                     onChange={(e) => setClientForm(f => ({ ...f, client_phone: e.target.value }))}
                     placeholder="05xxxxxxxx"
                     dir="ltr"
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm text-right placeholder:text-gray-500 focus:outline-none focus:border-cyan-500/50"
+                    className="w-full px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm text-right placeholder:text-gray-500 focus:outline-none focus:border-cyan-500/50"
                   />
                 </div>
                 <div>
@@ -1049,7 +1049,7 @@ export default function MyTasksPage() {
                     onChange={(e) => setClientForm(f => ({ ...f, deal_value: Number(e.target.value) || 0 }))}
                     placeholder="0"
                     dir="ltr"
-                    className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm text-right placeholder:text-gray-500 focus:outline-none focus:border-cyan-500/50"
+                    className="w-full px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm text-right placeholder:text-gray-500 focus:outline-none focus:border-cyan-500/50"
                   />
                 </div>
               </div>
@@ -1125,14 +1125,14 @@ export default function MyTasksPage() {
                   onChange={(e) => setClientForm(f => ({ ...f, notes: e.target.value }))}
                   placeholder="أي ملاحظات إضافية..."
                   rows={2}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-cyan-500/50 resize-none"
+                  className="w-full px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-cyan-500/50 resize-none"
                 />
               </div>
 
               <button
                 onClick={handleAddClient}
                 disabled={!clientForm.client_name.trim() || clientSaving}
-                className="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-600 disabled:opacity-40 text-white font-medium transition-all flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-[14px] bg-cyan-500 hover:bg-cyan-600 disabled:opacity-40 text-white font-medium transition-all flex items-center justify-center gap-2"
               >
                 {clientSaving ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1157,7 +1157,7 @@ export default function MyTasksPage() {
               <button onClick={() => setTransferTask(null)} className="p-2 rounded-lg hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
             </div>
 
-            <div className="bg-white/[0.04] rounded-xl p-3 mb-5 border border-white/[0.06]">
+            <div className="bg-white/[0.04] rounded-[14px] p-3 mb-5 border border-white/[0.06]">
               <p className="text-sm text-white font-medium">{transferTask.title}</p>
               {transferTask.client_name && (
                 <p className="text-xs text-gray-400 mt-1">العميل: {transferTask.client_name}</p>
@@ -1170,7 +1170,7 @@ export default function MyTasksPage() {
                 <select
                   value={transferTo}
                   onChange={(e) => setTransferTo(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none focus:border-violet-500/50"
+                  className="w-full px-4 py-2.5 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none focus:border-violet-500/50"
                 >
                   <option value="">اختر موظف...</option>
                   {teamUsers.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
@@ -1181,13 +1181,13 @@ export default function MyTasksPage() {
                 <button
                   onClick={handleTransfer}
                   disabled={!transferTo}
-                  className="flex-1 py-3 rounded-xl bg-violet-500 hover:bg-violet-600 disabled:opacity-40 text-white font-medium transition-all flex items-center justify-center gap-2"
+                  className="flex-1 py-3 rounded-[14px] bg-violet-500 hover:bg-violet-600 disabled:opacity-40 text-white font-medium transition-all flex items-center justify-center gap-2"
                 >
                   <Send className="w-4 h-4" /> تحويل
                 </button>
                 <button
                   onClick={() => setTransferTask(null)}
-                  className="px-5 py-3 rounded-xl bg-white/[0.06] hover:bg-white/10 text-gray-400 font-medium transition-all"
+                  className="px-5 py-3 rounded-[14px] bg-white/[0.10] hover:bg-white/10 text-gray-400 font-medium transition-all"
                 >
                   إلغاء
                 </button>
@@ -1221,20 +1221,20 @@ export default function MyTasksPage() {
             <textarea
               value={completionNote.note}
               onChange={(e) => setCompletionNote(prev => prev ? { ...prev, note: e.target.value } : null)}
-              className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50 resize-none mb-4"
+              className="w-full px-4 py-3 rounded-[14px] bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50 resize-none mb-4"
               rows={3}
               placeholder="مثال: تم التواصل مع العميل واتفقنا على..."
             />
             <div className="flex gap-3">
               <button
                 onClick={handleComplete}
-                className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-medium transition-all"
+                className="flex-1 py-3 rounded-[14px] bg-emerald-500 hover:bg-emerald-600 text-white font-medium transition-all"
               >
                 تم الإنجاز ✓
               </button>
               <button
                 onClick={() => setCompletionNote(null)}
-                className="px-5 py-3 rounded-xl bg-white/[0.06] hover:bg-white/10 text-gray-400 font-medium transition-all"
+                className="px-5 py-3 rounded-[14px] bg-white/[0.10] hover:bg-white/10 text-gray-400 font-medium transition-all"
               >
                 إلغاء
               </button>

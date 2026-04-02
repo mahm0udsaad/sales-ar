@@ -12,20 +12,20 @@ interface KPICardProps {
 
 const STATUS_COLORS: Record<string, { border: string; glow: string; text: string; hex: string }> = {
   excellent: {
-    border: "rgba(16, 185, 129, 0.30)",
-    glow: "0 0 18px rgba(16, 185, 129, 0.08)",
+    border: "rgba(16, 185, 129, 0.35)",
+    glow: "0 1px 4px rgba(0,0,0,0.15)",
     text: "text-cc-green",
     hex: "#10B981",
   },
   improving: {
-    border: "rgba(245, 158, 11, 0.30)",
-    glow: "0 0 18px rgba(245, 158, 11, 0.08)",
+    border: "rgba(245, 158, 11, 0.35)",
+    glow: "0 1px 4px rgba(0,0,0,0.15)",
     text: "text-amber",
     hex: "#F59E0B",
   },
   behind: {
-    border: "rgba(239, 68, 68, 0.30)",
-    glow: "0 0 18px rgba(239, 68, 68, 0.08)",
+    border: "rgba(239, 68, 68, 0.35)",
+    glow: "0 1px 4px rgba(0,0,0,0.15)",
     text: "text-cc-red",
     hex: "#EF4444",
   },

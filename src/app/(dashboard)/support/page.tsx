@@ -321,7 +321,7 @@ export default function SupportPage() {
       </div>
 
       {/* -------- Tickets Table -------- */}
-      <div className="cc-card rounded-xl overflow-x-auto">
+      <div className="cc-card rounded-[14px] overflow-x-auto">
         <div className="p-4 pb-0">
           <Input
             value={clientSearch}
@@ -616,7 +616,7 @@ export default function SupportPage() {
 
 function SupportStatSkeleton() {
   return (
-    <div className="cc-card rounded-xl p-4 border-t-2 border-t-muted">
+    <div className="cc-card rounded-[14px] p-4 border-t-2 border-t-muted">
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <Skeleton className="h-7 w-10" />

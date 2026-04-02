@@ -245,7 +245,7 @@ export default function DevelopmentPage() {
             return (
               <div
                 key={proj.id}
-                className={`cc-card rounded-xl border-t-2 ${borderColor} p-5 space-y-4`}
+                className={`cc-card rounded-[14px] border-t-2 ${borderColor} p-5 space-y-4`}
               >
                 {/* Name + status */}
                 <div className="flex items-start justify-between gap-2">
@@ -423,7 +423,7 @@ export default function DevelopmentPage() {
 
 function ProjectStatSkeleton() {
   return (
-    <div className="cc-card rounded-xl p-4 border-t-2 border-t-muted">
+    <div className="cc-card rounded-[14px] p-4 border-t-2 border-t-muted">
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <Skeleton className="h-7 w-10" />
@@ -437,7 +437,7 @@ function ProjectStatSkeleton() {
 
 function ProjectCardSkeleton() {
   return (
-    <div className="cc-card rounded-xl border-t-2 border-t-muted p-5 space-y-4">
+    <div className="cc-card rounded-[14px] border-t-2 border-t-muted p-5 space-y-4">
       <div className="flex items-start justify-between gap-2">
         <Skeleton className="h-4 w-32" />
         <Skeleton className="h-5 w-16 rounded-full" />

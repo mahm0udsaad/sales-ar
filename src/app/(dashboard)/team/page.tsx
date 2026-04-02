@@ -274,7 +274,7 @@ export default function TeamPage() {
 
       {/* Period filter + Search */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1 bg-white/[0.03] rounded-xl p-1 border border-white/[0.06]">
+        <div className="flex items-center gap-1 bg-white/[0.05] rounded-[14px] p-1 border border-white/[0.06]">
           <Calendar className="w-4 h-4 text-muted-foreground mr-1.5 ml-1" />
           {([
             { key: "all" as const, label: "الكل" },
@@ -320,7 +320,7 @@ export default function TeamPage() {
             return (
               <div
                 key={emp.id}
-                className="cc-card rounded-xl p-5 space-y-4"
+                className="cc-card rounded-[14px] p-5 space-y-4"
               >
                 {/* Top: avatar + info */}
                 <div className="flex items-start gap-3">
@@ -548,7 +548,7 @@ export default function TeamPage() {
 
 function TeamStatSkeleton() {
   return (
-    <div className="cc-card rounded-xl p-4 border-t-2 border-t-muted">
+    <div className="cc-card rounded-[14px] p-4 border-t-2 border-t-muted">
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <Skeleton className="h-7 w-10" />
@@ -562,7 +562,7 @@ function TeamStatSkeleton() {
 
 function TeamCardSkeleton() {
   return (
-    <div className="cc-card rounded-xl p-5 space-y-4">
+    <div className="cc-card rounded-[14px] p-5 space-y-4">
       <div className="flex items-start gap-3">
         <Skeleton className="w-11 h-11 rounded-full shrink-0" />
         <div className="flex-1 space-y-2">

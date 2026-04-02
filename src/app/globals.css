@@ -66,23 +66,23 @@
 
 /* ─── Dark theme (default) ─── */
 :root {
-  --background: #07090F;
+  --background: #0C1220;
   --foreground: #F1F5F9;
-  --card: #111827;
+  --card: #162032;
   --card-foreground: #F1F5F9;
-  --popover: #111827;
+  --popover: #162032;
   --popover-foreground: #F1F5F9;
   --primary: #00D4FF;
   --primary-foreground: #07090F;
-  --secondary: rgba(17, 24, 39, 0.88);
+  --secondary: rgba(22, 32, 50, 0.92);
   --secondary-foreground: #F1F5F9;
-  --muted: rgba(13, 17, 23, 0.9);
-  --muted-foreground: #94A3B8;
-  --accent: rgba(17, 24, 39, 0.9);
+  --muted: rgba(16, 22, 36, 0.9);
+  --muted-foreground: #A0B1C5;
+  --accent: rgba(22, 32, 50, 0.9);
   --accent-foreground: #F1F5F9;
   --destructive: #EF4444;
-  --border: #1E2A3A;
-  --input: rgba(30, 42, 58, 0.6);
+  --border: #283A52;
+  --input: rgba(40, 58, 82, 0.6);
   --ring: rgba(0, 212, 255, 0.32);
   --chart-1: #00D4FF;
   --chart-2: #10B981;
@@ -90,37 +90,37 @@
   --chart-4: #8B5CF6;
   --chart-5: #7da6ff;
   --radius: 1rem;
-  --sidebar: #0D1117;
+  --sidebar: #101828;
   --sidebar-foreground: #F1F5F9;
   --sidebar-primary: #00D4FF;
   --sidebar-primary-foreground: #07090F;
-  --sidebar-accent: rgba(17, 24, 39, 0.84);
+  --sidebar-accent: rgba(22, 32, 50, 0.84);
   --sidebar-accent-foreground: #F1F5F9;
-  --sidebar-border: #1E2A3A;
+  --sidebar-border: #283A52;
   --sidebar-ring: rgba(0, 212, 255, 0.3);
 
   /* Dim colors for dark */
-  --cyan-dim: rgba(0, 212, 255, 0.14);
-  --green-dim: rgba(16, 185, 129, 0.14);
-  --amber-dim: rgba(245, 158, 11, 0.14);
-  --red-dim: rgba(239, 68, 68, 0.14);
-  --purple-dim: rgba(139, 92, 246, 0.14);
-  --blue-dim: rgba(125, 166, 255, 0.14);
+  --cyan-dim: rgba(0, 212, 255, 0.15);
+  --green-dim: rgba(16, 185, 129, 0.15);
+  --amber-dim: rgba(245, 158, 11, 0.15);
+  --red-dim: rgba(239, 68, 68, 0.15);
+  --purple-dim: rgba(139, 92, 246, 0.15);
+  --blue-dim: rgba(125, 166, 255, 0.15);
 
   /* Extended design tokens */
-  --border-hi: #2E3F55;
-  --dim: #475569;
+  --border-hi: #3A5070;
+  --dim: #6B7D94;
 
   /* Glass & surface */
-  --glass-bg: linear-gradient(180deg, #0D1117 0%, #0B0F14 100%);
-  --glass-border: #1E2A3A;
-  --glass-shadow: none;
-  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  --surface-hover: rgba(255, 255, 255, 0.03);
-  --surface-active: rgba(255, 255, 255, 0.06);
-  --scrollbar-track: #07090F;
-  --scrollbar-thumb: rgba(30, 42, 58, 0.8);
-  --scrollbar-thumb-hover: rgba(30, 42, 58, 1);
+  --glass-bg: linear-gradient(180deg, #131D2E 0%, #101828 100%);
+  --glass-border: #283A52;
+  --glass-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --surface-hover: rgba(255, 255, 255, 0.05);
+  --surface-active: rgba(255, 255, 255, 0.08);
+  --scrollbar-track: #0C1220;
+  --scrollbar-thumb: rgba(40, 58, 82, 0.8);
+  --scrollbar-thumb-hover: rgba(40, 58, 82, 1);
 }
 
 
@@ -132,9 +132,9 @@
     @apply bg-background text-foreground;
     min-height: 100vh;
     background-image:
-      radial-gradient(circle at top right, rgba(0, 212, 255, 0.06), transparent 24%),
-      radial-gradient(circle at top left, rgba(139, 92, 246, 0.04), transparent 22%),
-      linear-gradient(180deg, #0D1117 0%, #07090F 45%, #050810 100%);
+      radial-gradient(circle at top right, rgba(0, 212, 255, 0.05), transparent 28%),
+      radial-gradient(circle at top left, rgba(139, 92, 246, 0.03), transparent 26%),
+      linear-gradient(180deg, #101828 0%, #0C1220 45%, #0A0F1A 100%);
   }
   html {
     @apply font-sans;
@@ -151,27 +151,41 @@
   }
   .glass-surface:hover {
     transform: translateY(-2px);
-    border-color: var(--primary);
+    border-color: var(--border-hi);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   }
 
   .cc-card {
     background-color: var(--card);
     border: 1px solid var(--border);
     border-radius: 14px;
-    box-shadow: none;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
     transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.15s ease;
   }
   .cc-card:hover {
     transform: translateY(-2px);
     border-color: var(--border-hi);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   }
 
   .panel-grid {
+    position: relative;
+  }
+  .panel-grid::before {
+    content: "";
+    position: absolute;
+    inset: 0;
     background-image:
       linear-gradient(var(--border) 1px, transparent 1px),
       linear-gradient(90deg, var(--border) 1px, transparent 1px);
     background-size: 22px 22px;
-    opacity: 0.4;
+    opacity: 0.12;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .panel-grid > * {
+    position: relative;
+    z-index: 1;
   }
 }
 
@@ -209,14 +223,7 @@
   animation: fadeIn 0.35s ease-out both;
 }
 
-/* ─── Card hover identity: lift + accent border ─── */
-.cc-card {
-  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
-}
-.cc-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--glass-border);
-}
+/* ─── Card hover identity (merged above in @layer utilities) ─── */
 
 /* ─── Monospace for financial numbers ─── */
 .font-mono-num {

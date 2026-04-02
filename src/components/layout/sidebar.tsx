@@ -118,7 +118,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         )}
       >
         {/* Logo + close button on mobile */}
-        <div className="px-5 pt-5 pb-4 border-b border-white/6">
+        <div className="px-5 pt-5 pb-4 border-b border-border">
           <div className="flex items-start gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br from-cyan/30 to-cc-purple/30 ring-1 ring-white/10 shrink-0">
               <span className="text-base font-extrabold tracking-[0.2em] text-cyan">CC</span>
@@ -130,7 +130,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             {/* Close button — only on mobile/tablet */}
             <button
               onClick={onClose}
-              className="lg:hidden flex items-center justify-center w-8 h-8 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-muted-foreground hover:text-foreground transition-colors shrink-0"
+              className="lg:hidden flex items-center justify-center w-8 h-8 rounded-[14px] bg-white/[0.10] hover:bg-white/[0.1] text-muted-foreground hover:text-foreground transition-colors shrink-0"
             >
               <X className="w-4 h-4" />
             </button>
@@ -141,7 +141,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             <div className="mt-3 relative">
               <button
                 onClick={() => setOrgMenuOpen((v) => !v)}
-                className="w-full flex items-center gap-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.07] border border-white/6 px-3 py-2 transition-colors"
+                className="w-full flex items-center gap-2.5 rounded-[14px] bg-white/[0.04] hover:bg-white/[0.07] border border-border px-3 py-2 transition-colors"
               >
                 <div className="w-7 h-7 rounded-lg bg-cyan-dim flex items-center justify-center text-cyan text-xs font-bold ring-1 ring-cyan/20 shrink-0">
                   {activeOrg?.nameAr?.[0] || "O"}
@@ -154,7 +154,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               </button>
 
               {orgMenuOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 rounded-xl bg-card border border-border shadow-lg overflow-hidden z-50">
+                <div className="absolute top-full left-0 right-0 mt-1 rounded-[14px] bg-card border border-border shadow-lg overflow-hidden z-50">
                   {orgs.map((o) => (
                     <button
                       key={o.id}
@@ -163,7 +163,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                         setOrgMenuOpen(false);
                       }}
                       className={cn(
-                        "w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/[0.06] transition-colors",
+                        "w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-white/[0.10] transition-colors",
                         o.id === activeOrgId && "bg-white/[0.04]"
                       )}
                     >
@@ -171,7 +171,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                         "w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ring-1 shrink-0",
                         o.id === activeOrgId
                           ? "bg-cyan-dim text-cyan ring-cyan/20"
-                          : "bg-white/[0.06] text-muted-foreground ring-white/10"
+                          : "bg-white/[0.10] text-muted-foreground ring-white/10"
                       )}>
                         {o.nameAr?.[0] || "O"}
                       </div>
@@ -190,7 +190,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           ) : (
             /* Static org badge for non-super-admin */
             !loading && user && (
-              <div className="mt-3 flex items-center gap-2.5 rounded-xl bg-white/[0.04] border border-white/6 px-3 py-2">
+              <div className="mt-3 flex items-center gap-2.5 rounded-[14px] bg-white/[0.04] border border-border px-3 py-2">
                 <div className="w-7 h-7 rounded-lg bg-cyan-dim flex items-center justify-center text-cyan text-xs font-bold ring-1 ring-cyan/20 shrink-0">
                   {activeOrg?.nameAr?.[0] || "O"}
                 </div>
@@ -229,8 +229,8 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 )}
                 <span
                   className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-200",
-                    isActive ? `${c.bg} ${c.text} ring-1 ${c.ring}` : `bg-white/[0.03] ${c.text}/60 group-hover:${c.text} group-hover:bg-white/[0.06]`
+                    "flex h-10 w-10 items-center justify-center rounded-[14px] transition-all duration-200",
+                    isActive ? `${c.bg} ${c.text} ring-1 ${c.ring}` : `bg-white/[0.05] ${c.text}/60 group-hover:${c.text} group-hover:bg-white/[0.10]`
                   )}
                 >
                   <Icon className="w-5 h-5" />
@@ -262,7 +262,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             </div>
             <button
               onClick={signOut}
-              className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/[0.04] hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors shrink-0"
+              className="flex items-center justify-center w-9 h-9 rounded-[14px] bg-white/[0.04] hover:bg-red-500/10 text-muted-foreground hover:text-red-400 transition-colors shrink-0"
               title="تسجيل الخروج"
             >
               <LogOut className="w-5 h-5" />

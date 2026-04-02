@@ -310,7 +310,7 @@ export default function GiftsPage() {
           { label: "تم الفتح", value: stats.opened, icon: Eye, color: "sky" },
           { label: "تم القبول", value: stats.accepted, icon: CheckCircle2, color: "emerald" },
         ].map((s, i) => (
-          <div key={i} className="cc-card rounded-xl p-4 text-center">
+          <div key={i} className="cc-card rounded-[14px] p-4 text-center">
             <s.icon className={`w-5 h-5 mx-auto mb-2 text-${s.color}-400`} />
             <p className="text-2xl font-bold text-foreground">{s.value}</p>
             <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
@@ -358,7 +358,7 @@ export default function GiftsPage() {
             className={`px-4 py-2 rounded-lg text-xs transition-colors border ${
               filter === f.key
                 ? "bg-white/[0.08] text-foreground border-amber-500/30 font-medium"
-                : "text-muted-foreground border-border hover:text-foreground hover:bg-white/[0.03]"
+                : "text-muted-foreground border-border hover:text-foreground hover:bg-white/[0.05]"
             }`}
           >
             {f.label}
@@ -370,7 +370,7 @@ export default function GiftsPage() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className="cc-card rounded-xl p-5 space-y-3">
+            <div key={i} className="cc-card rounded-[14px] p-5 space-y-3">
               <Skeleton className="h-8 w-8 rounded-full" />
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-3 w-48" />
@@ -391,7 +391,7 @@ export default function GiftsPage() {
             const bundleSiblings = offer.bundle_id ? offers.filter(o => o.bundle_id === offer.bundle_id) : [];
             const isBundle = bundleSiblings.length > 1;
             return (
-              <div key={offer.id} className="cc-card rounded-xl p-5 space-y-3">
+              <div key={offer.id} className="cc-card rounded-[14px] p-5 space-y-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className="text-3xl">{offer.gift_emoji || "🎁"}</div>
@@ -629,7 +629,7 @@ export default function GiftsPage() {
               )}
 
               {giftItems.map((item, idx) => (
-                <div key={idx} className="cc-card rounded-xl p-4 space-y-3 border border-border">
+                <div key={idx} className="cc-card rounded-[14px] p-4 space-y-3 border border-border">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-muted-foreground">هدية {idx + 1}</span>
                     {giftItems.length > 1 && (

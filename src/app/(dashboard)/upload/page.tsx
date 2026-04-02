@@ -507,7 +507,7 @@ export default function UploadPage() {
 
       {/* Error banner */}
       {error && (
-        <div className="flex items-center gap-2 bg-red-dim p-4 rounded-xl border border-cc-red/30 text-cc-red text-sm">
+        <div className="flex items-center gap-2 bg-red-dim p-4 rounded-[14px] border border-cc-red/30 text-cc-red text-sm">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span className="flex-1">{error}</span>
           <button onClick={resetUpload}><X className="w-4 h-4" /></button>
@@ -646,7 +646,7 @@ export default function UploadPage() {
       )}
 
       {/* Upload History (from Supabase) */}
-      <div className="cc-card rounded-xl p-5">
+      <div className="cc-card rounded-[14px] p-5">
         <h3 className="text-sm font-bold text-foreground mb-4">سجل الرفع</h3>
         {historyLoading ? (
           <div className="text-center py-6 text-muted-foreground text-sm">جاري التحميل...</div>

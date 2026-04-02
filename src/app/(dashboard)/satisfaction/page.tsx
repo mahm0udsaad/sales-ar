@@ -279,7 +279,7 @@ export default function SatisfactionPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Star distribution */}
-            <div className="cc-card rounded-xl p-5">
+            <div className="cc-card rounded-[14px] p-5">
               <h3 className="text-sm font-bold text-foreground mb-4">توزيع النجوم</h3>
               <BarChart data={starBarData} height={200} />
               <div className="mt-4 space-y-2">
@@ -303,7 +303,7 @@ export default function SatisfactionPage() {
             </div>
 
             {/* CSAT + NPS trend */}
-            <div className="cc-card rounded-xl p-5">
+            <div className="cc-card rounded-[14px] p-5">
               <h3 className="text-sm font-bold text-foreground mb-1">اتجاه الرضا</h3>
               <p className="text-xs text-muted-foreground mb-4">CSAT (أخضر) و NPS (خط الهدف) — آخر 6 أشهر</p>
               <LineChart data={trendData} showArea height={200} />
@@ -311,7 +311,7 @@ export default function SatisfactionPage() {
           </div>
 
           {/* NPS segments */}
-          <div className="cc-card rounded-xl p-5">
+          <div className="cc-card rounded-[14px] p-5">
             <h3 className="text-sm font-bold text-foreground mb-4">توزيع شرائح NPS</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <NPSSegment
@@ -347,7 +347,7 @@ export default function SatisfactionPage() {
 
         {/* ─── Tab 2: NPS Detail ─── */}
         <TabsContent value="nps" className="space-y-6">
-          <div className="cc-card rounded-xl p-8 text-center">
+          <div className="cc-card rounded-[14px] p-8 text-center">
             <p className="text-sm text-muted-foreground mb-2">مؤشر صافي الرضى</p>
             <p className="text-7xl font-extrabold text-cyan">+{d.nps}</p>
             <div className="flex items-center justify-center gap-2 mt-3">
@@ -359,7 +359,7 @@ export default function SatisfactionPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="cc-card rounded-xl p-5">
+            <div className="cc-card rounded-[14px] p-5">
               <h3 className="text-sm font-bold text-foreground mb-4">مقارنة مع صناعة SaaS</h3>
               <div className="flex items-end gap-6 justify-center">
                 <div className="text-center">
@@ -376,13 +376,13 @@ export default function SatisfactionPage() {
               </p>
             </div>
 
-            <div className="cc-card rounded-xl p-5">
+            <div className="cc-card rounded-[14px] p-5">
               <h3 className="text-sm font-bold text-foreground mb-4">اتجاه NPS الشهري</h3>
               <BarChart data={npsBarData} height={200} />
             </div>
           </div>
 
-          <div className="cc-card rounded-xl p-5">
+          <div className="cc-card rounded-[14px] p-5">
             <h3 className="text-sm font-bold text-foreground mb-2">توصية للتحسين</h3>
             <p className="text-sm text-muted-foreground leading-7">
               نسبة المنتقدين ({d.detractorsPercent}%) مرتفعة نسبياً. نوصي بالتركيز على تحسين تجربة العملاء في مجالات الأداء والتسعير — وهي الشكاوى الأكثر تكراراً. تقليل نسبة المنتقدين بمقدار 5% يرفع NPS إلى +{d.nps + 5}.
@@ -412,7 +412,7 @@ export default function SatisfactionPage() {
                     className={`px-4 py-2 rounded-lg text-xs transition-colors border ${
                       feedbackFilter === filter
                         ? "bg-white/[0.08] text-foreground border-cyan/30 font-medium"
-                        : "text-muted-foreground border-border hover:text-foreground hover:bg-white/[0.03]"
+                        : "text-muted-foreground border-border hover:text-foreground hover:bg-white/[0.05]"
                     } ${colors[filter]}`}
                   >
                     {labels[filter]}
@@ -439,7 +439,7 @@ export default function SatisfactionPage() {
                 const style = feedbackTypeStyle[review.type] || DEFAULT_STYLE;
                 const Icon = style.icon;
                 return (
-                  <div key={review.id} className="cc-card rounded-xl p-5 space-y-3">
+                  <div key={review.id} className="cc-card rounded-[14px] p-5 space-y-3">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-cyan-dim border border-cyan/30 flex items-center justify-center text-cyan font-bold text-sm">
                         {review.avatar || review.customer_name.charAt(0)}
@@ -685,7 +685,7 @@ function NPSSegment({
 
 function ReviewCardSkeleton() {
   return (
-    <div className="cc-card rounded-xl p-5 space-y-3">
+    <div className="cc-card rounded-[14px] p-5 space-y-3">
       <div className="flex items-center gap-3">
         <Skeleton className="w-10 h-10 rounded-full" />
         <div className="space-y-1.5 flex-1">

@@ -88,7 +88,7 @@ export function NotificationPanel({
                   if (path) router.push(path);
                   onClose();
                 }}
-                className={`w-full text-right px-4 py-3 border-b border-border/50 hover:bg-white/[0.03] transition-colors ${
+                className={`w-full text-right px-4 py-3 border-b border-border/50 hover:bg-white/[0.05] transition-colors ${
                   !n.isRead ? "bg-cyan/[0.03]" : ""
                 }`}
               >

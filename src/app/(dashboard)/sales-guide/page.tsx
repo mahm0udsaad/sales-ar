@@ -184,7 +184,7 @@ function getPipMotivation(progress: number, daysLeft: number, week: number) {
   if (progress >= 40) return { icon: "💪", text: "بداية جيدة، تحتاج مزيد من الجهد", color: "text-amber", bg: "bg-amber/10 border-amber/20" };
   if (daysLeft <= 7 && progress < 40) return { icon: "⏰", text: "تحذير! الوقت ينفد والتقدم بطيء", color: "text-cc-red", bg: "bg-cc-red/10 border-cc-red/20" };
   if (week >= 3 && progress < 30) return { icon: "🚨", text: "خطر! يجب تسريع الأداء فوراً", color: "text-cc-red", bg: "bg-cc-red/10 border-cc-red/30" };
-  return { icon: "🎯", text: "ابدأ بقوة وحقق أهدافك", color: "text-muted-foreground", bg: "bg-white/[0.03] border-white/6" };
+  return { icon: "🎯", text: "ابدأ بقوة وحقق أهدافك", color: "text-muted-foreground", bg: "bg-white/[0.05] border-border" };
 }
 
 function getPipRank(progress: number) {
@@ -714,13 +714,13 @@ export default function SalesGuidePage() {
       {/* ─── Main Tabs ─── */}
       <Tabs defaultValue="activities" dir="rtl">
         <TabsList className="glass-surface rounded-2xl p-1.5 gap-1 flex-wrap">
-          <TabsTrigger value="activities" className="rounded-xl text-xs px-4 py-2">سجل النشاطات</TabsTrigger>
-          <TabsTrigger value="leaderboard" className="rounded-xl text-xs px-4 py-2">لوحة المتصدرين</TabsTrigger>
-          <TabsTrigger value="targets" className="rounded-xl text-xs px-4 py-2">الأهداف</TabsTrigger>
-          <TabsTrigger value="pip" className="rounded-xl text-xs px-4 py-2">خطط التحسين</TabsTrigger>
-          <TabsTrigger value="pipeline" className="rounded-xl text-xs px-4 py-2">دليل المراحل</TabsTrigger>
-          <TabsTrigger value="messages" className="rounded-xl text-xs px-4 py-2">رسائل الاستهداف</TabsTrigger>
-          <TabsTrigger value="scripts" className="rounded-xl text-xs px-4 py-2">سكربت المكالمات</TabsTrigger>
+          <TabsTrigger value="activities" className="rounded-[14px] text-xs px-4 py-2">سجل النشاطات</TabsTrigger>
+          <TabsTrigger value="leaderboard" className="rounded-[14px] text-xs px-4 py-2">لوحة المتصدرين</TabsTrigger>
+          <TabsTrigger value="targets" className="rounded-[14px] text-xs px-4 py-2">الأهداف</TabsTrigger>
+          <TabsTrigger value="pip" className="rounded-[14px] text-xs px-4 py-2">خطط التحسين</TabsTrigger>
+          <TabsTrigger value="pipeline" className="rounded-[14px] text-xs px-4 py-2">دليل المراحل</TabsTrigger>
+          <TabsTrigger value="messages" className="rounded-[14px] text-xs px-4 py-2">رسائل الاستهداف</TabsTrigger>
+          <TabsTrigger value="scripts" className="rounded-[14px] text-xs px-4 py-2">سكربت المكالمات</TabsTrigger>
         </TabsList>
 
         {/* ── Activities Tab ── */}
@@ -828,7 +828,7 @@ export default function SalesGuidePage() {
                   return (
                     <div
                       key={s.id}
-                      className="flex items-center gap-4 rounded-2xl p-4 border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+                      className="flex items-center gap-4 rounded-2xl p-4 border border-border bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
                     >
                       <div className="text-2xl font-extrabold text-muted-foreground w-8 text-center">
                         {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}
@@ -929,7 +929,7 @@ export default function SalesGuidePage() {
                   return (
                     <div
                       key={t.id}
-                      className="rounded-2xl p-4 border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+                      className="rounded-2xl p-4 border border-border bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-bold text-foreground">{t.label_ar || t.target_key}</span>
@@ -1016,8 +1016,8 @@ export default function SalesGuidePage() {
                     const daysLeft = getPipDaysLeft(p.end_date);
                     const RankIcon = rank.icon;
                     return (
-                      <div key={p.id} className={`rounded-xl p-3 border transition-all ${
-                        idx === 0 ? "border-amber/30 bg-amber/5" : "border-white/6 bg-white/[0.02]"
+                      <div key={p.id} className={`rounded-[14px] p-3 border transition-all ${
+                        idx === 0 ? "border-amber/30 bg-amber/5" : "border-border bg-white/[0.02]"
                       }`}>
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-lg">{idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}</span>
@@ -1082,7 +1082,7 @@ export default function SalesGuidePage() {
                   return (
                     <div
                       key={p.id}
-                      className="rounded-2xl p-4 border border-white/6 bg-white/[0.02]"
+                      className="rounded-2xl p-4 border border-border bg-white/[0.02]"
                     >
                       {/* Header with rank badge */}
                       <div className="flex items-center justify-between mb-3">
@@ -1189,7 +1189,7 @@ export default function SalesGuidePage() {
                       )}
 
                       {p.reason && (
-                        <p className="mt-2 text-xs text-muted-foreground border-t border-white/6 pt-2">
+                        <p className="mt-2 text-xs text-muted-foreground border-t border-border pt-2">
                           السبب: {p.reason}
                         </p>
                       )}
@@ -1229,7 +1229,7 @@ export default function SalesGuidePage() {
 
                       {/* Enhanced PIP details */}
                       {(p.weekly_goals?.length || p.improvement_actions?.length || p.evaluation_criteria?.length || p.followup_day || p.consequence) && (
-                        <div className="mt-3 border-t border-white/6 pt-3 space-y-3">
+                        <div className="mt-3 border-t border-border pt-3 space-y-3">
                           {/* Weekly goals */}
                           {p.weekly_goals && p.weekly_goals.length > 0 && (
                             <div>
@@ -1243,7 +1243,7 @@ export default function SalesGuidePage() {
                                         ? "border-cyan/30 bg-cyan/10 text-cyan"
                                         : p.current_week > g.week
                                         ? "border-cc-green/20 bg-cc-green/5 text-cc-green"
-                                        : "border-white/6 bg-white/[0.02] text-muted-foreground"
+                                        : "border-border bg-white/[0.02] text-muted-foreground"
                                     }`}
                                   >
                                     <div className="flex items-center gap-1">
@@ -1318,7 +1318,7 @@ export default function SalesGuidePage() {
               {pipelineStages.map((stage, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center gap-4 rounded-2xl p-4 border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+                  className="flex items-center gap-4 rounded-2xl p-4 border border-border bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
                 >
                   <div className="w-10 h-10 rounded-2xl bg-white/[0.05] flex items-center justify-center text-lg font-bold text-muted-foreground">
                     {idx + 1}
@@ -1362,7 +1362,7 @@ export default function SalesGuidePage() {
                 {activityPoints.map((ap, idx) => (
                   <div
                     key={ap.key}
-                    className="flex items-center justify-between rounded-xl p-3 border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+                    className="flex items-center justify-between rounded-[14px] p-3 border border-border bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
                   >
                     <span className="text-sm">
                       {ap.icon} {ap.label}
@@ -1396,7 +1396,7 @@ export default function SalesGuidePage() {
                 {scoreLevels.map((level, idx) => (
                   <div
                     key={level.value}
-                    className="flex items-center gap-2 rounded-xl p-3 border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+                    className="flex items-center gap-2 rounded-[14px] p-3 border border-border bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
                   >
                     <span className="text-lg">{level.emoji}</span>
                     <div>
@@ -1444,10 +1444,10 @@ export default function SalesGuidePage() {
                 <div className="flex items-center gap-2 mb-4 flex-wrap">
                   <button
                     onClick={() => setMsgCategoryFilter("all")}
-                    className={`px-3 py-1.5 rounded-xl text-xs transition-all ${
+                    className={`px-3 py-1.5 rounded-[14px] text-xs transition-all ${
                       msgCategoryFilter === "all"
                         ? "bg-cyan/15 text-cyan font-medium border border-cyan/30"
-                        : "text-muted-foreground hover:text-foreground border border-white/6"
+                        : "text-muted-foreground hover:text-foreground border border-border"
                     }`}
                   >
                     الكل
@@ -1456,10 +1456,10 @@ export default function SalesGuidePage() {
                     <button
                       key={cat.value}
                       onClick={() => setMsgCategoryFilter(cat.value)}
-                      className={`px-3 py-1.5 rounded-xl text-xs transition-all ${
+                      className={`px-3 py-1.5 rounded-[14px] text-xs transition-all ${
                         msgCategoryFilter === cat.value
                           ? "bg-cyan/15 text-cyan font-medium border border-cyan/30"
-                          : "text-muted-foreground hover:text-foreground border border-white/6"
+                          : "text-muted-foreground hover:text-foreground border border-border"
                       }`}
                     >
                       {cat.icon} {cat.label}
@@ -1481,7 +1481,7 @@ export default function SalesGuidePage() {
                       return (
                         <div
                           key={m.id}
-                          className="rounded-2xl p-4 border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+                          className="rounded-2xl p-4 border border-border bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
                         >
                           <div className="flex items-start justify-between gap-3 mb-2">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -1505,7 +1505,7 @@ export default function SalesGuidePage() {
                           <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed mb-3">{m.content}</p>
 
                           {/* Rating & actions */}
-                          <div className="flex items-center justify-between border-t border-white/6 pt-3">
+                          <div className="flex items-center justify-between border-t border-border pt-3">
                             <div className="flex items-center gap-3">
                               {/* Stars display */}
                               <div className="flex items-center gap-1">
@@ -1532,7 +1532,7 @@ export default function SalesGuidePage() {
 
                           {/* Inline ratings view */}
                           {viewRatings?.msgId === m.id && viewRatings.ratings.length > 0 && (
-                            <div className="mt-3 border-t border-white/6 pt-3 space-y-2">
+                            <div className="mt-3 border-t border-border pt-3 space-y-2">
                               {viewRatings.ratings.map((r) => (
                                 <div key={r.id} className="flex items-start gap-2 text-xs">
                                   <div className="flex items-center gap-0.5 shrink-0">
@@ -1549,7 +1549,7 @@ export default function SalesGuidePage() {
                             </div>
                           )}
                           {viewRatings?.msgId === m.id && viewRatings.ratings.length === 0 && (
-                            <p className="mt-3 border-t border-white/6 pt-3 text-xs text-muted-foreground text-center">لا توجد تعليقات بعد</p>
+                            <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground text-center">لا توجد تعليقات بعد</p>
                           )}
 
                           {/* Created by */}
@@ -1814,7 +1814,7 @@ export default function SalesGuidePage() {
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                       pipForm.improvement_actions.includes(action)
                         ? "bg-cc-purple/15 text-cc-purple border-cc-purple/30"
-                        : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                        : "bg-white/[0.05] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
                     }`}
                   >
                     {action}
@@ -1840,7 +1840,7 @@ export default function SalesGuidePage() {
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                       pipForm.evaluation_criteria.includes(c.label)
                         ? "bg-cyan/15 text-cyan border-cyan/30"
-                        : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                        : "bg-white/[0.05] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
                     }`}
                   >
                     {c.icon} {c.label}
@@ -1992,7 +1992,7 @@ export default function SalesGuidePage() {
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                       editPipForm.improvement_actions.includes(action)
                         ? "bg-cc-purple/15 text-cc-purple border-cc-purple/30"
-                        : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                        : "bg-white/[0.05] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
                     }`}
                   >
                     {action}
@@ -2018,7 +2018,7 @@ export default function SalesGuidePage() {
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                       editPipForm.evaluation_criteria.includes(c.label)
                         ? "bg-cyan/15 text-cyan border-cyan/30"
-                        : "bg-white/[0.03] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                        : "bg-white/[0.05] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
                     }`}
                   >
                     {c.icon} {c.label}
