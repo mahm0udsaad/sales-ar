@@ -130,30 +130,37 @@ export default function TasksPage() {
           notes: form.notes || undefined,
         });
       } else {
-        await createEmployeeTask({
+        const taskData: Record<string, unknown> = {
           title: form.title,
-          description: form.description || undefined,
-          task_type: form.task_type as EmployeeTask["task_type"],
-          priority: form.priority as EmployeeTask["priority"],
+          task_type: form.task_type,
+          priority: form.priority,
           status: "pending",
           assigned_to: form.assigned_to,
           assigned_to_name: form.assigned_to_name,
-          assigned_by: user?.id || "",
-          assigned_by_name: user?.name || "",
-          due_date: form.due_date || undefined,
-          due_time: form.due_time || undefined,
-          client_name: form.client_name || undefined,
-          client_phone: form.client_phone || undefined,
-          entity_type: (form.entity_type || undefined) as EmployeeTask["entity_type"],
-          notes: form.notes || undefined,
-        });
+          org_id: (await import("@/lib/supabase/db")).getOrgId(),
+        };
+        if (form.description) taskData.description = form.description;
+        if (user?.id) taskData.assigned_by = user.id;
+        if (user?.name) taskData.assigned_by_name = user.name;
+        if (form.due_date) taskData.due_date = form.due_date;
+        if (form.due_time) taskData.due_time = form.due_time;
+        if (form.client_name) taskData.client_name = form.client_name;
+        if (form.client_phone) taskData.client_phone = form.client_phone;
+        if (form.entity_type) taskData.entity_type = form.entity_type;
+        if (form.notes) taskData.notes = form.notes;
+
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        const { error } = await supabase.from("employee_tasks").insert(taskData).select().single();
+        if (error) throw error;
       }
       resetForm();
       loadData();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "حدث خطأ أثناء حفظ المهمة";
+      const err = e as { message?: string; details?: string; code?: string };
+      const msg = err?.message || "حدث خطأ أثناء حفظ المهمة";
       setSubmitError(msg);
-      console.error("Task submit error:", e);
+      console.error("Task submit error:", JSON.stringify(e));
     } finally {
       setSubmitting(false);
     }
