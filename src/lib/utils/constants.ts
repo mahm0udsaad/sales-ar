@@ -3,6 +3,14 @@ export const SOURCES = ["حملة اعلانية", "تسويق بالعمولة"
 export const PLANS = ["الاساسية", "VIP", "بلس", "الكاشير", "الذهبية"] as const;
 export const PRIORITIES = ["عاجل", "مرتفع", "عادي"] as const;
 export const TICKET_STATUSES = ["مفتوح", "قيد الحل", "محلول", "متأخر"] as const;
+export const TICKET_CATEGORIES: Record<string, { label: string; icon: string; subcategories: string[] }> = {
+  "تقنية": { label: "تقنية", icon: "🔧", subcategories: ["بطء النظام", "خطأ في الصفحة", "مشكلة في التطبيق", "مشكلة في الطباعة", "مشكلة في التكامل", "انقطاع الخدمة", "أخرى تقنية"] },
+  "حساب": { label: "حساب العميل", icon: "👤", subcategories: ["مشكلة تسجيل دخول", "إعادة تعيين كلمة المرور", "تحديث البيانات", "إغلاق الحساب", "أخرى حساب"] },
+  "فوترة": { label: "الفوترة والدفع", icon: "💳", subcategories: ["خطأ في الفاتورة", "مشكلة في الدفع", "طلب استرداد", "تحديث خطة", "أخرى فوترة"] },
+  "تدريب": { label: "تدريب واستخدام", icon: "📚", subcategories: ["طريقة الاستخدام", "طلب تدريب", "شرح ميزة", "أخرى تدريب"] },
+  "تجديد": { label: "التجديد", icon: "🔄", subcategories: ["تأخر التجديد", "تغيير الباقة", "إلغاء الاشتراك", "أخرى تجديد"] },
+  "أخرى": { label: "أخرى", icon: "📋", subcategories: ["اقتراح", "شكوى", "استفسار عام", "أخرى"] },
+};
 export const EMPLOYEE_STATUSES = ["نشط", "مشغول", "متاح", "إجازة"] as const;
 export const PARTNERSHIP_TYPES = ["استراتيجية", "تقنية", "تجارية", "تسويقية"] as const;
 export const PARTNERSHIP_STATUSES = ["شراكة نشطة", "قيد التفاوض", "شراكة مؤجلة", "شراكة مُوقفة"] as const;

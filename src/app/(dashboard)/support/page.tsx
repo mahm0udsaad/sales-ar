@@ -7,7 +7,7 @@ import {
 } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
 import { useTopbarControls } from "@/components/layout/topbar-context";
-import { PRIORITIES, TICKET_STATUSES } from "@/lib/utils/constants";
+import { PRIORITIES, TICKET_STATUSES, TICKET_CATEGORIES } from "@/lib/utils/constants";
 import { PRIORITY_COLORS, TICKET_STATUS_COLORS } from "@/lib/utils/constants";
 import { formatDate, formatPhone } from "@/lib/utils/format";
 import type { Ticket, Employee } from "@/types";
@@ -52,6 +52,11 @@ import {
   Plus,
   Pencil,
   Trash2,
+  TrendingUp,
+  AlertCircle,
+  Lightbulb,
+  BarChart3,
+  Repeat,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -61,6 +66,8 @@ interface TicketForm {
   client_name: string;
   client_phone: string;
   issue: string;
+  issue_category: string;
+  issue_subcategory: string;
   priority: string;
   status: string;
   assigned_agent_name: string;
@@ -72,6 +79,8 @@ const EMPTY_FORM: TicketForm = {
   client_name: "",
   client_phone: "",
   issue: "",
+  issue_category: "",
+  issue_subcategory: "",
   priority: "عادي",
   status: "مفتوح",
   assigned_agent_name: "",
@@ -151,6 +160,90 @@ export default function SupportPage() {
   const countResolved = monthTickets.filter((t) => t.status === "محلول").length;
   const countUrgent = monthTickets.filter((t) => t.priority === "عاجل").length;
 
+  /* ---------- Issue Pattern Analytics ---------- */
+  const issueAnalytics = useMemo(() => {
+    const categorized = tickets.filter(t => t.issue_category);
+    if (categorized.length === 0) return null;
+
+    // Count by category
+    const catCounts: Record<string, { total: number; resolved: number; urgent: number; subcats: Record<string, number>; times: Date[] }> = {};
+    for (const t of categorized) {
+      const cat = t.issue_category!;
+      if (!catCounts[cat]) catCounts[cat] = { total: 0, resolved: 0, urgent: 0, subcats: {}, times: [] };
+      catCounts[cat].total++;
+      if (t.status === "محلول") catCounts[cat].resolved++;
+      if (t.priority === "عاجل") catCounts[cat].urgent++;
+      if (t.issue_subcategory) {
+        catCounts[cat].subcats[t.issue_subcategory] = (catCounts[cat].subcats[t.issue_subcategory] || 0) + 1;
+      }
+      catCounts[cat].times.push(new Date(t.open_date || t.created_at));
+    }
+
+    // Sort by frequency
+    const sorted = Object.entries(catCounts).sort((a, b) => b[1].total - a[1].total);
+
+    // Detect peak hours
+    const hourCounts: Record<number, number> = {};
+    categorized.forEach(t => {
+      const h = new Date(t.created_at).getHours();
+      hourCounts[h] = (hourCounts[h] || 0) + 1;
+    });
+    const peakHour = Object.entries(hourCounts).sort((a, b) => Number(b[1]) - Number(a[1]))[0];
+
+    // Detect peak days of week
+    const dayNames = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+    const dayCounts: Record<number, number> = {};
+    categorized.forEach(t => {
+      const d = new Date(t.open_date || t.created_at).getDay();
+      dayCounts[d] = (dayCounts[d] || 0) + 1;
+    });
+    const peakDay = Object.entries(dayCounts).sort((a, b) => Number(b[1]) - Number(a[1]))[0];
+
+    // Generate recommendations
+    const recommendations: { text: string; priority: "high" | "medium" | "low"; icon: string }[] = [];
+    for (const [cat, data] of sorted) {
+      const resRate = data.total > 0 ? Math.round((data.resolved / data.total) * 100) : 0;
+      if (data.total >= 3) {
+        const topSub = Object.entries(data.subcats).sort((a, b) => b[1] - a[1])[0];
+        recommendations.push({
+          text: `مشاكل "${cat}" متكررة (${data.total} مرة)${topSub ? ` — أكثرها "${topSub[0]}" (${topSub[1]} مرة)` : ""}. يُنصح بمعالجة السبب الجذري.`,
+          priority: data.total >= 5 ? "high" : "medium",
+          icon: TICKET_CATEGORIES[cat]?.icon || "📋",
+        });
+      }
+      if (resRate < 50 && data.total >= 2) {
+        recommendations.push({
+          text: `نسبة حل "${cat}" منخفضة (${resRate}%). يحتاج تخصيص موارد إضافية.`,
+          priority: "high",
+          icon: "⚠️",
+        });
+      }
+      if (data.urgent >= 2) {
+        recommendations.push({
+          text: `${data.urgent} تذاكر عاجلة في "${cat}". يُنصح بإنشاء إجراء وقائي.`,
+          priority: "high",
+          icon: "🚨",
+        });
+      }
+    }
+    if (peakHour) {
+      recommendations.push({
+        text: `أكثر المشاكل تحدث في الساعة ${peakHour[0]}:00 (${peakHour[1]} مشكلة). تأكد من توفر فريق الدعم في هذا الوقت.`,
+        priority: "medium",
+        icon: "🕐",
+      });
+    }
+    if (peakDay) {
+      recommendations.push({
+        text: `يوم ${dayNames[Number(peakDay[0])]} هو الأكثر مشاكلاً (${peakDay[1]} تذكرة). جهّز الفريق مسبقاً.`,
+        priority: "low",
+        icon: "📅",
+      });
+    }
+
+    return { sorted, recommendations, totalCategorized: categorized.length, peakHour, peakDay: peakDay ? dayNames[Number(peakDay[0])] : null };
+  }, [tickets]);
+
   /* ---------- helpers ---------- */
   function openCreateDialog() {
     setEditingId(null);
@@ -164,6 +257,8 @@ export default function SupportPage() {
       client_name: ticket.client_name,
       client_phone: ticket.client_phone || "",
       issue: ticket.issue,
+      issue_category: ticket.issue_category || "",
+      issue_subcategory: ticket.issue_subcategory || "",
       priority: ticket.priority,
       status: ticket.status,
       assigned_agent_name: ticket.assigned_agent_name || "",
@@ -182,6 +277,8 @@ export default function SupportPage() {
           client_name: form.client_name,
           client_phone: form.client_phone,
           issue: form.issue,
+          issue_category: form.issue_category || undefined,
+          issue_subcategory: form.issue_subcategory || undefined,
           priority: form.priority,
           status: form.status,
           assigned_agent_name: form.assigned_agent_name,
@@ -197,6 +294,8 @@ export default function SupportPage() {
           client_name: form.client_name,
           client_phone: form.client_phone,
           issue: form.issue,
+          issue_category: form.issue_category || undefined,
+          issue_subcategory: form.issue_subcategory || undefined,
           priority: form.priority,
           status: form.status,
           assigned_agent_name: form.assigned_agent_name,
@@ -360,6 +459,85 @@ export default function SupportPage() {
         />
       )}
 
+      {/* -------- Issue Pattern Analytics -------- */}
+      {!loading && issueAnalytics && (
+        <div className="cc-card rounded-[14px] p-5 border border-amber/10 bg-gradient-to-l from-amber/[0.03] to-transparent">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 className="w-5 h-5 text-amber" />
+            <h3 className="text-sm font-bold text-foreground">تحليل المشاكل المتكررة</h3>
+            <span className="text-[10px] text-muted-foreground mr-auto">{issueAnalytics.totalCategorized} تذكرة مصنّفة</span>
+          </div>
+
+          {/* Category breakdown */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+            {issueAnalytics.sorted.map(([cat, data]) => {
+              const resRate = data.total > 0 ? Math.round((data.resolved / data.total) * 100) : 0;
+              return (
+                <div key={cat} className="p-3 rounded-[14px] bg-white/[0.03] border border-white/[0.06] text-center">
+                  <span className="text-lg">{TICKET_CATEGORIES[cat]?.icon || "📋"}</span>
+                  <p className="text-xl font-bold text-foreground mt-1">{data.total}</p>
+                  <p className="text-[10px] text-muted-foreground">{cat}</p>
+                  <div className="mt-1.5 h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${resRate >= 70 ? "bg-emerald-500" : resRate >= 40 ? "bg-amber-500" : "bg-red-500"}`}
+                      style={{ width: `${resRate}%` }}
+                    />
+                  </div>
+                  <p className="text-[9px] text-muted-foreground mt-0.5">حل {resRate}%</p>
+                  {data.urgent > 0 && (
+                    <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400">{data.urgent} عاجل</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Time patterns */}
+          {(issueAnalytics.peakHour || issueAnalytics.peakDay) && (
+            <div className="flex flex-wrap gap-3 mb-4">
+              {issueAnalytics.peakHour && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.06]">
+                  <Repeat className="w-3.5 h-3.5 text-cyan" />
+                  <span className="text-xs text-foreground">ذروة المشاكل: <span className="font-bold text-cyan">{issueAnalytics.peakHour[0]}:00</span></span>
+                </div>
+              )}
+              {issueAnalytics.peakDay && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.06]">
+                  <Repeat className="w-3.5 h-3.5 text-amber" />
+                  <span className="text-xs text-foreground">أكثر يوم: <span className="font-bold text-amber">{issueAnalytics.peakDay}</span></span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Recommendations */}
+          {issueAnalytics.recommendations.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Lightbulb className="w-4 h-4 text-amber" />
+                <span className="text-xs font-bold text-foreground">توصيات للتحسين</span>
+              </div>
+              {issueAnalytics.recommendations.map((rec, i) => (
+                <div
+                  key={i}
+                  className={`flex items-start gap-2 p-2.5 rounded-lg border text-xs ${
+                    rec.priority === "high" ? "bg-red-500/5 border-red-500/15 text-red-300" :
+                    rec.priority === "medium" ? "bg-amber/5 border-amber/15 text-amber" :
+                    "bg-white/[0.03] border-white/[0.06] text-muted-foreground"
+                  }`}
+                >
+                  <span className="shrink-0">{rec.icon}</span>
+                  <span className="leading-relaxed">{rec.text}</span>
+                  {rec.priority === "high" && (
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0 mr-auto" />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* -------- Tickets Table -------- */}
       <div id="tickets-table" className="cc-card rounded-[14px] overflow-x-auto">
         <div className="p-4 pb-0">
@@ -377,6 +555,7 @@ export default function SupportPage() {
               <TableHead className="text-right">العميل</TableHead>
               <TableHead className="text-right">التاريخ</TableHead>
               <TableHead className="text-right">الجوال</TableHead>
+              <TableHead className="text-right">التصنيف</TableHead>
               <TableHead className="text-right">المشكلة</TableHead>
               <TableHead className="text-right">موعد التسليم</TableHead>
               <TableHead className="text-right">الأولوية</TableHead>
@@ -393,6 +572,7 @@ export default function SupportPage() {
                   <TableCell className="text-right"><Skeleton className="mr-auto h-4 w-24" /></TableCell>
                   <TableCell className="text-right"><Skeleton className="mr-auto h-4 w-20" /></TableCell>
                   <TableCell className="text-right"><Skeleton className="mr-auto h-4 w-24" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="mr-auto h-6 w-16 rounded-full" /></TableCell>
                   <TableCell className="text-right"><Skeleton className="mr-auto h-4 w-36" /></TableCell>
                   <TableCell className="text-right"><Skeleton className="mr-auto h-4 w-20" /></TableCell>
                   <TableCell className="text-right"><Skeleton className="mr-auto h-6 w-14 rounded-full" /></TableCell>
@@ -408,7 +588,7 @@ export default function SupportPage() {
               ))
             ) : filteredTickets.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                   {cardFilter ? `لا توجد تذاكر "${cardFilter}"` : "لا توجد تذاكر"}
                 </TableCell>
               </TableRow>
@@ -426,6 +606,16 @@ export default function SupportPage() {
                   </TableCell>
                   <TableCell className="text-right text-xs text-muted-foreground" dir="ltr">
                     {ticket.client_phone ? formatPhone(ticket.client_phone) : "—"}
+                  </TableCell>
+                  <TableCell className="text-right text-xs">
+                    {ticket.issue_category ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan/10 text-cyan text-[10px] font-medium">
+                        {TICKET_CATEGORIES[ticket.issue_category]?.icon} {ticket.issue_category}
+                      </span>
+                    ) : <span className="text-muted-foreground">—</span>}
+                    {ticket.issue_subcategory && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{ticket.issue_subcategory}</p>
+                    )}
                   </TableCell>
                   <TableCell className="text-right text-xs max-w-[200px] truncate">
                     {ticket.issue}
@@ -516,6 +706,47 @@ export default function SupportPage() {
                 placeholder="05xxxxxxxx"
                 dir="ltr"
               />
+            </div>
+
+            {/* تصنيف المشكلة */}
+            <div className="space-y-1.5">
+              <Label>تصنيف المشكلة</Label>
+              <Select
+                value={form.issue_category}
+                onValueChange={(val) => { updateField("issue_category", val ?? ""); updateField("issue_subcategory", ""); }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="اختر التصنيف" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TICKET_CATEGORIES).map(([key, cat]) => (
+                    <SelectItem key={key} value={key}>
+                      {cat.icon} {cat.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* التصنيف الفرعي */}
+            <div className="space-y-1.5">
+              <Label>التصنيف الفرعي</Label>
+              <Select
+                value={form.issue_subcategory}
+                onValueChange={(val) => updateField("issue_subcategory", val ?? "")}
+                disabled={!form.issue_category}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={form.issue_category ? "اختر التفصيل" : "اختر التصنيف أولاً"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {form.issue_category && TICKET_CATEGORIES[form.issue_category]?.subcategories.map((sub) => (
+                    <SelectItem key={sub} value={sub}>
+                      {sub}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* وصف المشكلة */}

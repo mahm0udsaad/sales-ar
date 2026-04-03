@@ -31,6 +31,8 @@ export interface Ticket {
   client_name: string;
   client_phone?: string;
   issue: string;
+  issue_category?: string;
+  issue_subcategory?: string;
   priority: string;
   status: string;
   assigned_agent_id?: string;
