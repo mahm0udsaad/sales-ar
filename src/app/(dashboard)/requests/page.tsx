@@ -76,9 +76,9 @@ export default function RequestsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-violet-500/15 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-lg bg-violet-500/15 flex items-center justify-center shrink-0">
             <Inbox className="w-4 h-4 text-violet-400" />
           </div>
           <div>
@@ -88,12 +88,12 @@ export default function RequestsPage() {
         </div>
 
         {/* Copy submission link */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-3 py-2 rounded-[14px] bg-white/[0.04] border border-white/[0.08] text-xs text-muted-foreground max-w-[300px]">
+        <div className="flex items-center gap-2 overflow-hidden">
+          <div className="flex items-center gap-1.5 px-3 py-2 rounded-[14px] bg-white/[0.04] border border-white/[0.08] text-xs text-muted-foreground min-w-0 flex-1 sm:flex-initial sm:max-w-[300px]">
             <ExternalLink className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate" dir="ltr">{submitLink}</span>
           </div>
-          <Button variant="outline" size="sm" onClick={copyLink} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={copyLink} className="gap-1.5 shrink-0">
             <Copy className="w-3.5 h-3.5" />
             {copied ? "تم النسخ!" : "نسخ الرابط"}
           </Button>
@@ -101,7 +101,7 @@ export default function RequestsPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {([
           { key: "pending", label: "معلّقة", icon: <Clock className="w-3.5 h-3.5" />, color: "amber" },
           { key: "approved", label: "مقبولة", icon: <CheckCircle className="w-3.5 h-3.5" />, color: "green" },
