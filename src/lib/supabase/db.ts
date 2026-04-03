@@ -1148,6 +1148,35 @@ export async function createFollowUpNote(
   return data as FollowUpNote;
 }
 
+export async function updateFollowUpNote(
+  id: string,
+  note: string,
+  editorName: string
+): Promise<FollowUpNote> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("follow_up_notes")
+    .update({
+      note,
+      edited_at: new Date().toISOString(),
+      edited_by: editorName,
+    })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as FollowUpNote;
+}
+
+export async function deleteFollowUpNote(id: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("follow_up_notes")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+}
+
 export async function fetchRecentFollowUpNotes(limit = 20): Promise<(FollowUpNote & { entity_name?: string })[]> {
   const supabase = createClient();
   const orgId = getOrgId();
