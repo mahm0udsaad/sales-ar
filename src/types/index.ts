@@ -429,6 +429,8 @@ export interface FollowUpNote {
   entity_id: string;
   note: string;
   author_name: string;
+  edited_at?: string;
+  edited_by?: string;
   created_at: string;
 }
 
