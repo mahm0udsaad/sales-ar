@@ -26,6 +26,7 @@ import {
   Gift,
   ListTodo,
   UserCheck,
+  Palette,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -52,6 +53,7 @@ const NAV_ITEMS = [
   { label: "المالية", href: "/finance", slug: "finance", icon: Banknote, color: "lime" },
   { label: "رفع الملفات", href: "/upload", slug: "upload", icon: Upload, color: "slate" },
   { label: "إدارة المستخدمين", href: "/users", slug: "users", icon: Shield, color: "red" },
+  { label: "المظهر", href: "/appearance", slug: "appearance", icon: Palette, color: "violet" },
 ];
 
 const COLOR_MAP: Record<string, { bg: string; text: string; ring: string; gradFrom: string; border: string; shadow: string; bar: string }> = {

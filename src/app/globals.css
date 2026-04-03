@@ -250,6 +250,9 @@
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(0.6);
 }
+[data-theme-light="true"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: opacity(0.5);
+}
 
 .scrollbar-hide {
   -ms-overflow-style: none;

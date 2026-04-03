@@ -13,6 +13,7 @@ import { OrgProvider } from "@/lib/org-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchDeals, fetchSalesTargets, fetchSalesActivities, fetchTickets, fetchMentionNotifications, markMentionNotificationsRead, fetchRecentFollowUpNotes } from "@/lib/supabase/db";
 import type { AppNotification } from "@/types";
+import { CCThemeProvider } from "@/lib/theme-context";
 
 const PAGE_SLUG_MAP: Record<string, string> = {
   "/dashboard": "dashboard",
@@ -267,6 +268,7 @@ export default function DashboardLayout({
   const isAgentPage = pathname === "/agent";
 
   return (
+    <CCThemeProvider>
     <OrgProvider>
     <AuthProvider>
     <TopbarProvider>
@@ -312,5 +314,6 @@ export default function DashboardLayout({
     </TopbarProvider>
     </AuthProvider>
     </OrgProvider>
+    </CCThemeProvider>
   );
 }
