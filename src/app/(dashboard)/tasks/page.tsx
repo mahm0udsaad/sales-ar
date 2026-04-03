@@ -30,6 +30,9 @@ import {
   Target,
   TrendingUp,
   Zap,
+  Share2,
+  Mail,
+  MessageCircle,
 } from "lucide-react";
 
 const TASK_TYPES: Record<string, { label: string; emoji: string }> = {
@@ -68,6 +71,7 @@ export default function TasksPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [shareMenuId, setShareMenuId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     title: "",
@@ -193,6 +197,36 @@ export default function TasksPage() {
   const handleDelete = async (id: string) => {
     await deleteEmployeeTask(id);
     loadData();
+  };
+
+  const buildShareText = (task: EmployeeTask) => {
+    const tt = TASK_TYPES[task.task_type] || TASK_TYPES.general;
+    const pr = PRIORITIES[task.priority] || PRIORITIES.medium;
+    const st = STATUSES[task.status] || STATUSES.pending;
+    let text = `📋 *مهمة: ${task.title}*\n`;
+    text += `📌 النوع: ${tt.emoji} ${tt.label}\n`;
+    text += `⚡ الأولوية: ${pr.label}\n`;
+    text += `📊 الحالة: ${st.label}\n`;
+    text += `👤 مسند إلى: ${task.assigned_to_name}\n`;
+    if (task.due_date) text += `📅 تاريخ الاستحقاق: ${task.due_date}${task.due_time ? ` ${task.due_time.slice(0, 5)}` : ""}\n`;
+    if (task.client_name) text += `🏢 العميل: ${task.client_name}\n`;
+    if (task.client_phone) text += `📞 الهاتف: ${task.client_phone}\n`;
+    if (task.description) text += `\n📝 الوصف:\n${task.description}\n`;
+    if (task.notes) text += `\n🗒️ ملاحظات:\n${task.notes}\n`;
+    return text;
+  };
+
+  const shareWhatsApp = (task: EmployeeTask) => {
+    const text = buildShareText(task);
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
+    setShareMenuId(null);
+  };
+
+  const shareEmail = (task: EmployeeTask) => {
+    const text = buildShareText(task).replace(/\*/g, "");
+    const subject = `مهمة: ${task.title}`;
+    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`, "_blank");
+    setShareMenuId(null);
   };
 
   const today = new Date().toISOString().split("T")[0];
@@ -399,6 +433,33 @@ export default function TasksPage() {
                     >
                       {Object.entries(STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                     </select>
+                    <div className="relative">
+                      <button
+                        onClick={() => setShareMenuId(shareMenuId === task.id ? null : task.id)}
+                        className="p-2 rounded-lg hover:bg-indigo-500/10 text-gray-400 hover:text-indigo-400 transition-colors"
+                        title="مشاركة"
+                      >
+                        <Share2 className="w-4 h-4" />
+                      </button>
+                      {shareMenuId === task.id && (
+                        <div className="absolute left-0 top-full mt-1 z-50 bg-card border border-border rounded-xl shadow-lg overflow-hidden min-w-[160px]">
+                          <button
+                            onClick={() => shareWhatsApp(task)}
+                            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-white hover:bg-white/[0.06] transition-colors"
+                          >
+                            <MessageCircle className="w-4 h-4 text-emerald-400" />
+                            واتساب
+                          </button>
+                          <button
+                            onClick={() => shareEmail(task)}
+                            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-white hover:bg-white/[0.06] transition-colors"
+                          >
+                            <Mail className="w-4 h-4 text-blue-400" />
+                            بريد إلكتروني
+                          </button>
+                        </div>
+                      )}
+                    </div>
                     <button onClick={() => openEdit(task)} className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors">
                       <Edit3 className="w-4 h-4" />
                     </button>
