@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { fetchProjects, createProject, updateProject } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
-import { PROJECT_STATUSES } from "@/lib/utils/constants";
+// PROJECT_STATUSES removed - status is now auto-computed
 import { formatDate, formatPercent } from "@/lib/utils/format";
 import { StatCard } from "@/components/ui/stat-card";
 import { ColorBadge } from "@/components/ui/color-badge";
@@ -20,11 +20,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import type { Project } from "@/types";
 import {
@@ -64,6 +59,20 @@ function progressBarColor(pct: number): string {
   return "bg-cc-red";
 }
 
+function computeStatus(progress: number, remaining: number, startDate?: string): string {
+  if (progress >= 100 || remaining <= 0) return "مكتمل";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (startDate) {
+    const due = new Date(startDate);
+    due.setHours(0, 0, 0, 0);
+    if (due < today && progress < 100) return "متأخر";
+    const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 3 && progress < 90) return "يكتمل قريباً";
+  }
+  return "في الموعد";
+}
+
 /* ---------- page ---------- */
 
 export default function DevelopmentPage() {
@@ -80,12 +89,18 @@ export default function DevelopmentPage() {
   const [formDate, setFormDate] = useState("");
   const [formTotalTasks, setFormTotalTasks] = useState("");
   const [formRemainingTasks, setFormRemainingTasks] = useState("");
-  const [formStatus, setFormStatus] = useState<string>("في الموعد");
+  // status is now auto-computed
 
   useEffect(() => {
     setLoading(true);
     fetchProjects()
-      .then(setProjects)
+      .then((data) => {
+        const updated = data.map((p) => ({
+          ...p,
+          status_tag: computeStatus(p.progress, p.remaining_tasks, p.start_date || undefined),
+        }));
+        setProjects(updated);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [orgId]);
@@ -108,7 +123,6 @@ export default function DevelopmentPage() {
     setFormDate("");
     setFormTotalTasks("");
     setFormRemainingTasks("");
-    setFormStatus("في الموعد");
     setModalOpen(true);
   };
 
@@ -131,6 +145,7 @@ export default function DevelopmentPage() {
       const remaining = parseInt(formRemainingTasks) || 0;
       const completed = Math.max(0, total - remaining);
       const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+      const autoStatus = computeStatus(progress, remaining, formDate || undefined);
 
       if (editingProject) {
         const updated = await updateProject(editingProject.id, {
@@ -140,7 +155,7 @@ export default function DevelopmentPage() {
           total_tasks: total,
           remaining_tasks: remaining,
           progress,
-          status_tag: formStatus,
+          status_tag: autoStatus,
         });
         setProjects((prev) =>
           prev.map((p) => (p.id === editingProject.id ? updated : p))
@@ -153,7 +168,7 @@ export default function DevelopmentPage() {
           total_tasks: total,
           remaining_tasks: remaining,
           progress,
-          status_tag: formStatus,
+          status_tag: autoStatus,
         });
         setProjects((prev) => [...prev, created]);
       }
@@ -392,18 +407,9 @@ export default function DevelopmentPage() {
 
             <div className="space-y-1.5">
               <Label>الحالة</Label>
-              <Select value={formStatus} onValueChange={(v) => v && setFormStatus(v)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PROJECT_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <p className="text-sm text-muted-foreground px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10">
+                يتم تحديدها تلقائياً بناءً على التقدم وتاريخ الاستحقاق
+              </p>
             </div>
           </div>
 
