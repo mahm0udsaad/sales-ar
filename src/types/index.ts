@@ -33,6 +33,7 @@ export interface Ticket {
   issue: string;
   issue_category?: string;
   issue_subcategory?: string;
+  open_time?: string;
   priority: string;
   status: string;
   assigned_agent_id?: string;

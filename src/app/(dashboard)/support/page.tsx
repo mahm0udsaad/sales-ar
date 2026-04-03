@@ -68,6 +68,7 @@ interface TicketForm {
   issue: string;
   issue_category: string;
   issue_subcategory: string;
+  open_time: string;
   priority: string;
   status: string;
   assigned_agent_name: string;
@@ -81,6 +82,7 @@ const EMPTY_FORM: TicketForm = {
   issue: "",
   issue_category: "",
   issue_subcategory: "",
+  open_time: new Date().toTimeString().slice(0, 5),
   priority: "عادي",
   status: "مفتوح",
   assigned_agent_name: "",
@@ -182,10 +184,10 @@ export default function SupportPage() {
     // Sort by frequency
     const sorted = Object.entries(catCounts).sort((a, b) => b[1].total - a[1].total);
 
-    // Detect peak hours
+    // Detect peak hours (use open_time if available, fallback to created_at)
     const hourCounts: Record<number, number> = {};
     categorized.forEach(t => {
-      const h = new Date(t.created_at).getHours();
+      const h = t.open_time ? parseInt(t.open_time.split(":")[0], 10) : new Date(t.created_at).getHours();
       hourCounts[h] = (hourCounts[h] || 0) + 1;
     });
     const peakHour = Object.entries(hourCounts).sort((a, b) => Number(b[1]) - Number(a[1]))[0];
@@ -259,6 +261,7 @@ export default function SupportPage() {
       issue: ticket.issue,
       issue_category: ticket.issue_category || "",
       issue_subcategory: ticket.issue_subcategory || "",
+      open_time: ticket.open_time || "",
       priority: ticket.priority,
       status: ticket.status,
       assigned_agent_name: ticket.assigned_agent_name || "",
@@ -279,6 +282,7 @@ export default function SupportPage() {
           issue: form.issue,
           issue_category: form.issue_category || undefined,
           issue_subcategory: form.issue_subcategory || undefined,
+          open_time: form.open_time || undefined,
           priority: form.priority,
           status: form.status,
           assigned_agent_name: form.assigned_agent_name,
@@ -296,6 +300,7 @@ export default function SupportPage() {
           issue: form.issue,
           issue_category: form.issue_category || undefined,
           issue_subcategory: form.issue_subcategory || undefined,
+          open_time: form.open_time || undefined,
           priority: form.priority,
           status: form.status,
           assigned_agent_name: form.assigned_agent_name,
@@ -602,7 +607,8 @@ export default function SupportPage() {
                     {ticket.client_name}
                   </TableCell>
                   <TableCell className="text-right text-xs text-muted-foreground">
-                    {ticket.open_date ? formatDate(ticket.open_date) : "—"}
+                    <div>{ticket.open_date ? formatDate(ticket.open_date) : "—"}</div>
+                    {ticket.open_time && <div className="text-[10px] text-muted-foreground/70" dir="ltr">{ticket.open_time}</div>}
                   </TableCell>
                   <TableCell className="text-right text-xs text-muted-foreground" dir="ltr">
                     {ticket.client_phone ? formatPhone(ticket.client_phone) : "—"}
@@ -823,16 +829,27 @@ export default function SupportPage() {
               </Select>
             </div>
 
-            {/* تاريخ الفتح */}
+            {/* تاريخ الفتح + الساعة */}
             <div className="space-y-1.5">
               <Label htmlFor="open_date">تاريخ الفتح</Label>
-              <Input
-                id="open_date"
-                type="date"
-                value={form.open_date}
-                onChange={(e) => updateField("open_date", e.target.value)}
-                dir="ltr"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="open_date"
+                  type="date"
+                  value={form.open_date}
+                  onChange={(e) => updateField("open_date", e.target.value)}
+                  dir="ltr"
+                  className="flex-1"
+                />
+                <Input
+                  id="open_time"
+                  type="time"
+                  value={form.open_time}
+                  onChange={(e) => updateField("open_time", e.target.value)}
+                  dir="ltr"
+                  className="w-[120px]"
+                />
+              </div>
             </div>
 
             {/* موعد التسليم */}
