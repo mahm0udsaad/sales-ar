@@ -122,6 +122,7 @@ export interface Project {
   name: string;
   team?: string;
   start_date?: string;
+  due_date?: string;
   progress: number;
   total_tasks: number;
   remaining_tasks: number;

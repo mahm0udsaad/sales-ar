@@ -19,8 +19,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-} from "@/components/ui/select";
 import type { Project } from "@/types";
 import {
   Code,
@@ -59,17 +57,16 @@ function progressBarColor(pct: number): string {
   return "bg-cc-red";
 }
 
-function computeStatus(progress: number, remaining: number, startDate?: string): string {
+function computeStatus(progress: number, remaining: number, dueDate?: string): string {
   if (progress >= 100 || remaining <= 0) return "مكتمل";
+  if (!dueDate) return "في الموعد";
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  if (startDate) {
-    const due = new Date(startDate);
-    due.setHours(0, 0, 0, 0);
-    if (due < today && progress < 100) return "متأخر";
-    const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays <= 3 && progress < 90) return "يكتمل قريباً";
-  }
+  const due = new Date(dueDate);
+  due.setHours(0, 0, 0, 0);
+  if (due < today) return "متأخر";
+  const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays <= 3 && progress < 90) return "يكتمل قريباً";
   return "في الموعد";
 }
 
@@ -87,9 +84,9 @@ export default function DevelopmentPage() {
   const [formName, setFormName] = useState("");
   const [formTeam, setFormTeam] = useState("");
   const [formDate, setFormDate] = useState("");
+  const [formDueDate, setFormDueDate] = useState("");
   const [formTotalTasks, setFormTotalTasks] = useState("");
   const [formRemainingTasks, setFormRemainingTasks] = useState("");
-  // status is now auto-computed
 
   useEffect(() => {
     setLoading(true);
@@ -97,7 +94,7 @@ export default function DevelopmentPage() {
       .then((data) => {
         const updated = data.map((p) => ({
           ...p,
-          status_tag: computeStatus(p.progress, p.remaining_tasks, p.start_date || undefined),
+          status_tag: computeStatus(p.progress, p.remaining_tasks, p.due_date),
         }));
         setProjects(updated);
       })
@@ -121,6 +118,7 @@ export default function DevelopmentPage() {
     setFormName("");
     setFormTeam("");
     setFormDate("");
+    setFormDueDate("");
     setFormTotalTasks("");
     setFormRemainingTasks("");
     setModalOpen(true);
@@ -131,6 +129,7 @@ export default function DevelopmentPage() {
     setFormName(proj.name);
     setFormTeam(proj.team || "");
     setFormDate(proj.start_date || "");
+    setFormDueDate(proj.due_date || "");
     setFormTotalTasks(String(proj.total_tasks));
     setFormRemainingTasks(String(proj.remaining_tasks));
     setModalOpen(true);
@@ -144,13 +143,14 @@ export default function DevelopmentPage() {
       const remaining = parseInt(formRemainingTasks) || 0;
       const completed = Math.max(0, total - remaining);
       const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
-      const autoStatus = computeStatus(progress, remaining, formDate || undefined);
+      const autoStatus = computeStatus(progress, remaining, formDueDate || undefined);
 
       if (editingProject) {
         const updated = await updateProject(editingProject.id, {
           name: formName,
           team: formTeam,
           start_date: formDate || undefined,
+          due_date: formDueDate || undefined,
           total_tasks: total,
           remaining_tasks: remaining,
           progress,
@@ -164,6 +164,7 @@ export default function DevelopmentPage() {
           name: formName,
           team: formTeam,
           start_date: formDate || undefined,
+          due_date: formDueDate || undefined,
           total_tasks: total,
           remaining_tasks: remaining,
           progress,
@@ -281,7 +282,13 @@ export default function DevelopmentPage() {
                   {proj.start_date && (
                     <div className="flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5" />
-                      <span>{formatDate(proj.start_date)}</span>
+                      <span>البداية: {formatDate(proj.start_date)}</span>
+                    </div>
+                  )}
+                  {proj.due_date && (
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>الاستحقاق: {formatDate(proj.due_date)}</span>
                     </div>
                   )}
                 </div>
@@ -374,13 +381,23 @@ export default function DevelopmentPage() {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label>تاريخ البداية</Label>
-              <Input
-                type="date"
-                value={formDate}
-                onChange={(e) => setFormDate(e.target.value)}
-              />
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>تاريخ البداية</Label>
+                <Input
+                  type="date"
+                  value={formDate}
+                  onChange={(e) => setFormDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>تاريخ الاستحقاق</Label>
+                <Input
+                  type="date"
+                  value={formDueDate}
+                  onChange={(e) => setFormDueDate(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
