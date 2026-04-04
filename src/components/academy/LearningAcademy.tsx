@@ -2,9 +2,17 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { fetchLearningProgress, saveLearningProgress } from "@/lib/supabase/db";
+import {
+  fetchLearningProgress,
+  saveLearningProgress,
+  fetchLearningStages,
+  fetchLearningLessons,
+  fetchLearningQuizzes,
+} from "@/lib/supabase/db";
+import type { LearningStage, LearningLesson, LearningQuiz } from "@/types";
+import AcademyManager from "./AcademyManager";
 
-/* ─── Academy Data ─── */
+/* ─── Unified types for rendering ─── */
 
 interface QuizQuestion {
   q: string;
@@ -29,114 +37,32 @@ interface Stage {
   lessons: Lesson[];
 }
 
-const STAGES: Stage[] = [
+/* ─── Fallback hardcoded data ─── */
+
+const FALLBACK_STAGES: Stage[] = [
   {
     id: 1, title: "اعرف منتجك", icon: "📦", color: "#3B82F6",
     lessons: [
-      {
-        id: "1-1", title: "منظومة MENU الكاملة", duration: "15 د",
-        points: [
-          "المنيو الإلكتروني: QR → قائمة تفاعلية → طلب للمطبخ",
-          "نظام الكاشير: طلبات + فواتير + تقارير",
-          "نحجز: حجز طاولات + ولاء رقمي بدون تطبيق",
-          "درع: حماية المطعم من خسائر التوصيل والغرامات",
-        ],
-        quiz: [
-          { q: "ما الميزة الأقوى اللي تفرقنا عن المنافسين؟", opts: ["السعر الأرخص", "المنظومة المتكاملة", "التصميم", "عدد الموظفين"], a: 1 },
-          { q: "وش يسوي درع للمطعم؟", opts: ["تصميم منيو", "يحمي من خسائر التوصيل", "يوظف سائقين", "يصور الأكل"], a: 1 },
-        ],
-      },
-      {
-        id: "1-2", title: "مين عميلك؟", duration: "10 د",
-        points: [
-          "صاحب مطعم صغير (1-3 فروع): يبي حل بسيط وسعر معقول",
-          "مدير عمليات سلسلة (5+ فروع): يبي تقارير مركزية",
-          "مطعم جديد: يحتاج كل شيء من الصفر — أسهل عميل",
-          "نقاط الألم: فوضى الطلبات، خسائر التوصيل، ما عنده بيانات",
-        ],
-        quiz: [
-          { q: "أي عميل الأسهل في الإغلاق؟", opts: ["السلاسل الكبيرة", "اللي عنده نظام ثاني", "المطعم الجديد أو بدون نظام"], a: 2 },
-        ],
-      },
+      { id: "1-1", title: "منظومة MENU الكاملة", duration: "15 د", points: ["المنيو الإلكتروني: QR → قائمة تفاعلية → طلب للمطبخ", "نظام الكاشير: طلبات + فواتير + تقارير", "نحجز: حجز طاولات + ولاء رقمي بدون تطبيق", "درع: حماية المطعم من خسائر التوصيل والغرامات"], quiz: [{ q: "ما الميزة الأقوى اللي تفرقنا عن المنافسين؟", opts: ["السعر الأرخص", "المنظومة المتكاملة", "التصميم", "عدد الموظفين"], a: 1 }, { q: "وش يسوي درع للمطعم؟", opts: ["تصميم منيو", "يحمي من خسائر التوصيل", "يوظف سائقين", "يصور الأكل"], a: 1 }] },
+      { id: "1-2", title: "مين عميلك؟", duration: "10 د", points: ["صاحب مطعم صغير (1-3 فروع): يبي حل بسيط وسعر معقول", "مدير عمليات سلسلة (5+ فروع): يبي تقارير مركزية", "مطعم جديد: يحتاج كل شيء من الصفر — أسهل عميل", "نقاط الألم: فوضى الطلبات، خسائر التوصيل، ما عنده بيانات"], quiz: [{ q: "أي عميل الأسهل في الإغلاق؟", opts: ["السلاسل الكبيرة", "اللي عنده نظام ثاني", "المطعم الجديد أو بدون نظام"], a: 2 }] },
     ],
   },
   {
     id: 2, title: "تعلّم تبيع", icon: "🎯", color: "#8B5CF6",
     lessons: [
-      {
-        id: "2-1", title: "المكالمة الأولى", duration: "15 د",
-        points: [
-          "أول 10 ثواني تحدد كل شيء — لا تبدأ ببيع، ابدأ بسؤال",
-          "الافتتاحية: 'كيف تدير طلباتك حالياً؟' بدل 'عندنا نظام ممتاز'",
-          "الهدف: لا تبيع بالتلفون — خذ موعد زيارة أو عرض",
-          "التعامل مع 'مو مهتم': 'تمام، بس سؤال سريع وش تستخدم حالياً؟'",
-        ],
-        quiz: [
-          { q: "وش أفضل افتتاحية لمكالمة باردة؟", opts: ["عندنا عرض خاص", "سؤال عن مشكلته الحالية", "تعريف بالشركة", "ذكر السعر"], a: 1 },
-          { q: "وش هدف المكالمة الأولى؟", opts: ["إغلاق البيع", "أخذ موعد عرض", "إرسال عرض سعر", "إضافته بالواتساب"], a: 1 },
-        ],
-        task: "سوّ 3 مكالمات باردة وسجّل النتائج",
-      },
-      {
-        id: "2-2", title: "لما العميل يعترض", duration: "15 د",
-        points: [
-          "'غالي' → 'خليني أوريك كم تخسر شهرياً بدون نظام'",
-          "'عندنا نظام' → 'وش الأشياء اللي تتمنى تتحسن فيه؟'",
-          "'مو الوقت' → حدد موعد + أرسل محتوى قيمة",
-          "'أحتاج أفكر' → 'تمام، نتواصل يوم الأحد؟' — دايم حدد تاريخ",
-        ],
-        quiz: [
-          { q: "العميل يقول 'غالي'، وش أفضل رد؟", opts: ["نعطيك خصم", "أوريك كم توفر شهرياً", "ما عندنا أرخص", "مافي حل"], a: 1 },
-          { q: "العميل يقول 'أفكر فيها'، وش تسوي؟", opts: ["تنتظر يرد", "تحدد موعد متابعة", "تتجاهله", "ترسل عرض ثاني"], a: 1 },
-        ],
-        task: "سجّل 3 اعتراضات واجهتها وكيف رديت عليها",
-      },
-      {
-        id: "2-3", title: "أغلق الصفقة", duration: "10 د",
-        points: [
-          "اقرأ إشارات الشراء: يسأل عن السعر، التفعيل، التفاصيل = جاهز",
-          "إغلاق الافتراض: 'نبدأ بالباقة السنوية ولا نجرب شهري؟'",
-          "لا تخصم — أضف قيمة: شهر مجاني، تدريب إضافي",
-          "بعد الإغلاق: فعّل فوراً + تابع أول أسبوع",
-        ],
-        quiz: [
-          { q: "العميل يطلب خصم، وش الأفضل؟", opts: ["تعطيه خصم", "تضيف قيمة بدل الخصم", "ترفض", "ترجع للمدير"], a: 1 },
-        ],
-      },
+      { id: "2-1", title: "المكالمة الأولى", duration: "15 د", points: ["أول 10 ثواني تحدد كل شيء — لا تبدأ ببيع، ابدأ بسؤال", "الافتتاحية: 'كيف تدير طلباتك حالياً؟' بدل 'عندنا نظام ممتاز'", "الهدف: لا تبيع بالتلفون — خذ موعد زيارة أو عرض", "التعامل مع 'مو مهتم': 'تمام، بس سؤال سريع وش تستخدم حالياً؟'"], quiz: [{ q: "وش أفضل افتتاحية لمكالمة باردة؟", opts: ["عندنا عرض خاص", "سؤال عن مشكلته الحالية", "تعريف بالشركة", "ذكر السعر"], a: 1 }, { q: "وش هدف المكالمة الأولى؟", opts: ["إغلاق البيع", "أخذ موعد عرض", "إرسال عرض سعر", "إضافته بالواتساب"], a: 1 }], task: "سوّ 3 مكالمات باردة وسجّل النتائج" },
+      { id: "2-2", title: "لما العميل يعترض", duration: "15 د", points: ["'غالي' → 'خليني أوريك كم تخسر شهرياً بدون نظام'", "'عندنا نظام' → 'وش الأشياء اللي تتمنى تتحسن فيه؟'", "'مو الوقت' → حدد موعد + أرسل محتوى قيمة", "'أحتاج أفكر' → 'تمام، نتواصل يوم الأحد؟' — دايم حدد تاريخ"], quiz: [{ q: "العميل يقول 'غالي'، وش أفضل رد؟", opts: ["نعطيك خصم", "أوريك كم توفر شهرياً", "ما عندنا أرخص", "مافي حل"], a: 1 }, { q: "العميل يقول 'أفكر فيها'، وش تسوي؟", opts: ["تنتظر يرد", "تحدد موعد متابعة", "تتجاهله", "ترسل عرض ثاني"], a: 1 }], task: "سجّل 3 اعتراضات واجهتها وكيف رديت عليها" },
+      { id: "2-3", title: "أغلق الصفقة", duration: "10 د", points: ["اقرأ إشارات الشراء: يسأل عن السعر، التفعيل، التفاصيل = جاهز", "إغلاق الافتراض: 'نبدأ بالباقة السنوية ولا نجرب شهري؟'", "لا تخصم — أضف قيمة: شهر مجاني، تدريب إضافي", "بعد الإغلاق: فعّل فوراً + تابع أول أسبوع"], quiz: [{ q: "العميل يطلب خصم، وش الأفضل؟", opts: ["تعطيه خصم", "تضيف قيمة بدل الخصم", "ترفض", "ترجع للمدير"], a: 1 }] },
     ],
   },
   {
     id: 3, title: "كبّر الصفقة", icon: "🚀", color: "#10B981",
     lessons: [
-      {
-        id: "3-1", title: "فن الـ Upsell", duration: "10 د",
-        points: [
-          "المسار: ابدأ بـ MENU → بعد شهر نجاح اعرض نحجز → ثم درع",
-          "لا تعرض كل شيء مرة وحدة — انتظر ما ينجح أول منتج",
-          "استخدم أرقام حقيقية: 'عميل مشابه وفّر X ريال بعد إضافة درع'",
-          "الحزمة الكاملة: اعرضها بسعر مخفض للعملاء الجادين",
-        ],
-        quiz: [
-          { q: "متى أفضل وقت تعرض منتج إضافي؟", opts: ["أول يوم", "بعد شهر نجاح", "بعد سنة", "ما تعرض"], a: 1 },
-        ],
-      },
-      {
-        id: "3-2", title: "Pipeline صحي", duration: "10 د",
-        points: [
-          "قاعدة 3x: دايم حافظ على 3 أضعاف هدفك في الـ Pipeline",
-          "كل أسبوع: حرّك الصفقات الراكدة أو احذفها",
-          "60% وقتك استقطاب جديد، 30% متابعة، 10% إداري",
-          "التجديدات: ابدأ قبل 60 يوم من انتهاء الاشتراك",
-        ],
-        quiz: [
-          { q: "كم نسبة وقتك المفروض للاستقطاب الجديد؟", opts: ["30%", "40%", "60%", "80%"], a: 2 },
-        ],
-      },
+      { id: "3-1", title: "فن الـ Upsell", duration: "10 د", points: ["المسار: ابدأ بـ MENU → بعد شهر نجاح اعرض نحجز → ثم درع", "لا تعرض كل شيء مرة وحدة — انتظر ما ينجح أول منتج", "استخدم أرقام حقيقية: 'عميل مشابه وفّر X ريال بعد إضافة درع'", "الحزمة الكاملة: اعرضها بسعر مخفض للعملاء الجادين"], quiz: [{ q: "متى أفضل وقت تعرض منتج إضافي؟", opts: ["أول يوم", "بعد شهر نجاح", "بعد سنة", "ما تعرض"], a: 1 }] },
+      { id: "3-2", title: "Pipeline صحي", duration: "10 د", points: ["قاعدة 3x: دايم حافظ على 3 أضعاف هدفك في الـ Pipeline", "كل أسبوع: حرّك الصفقات الراكدة أو احذفها", "60% وقتك استقطاب جديد، 30% متابعة، 10% إداري", "التجديدات: ابدأ قبل 60 يوم من انتهاء الاشتراك"], quiz: [{ q: "كم نسبة وقتك المفروض للاستقطاب الجديد؟", opts: ["30%", "40%", "60%", "80%"], a: 2 }] },
     ],
   },
 ];
-
-const TOTAL_LESSONS = STAGES.reduce((s, st) => s + st.lessons.length, 0);
 
 /* ─── Quiz Component ─── */
 
@@ -190,33 +116,25 @@ function Quiz({ questions, color, onDone }: { questions: QuizQuestion[]; color: 
   );
 }
 
-/* ─── Helper: Get stage name from lesson id ─── */
+/* ─── Exported helpers (used by team page and weekly meeting) ─── */
 
-export function getStageNameForLesson(lessonId: string): string {
-  for (const stage of STAGES) {
-    if (stage.lessons.some(l => l.id === lessonId)) return stage.title;
-  }
-  return "";
-}
-
-export function getAcademyStats(completedLessons: string[]) {
-  const total = TOTAL_LESSONS;
+export function getAcademyStats(completedLessons: string[], stages?: Stage[]) {
+  const stgs = stages && stages.length > 0 ? stages : FALLBACK_STAGES;
+  const total = stgs.reduce((s, st) => s + st.lessons.length, 0);
   const completed = completedLessons.length;
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-  // Find current stage
   let currentStage = "";
-  for (const stage of STAGES) {
+  for (const stage of stgs) {
     const allDone = stage.lessons.every(l => completedLessons.includes(l.id));
     if (!allDone) { currentStage = stage.title; break; }
   }
   if (!currentStage && completed === total) currentStage = "مكتمل";
 
-  // Last completed lesson
   const lastLesson = completedLessons.length > 0 ? completedLessons[completedLessons.length - 1] : null;
   let lastLessonName = "";
   if (lastLesson) {
-    for (const stage of STAGES) {
+    for (const stage of stgs) {
       const found = stage.lessons.find(l => l.id === lastLesson);
       if (found) { lastLessonName = found.title; break; }
     }
@@ -225,19 +143,70 @@ export function getAcademyStats(completedLessons: string[]) {
   return { total, completed, pct, currentStage, lastLessonName };
 }
 
-export { TOTAL_LESSONS, STAGES };
+export const TOTAL_LESSONS = FALLBACK_STAGES.reduce((s, st) => s + st.lessons.length, 0);
+export const STAGES = FALLBACK_STAGES;
 
 /* ─── Main Component ─── */
 
 export default function LearningAcademy() {
   const { user } = useAuth();
+  const [dynamicStages, setDynamicStages] = useState<Stage[]>([]);
   const [done, setDone] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [stg, setStg] = useState<number | null>(null);
   const [les, setLes] = useState<string | null>(null);
   const [quiz, setQuiz] = useState(false);
+  const [adminMode, setAdminMode] = useState(false);
 
-  // Load progress from Supabase
+  const isAdmin = user?.isSuperAdmin || user?.roleName === "مدير" || user?.roleName === "admin";
+
+  // Load content from Supabase, fallback to hardcoded
+  useEffect(() => {
+    async function loadContent() {
+      try {
+        const [dbStages, dbLessons, dbQuizzes] = await Promise.all([
+          fetchLearningStages(),
+          fetchLearningLessons(),
+          fetchLearningQuizzes(),
+        ]);
+
+        if (dbStages.length > 0) {
+          const mapped: Stage[] = dbStages
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .map(s => {
+              const stageLessons = dbLessons
+                .filter(l => l.stage_id === s.id)
+                .sort((a, b) => a.sort_order - b.sort_order)
+                .map(l => {
+                  const lessonQuizzes = dbQuizzes
+                    .filter(q => q.lesson_id === l.id)
+                    .sort((a, b) => a.sort_order - b.sort_order)
+                    .map(q => ({ q: q.question, opts: q.options || [], a: q.correct_answer }));
+                  return {
+                    id: l.lesson_key,
+                    title: l.title,
+                    duration: l.duration,
+                    points: l.points || [],
+                    quiz: lessonQuizzes,
+                    task: l.task,
+                  };
+                });
+              return {
+                id: s.stage_number,
+                title: s.title,
+                icon: s.icon,
+                color: s.color,
+                lessons: stageLessons,
+              };
+            });
+          setDynamicStages(mapped);
+        }
+      } catch { /* fallback to hardcoded */ }
+    }
+    loadContent();
+  }, [adminMode]); // reload when leaving admin mode
+
+  // Load progress
   useEffect(() => {
     if (!user?.id) return;
     setLoading(true);
@@ -247,7 +216,6 @@ export default function LearningAcademy() {
       .finally(() => setLoading(false));
   }, [user?.id]);
 
-  // Save progress to Supabase
   const saveProgress = useCallback(async (lessons: string[]) => {
     setDone(lessons);
     if (user?.id) {
@@ -260,9 +228,17 @@ export default function LearningAcademy() {
     setQuiz(false);
   };
 
-  const pct = Math.round((done.length / TOTAL_LESSONS) * 100);
-  const stage = stg ? STAGES.find(s => s.id === stg) : null;
+  // Use dynamic stages if available, otherwise fallback
+  const activeStages = dynamicStages.length > 0 ? dynamicStages : FALLBACK_STAGES;
+  const totalLessons = activeStages.reduce((s, st) => s + st.lessons.length, 0);
+  const pct = totalLessons > 0 ? Math.round((done.length / totalLessons) * 100) : 0;
+  const stage = stg ? activeStages.find(s => s.id === stg) : null;
   const lesson = les && stage ? stage.lessons.find(l => l.id === les) : null;
+
+  // Admin mode
+  if (adminMode) {
+    return <AcademyManager onClose={() => setAdminMode(false)} />;
+  }
 
   if (loading) {
     return (
@@ -278,12 +254,32 @@ export default function LearningAcademy() {
       <div style={{ padding: "24px 0 18px", borderBottom: "1px solid var(--border)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h1 style={{ fontSize: 19, fontWeight: 800, margin: 0 }}>🎓 أكاديمية المبيعات</h1>
-          <div style={{ background: "rgba(16,185,129,.12)", borderRadius: 8, padding: "6px 14px", fontSize: 15, fontWeight: 800, color: "#10B981" }}>{pct}%</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {isAdmin && (
+              <button
+                onClick={() => setAdminMode(true)}
+                style={{
+                  background: "rgba(255,255,255,.06)",
+                  border: "1px solid rgba(255,255,255,.1)",
+                  borderRadius: 8,
+                  padding: "6px 12px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "var(--muted-foreground)",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                تعديل المحتوى
+              </button>
+            )}
+            <div style={{ background: "rgba(16,185,129,.12)", borderRadius: 8, padding: "6px 14px", fontSize: 15, fontWeight: 800, color: "#10B981" }}>{pct}%</div>
+          </div>
         </div>
         <div style={{ marginTop: 12, background: "rgba(255,255,255,.06)", borderRadius: 50, height: 5, overflow: "hidden" }}>
           <div style={{ width: `${pct}%`, height: "100%", borderRadius: 50, background: "linear-gradient(90deg,#3B82F6,#8B5CF6,#10B981)", transition: "width .5s" }} />
         </div>
-        <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 6 }}>{done.length}/{TOTAL_LESSONS} درس</div>
+        <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 6 }}>{done.length}/{totalLessons} درس</div>
       </div>
 
       <div style={{ padding: "18px 0 40px" }}>
@@ -354,11 +350,11 @@ export default function LearningAcademy() {
         /* ─ المراحل ─ */
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {STAGES.map((s, i) => {
+            {activeStages.map((s, i) => {
               const d = s.lessons.filter(l => done.includes(l.id)).length;
               const t = s.lessons.length;
-              const p = Math.round((d / t) * 100);
-              const locked = i > 0 && !STAGES[i - 1].lessons.every(l => done.includes(l.id));
+              const p = t > 0 ? Math.round((d / t) * 100) : 0;
+              const locked = i > 0 && !activeStages[i - 1].lessons.every(l => done.includes(l.id));
               return (
                 <div key={s.id} onClick={!locked ? () => setStg(s.id) : undefined} style={{
                   background: locked ? "rgba(255,255,255,.02)" : "rgba(255,255,255,.04)",

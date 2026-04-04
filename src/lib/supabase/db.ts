@@ -1,5 +1,5 @@
 import { createClient } from "./client";
-import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot, Review, Renewal, Referral, MonthlyExpense, MonthlyBudget, StartupCost, Marketer, SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, SalesGuideSetting, SalesMessage, SalesMessageRating, FollowUpNote, MentionNotification, PendingDeal, TargetClient, GiftOffer, EmployeeTask, Package, AcademyContent } from "@/types";
+import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot, Review, Renewal, Referral, MonthlyExpense, MonthlyBudget, StartupCost, Marketer, SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, SalesGuideSetting, SalesMessage, SalesMessageRating, FollowUpNote, MentionNotification, PendingDeal, TargetClient, GiftOffer, EmployeeTask, Package, AcademyContent, LearningStage, LearningLesson, LearningQuiz } from "@/types";
 
 const DEFAULT_ORG = "00000000-0000-0000-0000-000000000001";
 
@@ -1795,4 +1795,285 @@ export async function fetchLearningProgressByUserIds(userIds: string[]): Promise
     .in("user_id", userIds);
   if (error) throw error;
   return (data ?? []) as { user_id: string; completed_lessons: string[] }[];
+}
+
+// ─── LEARNING STAGES ────────────────────────────────────────────────────────
+
+export async function fetchLearningStages(): Promise<LearningStage[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("learning_stages")
+    .select("*")
+    .eq("org_id", getOrgId())
+    .order("sort_order", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as LearningStage[];
+}
+
+export async function createLearningStage(stage: Omit<LearningStage, "id" | "org_id" | "created_at" | "updated_at">): Promise<LearningStage> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("learning_stages")
+    .insert({ ...stage, org_id: getOrgId() })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as LearningStage;
+}
+
+export async function updateLearningStage(id: string, updates: Partial<LearningStage>): Promise<LearningStage> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("learning_stages")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("org_id", getOrgId())
+    .select()
+    .single();
+  if (error) throw error;
+  return data as LearningStage;
+}
+
+export async function deleteLearningStage(id: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.from("learning_stages").delete().eq("id", id).eq("org_id", getOrgId());
+  if (error) throw error;
+}
+
+// ─── LEARNING LESSONS ───────────────────────────────────────────────────────
+
+export async function fetchLearningLessons(stageId?: string): Promise<LearningLesson[]> {
+  const supabase = createClient();
+  let query = supabase
+    .from("learning_lessons")
+    .select("*")
+    .eq("org_id", getOrgId())
+    .order("sort_order", { ascending: true });
+  if (stageId) query = query.eq("stage_id", stageId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as LearningLesson[];
+}
+
+export async function createLearningLesson(lesson: Omit<LearningLesson, "id" | "org_id" | "created_at" | "updated_at">): Promise<LearningLesson> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("learning_lessons")
+    .insert({ ...lesson, org_id: getOrgId() })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as LearningLesson;
+}
+
+export async function updateLearningLesson(id: string, updates: Partial<LearningLesson>): Promise<LearningLesson> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("learning_lessons")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("org_id", getOrgId())
+    .select()
+    .single();
+  if (error) throw error;
+  return data as LearningLesson;
+}
+
+export async function deleteLearningLesson(id: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.from("learning_lessons").delete().eq("id", id).eq("org_id", getOrgId());
+  if (error) throw error;
+}
+
+// ─── LEARNING QUIZZES ───────────────────────────────────────────────────────
+
+export async function fetchLearningQuizzes(lessonId?: string): Promise<LearningQuiz[]> {
+  const supabase = createClient();
+  let query = supabase
+    .from("learning_quizzes")
+    .select("*")
+    .eq("org_id", getOrgId())
+    .order("sort_order", { ascending: true });
+  if (lessonId) query = query.eq("lesson_id", lessonId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as LearningQuiz[];
+}
+
+export async function createLearningQuiz(quiz: Omit<LearningQuiz, "id" | "org_id" | "created_at" | "updated_at">): Promise<LearningQuiz> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("learning_quizzes")
+    .insert({ ...quiz, org_id: getOrgId() })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as LearningQuiz;
+}
+
+export async function updateLearningQuiz(id: string, updates: Partial<LearningQuiz>): Promise<LearningQuiz> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("learning_quizzes")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("org_id", getOrgId())
+    .select()
+    .single();
+  if (error) throw error;
+  return data as LearningQuiz;
+}
+
+export async function deleteLearningQuiz(id: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.from("learning_quizzes").delete().eq("id", id).eq("org_id", getOrgId());
+  if (error) throw error;
+}
+
+// ─── SEED LEARNING ACADEMY ─────────────────────────────────────────────────
+
+export async function seedLearningAcademy(): Promise<void> {
+  const supabase = createClient();
+  const orgId = getOrgId();
+
+  // Check if already seeded
+  const { data: existing } = await supabase
+    .from("learning_stages")
+    .select("id")
+    .eq("org_id", orgId)
+    .limit(1);
+  if (existing && existing.length > 0) return;
+
+  const stagesData = [
+    {
+      stage_number: 1, title: "اعرف منتجك", icon: "📦", color: "#3B82F6", sort_order: 1,
+      lessons: [
+        {
+          lesson_key: "1-1", title: "منظومة MENU الكاملة", duration: "15 د", sort_order: 1,
+          points: [
+            "المنيو الإلكتروني: QR → قائمة تفاعلية → طلب للمطبخ",
+            "نظام الكاشير: طلبات + فواتير + تقارير",
+            "نحجز: حجز طاولات + ولاء رقمي بدون تطبيق",
+            "درع: حماية المطعم من خسائر التوصيل والغرامات",
+          ],
+          quiz: [
+            { question: "ما الميزة الأقوى اللي تفرقنا عن المنافسين؟", options: ["السعر الأرخص", "المنظومة المتكاملة", "التصميم", "عدد الموظفين"], correct_answer: 1 },
+            { question: "وش يسوي درع للمطعم؟", options: ["تصميم منيو", "يحمي من خسائر التوصيل", "يوظف سائقين", "يصور الأكل"], correct_answer: 1 },
+          ],
+        },
+        {
+          lesson_key: "1-2", title: "مين عميلك؟", duration: "10 د", sort_order: 2,
+          points: [
+            "صاحب مطعم صغير (1-3 فروع): يبي حل بسيط وسعر معقول",
+            "مدير عمليات سلسلة (5+ فروع): يبي تقارير مركزية",
+            "مطعم جديد: يحتاج كل شيء من الصفر — أسهل عميل",
+            "نقاط الألم: فوضى الطلبات، خسائر التوصيل، ما عنده بيانات",
+          ],
+          quiz: [
+            { question: "أي عميل الأسهل في الإغلاق؟", options: ["السلاسل الكبيرة", "اللي عنده نظام ثاني", "المطعم الجديد أو بدون نظام"], correct_answer: 2 },
+          ],
+        },
+      ],
+    },
+    {
+      stage_number: 2, title: "تعلّم تبيع", icon: "🎯", color: "#8B5CF6", sort_order: 2,
+      lessons: [
+        {
+          lesson_key: "2-1", title: "المكالمة الأولى", duration: "15 د", sort_order: 1,
+          task: "سوّ 3 مكالمات باردة وسجّل النتائج",
+          points: [
+            "أول 10 ثواني تحدد كل شيء — لا تبدأ ببيع، ابدأ بسؤال",
+            "الافتتاحية: 'كيف تدير طلباتك حالياً؟' بدل 'عندنا نظام ممتاز'",
+            "الهدف: لا تبيع بالتلفون — خذ موعد زيارة أو عرض",
+            "التعامل مع 'مو مهتم': 'تمام، بس سؤال سريع وش تستخدم حالياً؟'",
+          ],
+          quiz: [
+            { question: "وش أفضل افتتاحية لمكالمة باردة؟", options: ["عندنا عرض خاص", "سؤال عن مشكلته الحالية", "تعريف بالشركة", "ذكر السعر"], correct_answer: 1 },
+            { question: "وش هدف المكالمة الأولى؟", options: ["إغلاق البيع", "أخذ موعد عرض", "إرسال عرض سعر", "إضافته بالواتساب"], correct_answer: 1 },
+          ],
+        },
+        {
+          lesson_key: "2-2", title: "لما العميل يعترض", duration: "15 د", sort_order: 2,
+          task: "سجّل 3 اعتراضات واجهتها وكيف رديت عليها",
+          points: [
+            "'غالي' → 'خليني أوريك كم تخسر شهرياً بدون نظام'",
+            "'عندنا نظام' → 'وش الأشياء اللي تتمنى تتحسن فيه؟'",
+            "'مو الوقت' → حدد موعد + أرسل محتوى قيمة",
+            "'أحتاج أفكر' → 'تمام، نتواصل يوم الأحد؟' — دايم حدد تاريخ",
+          ],
+          quiz: [
+            { question: "العميل يقول 'غالي'، وش أفضل رد؟", options: ["نعطيك خصم", "أوريك كم توفر شهرياً", "ما عندنا أرخص", "مافي حل"], correct_answer: 1 },
+            { question: "العميل يقول 'أفكر فيها'، وش تسوي؟", options: ["تنتظر يرد", "تحدد موعد متابعة", "تتجاهله", "ترسل عرض ثاني"], correct_answer: 1 },
+          ],
+        },
+        {
+          lesson_key: "2-3", title: "أغلق الصفقة", duration: "10 د", sort_order: 3,
+          points: [
+            "اقرأ إشارات الشراء: يسأل عن السعر، التفعيل، التفاصيل = جاهز",
+            "إغلاق الافتراض: 'نبدأ بالباقة السنوية ولا نجرب شهري؟'",
+            "لا تخصم — أضف قيمة: شهر مجاني، تدريب إضافي",
+            "بعد الإغلاق: فعّل فوراً + تابع أول أسبوع",
+          ],
+          quiz: [
+            { question: "العميل يطلب خصم، وش الأفضل؟", options: ["تعطيه خصم", "تضيف قيمة بدل الخصم", "ترفض", "ترجع للمدير"], correct_answer: 1 },
+          ],
+        },
+      ],
+    },
+    {
+      stage_number: 3, title: "كبّر الصفقة", icon: "🚀", color: "#10B981", sort_order: 3,
+      lessons: [
+        {
+          lesson_key: "3-1", title: "فن الـ Upsell", duration: "10 د", sort_order: 1,
+          points: [
+            "المسار: ابدأ بـ MENU → بعد شهر نجاح اعرض نحجز → ثم درع",
+            "لا تعرض كل شيء مرة وحدة — انتظر ما ينجح أول منتج",
+            "استخدم أرقام حقيقية: 'عميل مشابه وفّر X ريال بعد إضافة درع'",
+            "الحزمة الكاملة: اعرضها بسعر مخفض للعملاء الجادين",
+          ],
+          quiz: [
+            { question: "متى أفضل وقت تعرض منتج إضافي؟", options: ["أول يوم", "بعد شهر نجاح", "بعد سنة", "ما تعرض"], correct_answer: 1 },
+          ],
+        },
+        {
+          lesson_key: "3-2", title: "Pipeline صحي", duration: "10 د", sort_order: 2,
+          points: [
+            "قاعدة 3x: دايم حافظ على 3 أضعاف هدفك في الـ Pipeline",
+            "كل أسبوع: حرّك الصفقات الراكدة أو احذفها",
+            "60% وقتك استقطاب جديد، 30% متابعة، 10% إداري",
+            "التجديدات: ابدأ قبل 60 يوم من انتهاء الاشتراك",
+          ],
+          quiz: [
+            { question: "كم نسبة وقتك المفروض للاستقطاب الجديد؟", options: ["30%", "40%", "60%", "80%"], correct_answer: 2 },
+          ],
+        },
+      ],
+    },
+  ];
+
+  for (const stageData of stagesData) {
+    const { lessons, ...stageFields } = stageData;
+    const { data: stage, error: stageErr } = await supabase
+      .from("learning_stages")
+      .insert({ ...stageFields, org_id: orgId })
+      .select()
+      .single();
+    if (stageErr || !stage) continue;
+
+    for (const lessonData of lessons) {
+      const { quiz, ...lessonFields } = lessonData;
+      const { data: lesson, error: lessonErr } = await supabase
+        .from("learning_lessons")
+        .insert({ ...lessonFields, stage_id: stage.id, org_id: orgId })
+        .select()
+        .single();
+      if (lessonErr || !lesson) continue;
+
+      for (let qi = 0; qi < quiz.length; qi++) {
+        await supabase
+          .from("learning_quizzes")
+          .insert({ ...quiz[qi], lesson_id: lesson.id, org_id: orgId, sort_order: qi + 1 });
+      }
+    }
+  }
 }

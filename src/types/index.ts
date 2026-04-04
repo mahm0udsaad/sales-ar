@@ -556,3 +556,41 @@ export interface AcademyContent {
   created_at: string;
   updated_at: string;
 }
+
+export interface LearningStage {
+  id: string;
+  org_id: string;
+  stage_number: number;
+  title: string;
+  icon: string;
+  color: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LearningLesson {
+  id: string;
+  org_id: string;
+  stage_id: string;
+  lesson_key: string;
+  title: string;
+  duration: string;
+  points: string[];
+  task?: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LearningQuiz {
+  id: string;
+  org_id: string;
+  lesson_id: string;
+  question: string;
+  options: string[];
+  correct_answer: number;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
