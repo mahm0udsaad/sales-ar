@@ -44,8 +44,13 @@ const ALL_PAGES = [
   { slug: "partnerships", label: "الشراكات" },
   { slug: "marketers", label: "المسوقين" },
   { slug: "team", label: "الفريق" },
+  { slug: "learning-academy", label: "أكاديمية التعلم" },
+  { slug: "packages", label: "الباقات" },
+  { slug: "academy", label: "الأكاديمية" },
   { slug: "finance", label: "المالية" },
   { slug: "upload", label: "رفع البيانات" },
+  { slug: "users", label: "إدارة المستخدمين" },
+  { slug: "appearance", label: "المظهر" },
   { slug: "agent", label: "المساعد الذكي" },
 ];
 
