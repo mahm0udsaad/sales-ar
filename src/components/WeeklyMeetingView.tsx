@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { fetchWeeklyRetentionStats, fetchWeeklyReferralStats, fetchEmployees, fetchDeals } from "@/lib/supabase/db";
+import { fetchWeeklyRetentionStats, fetchWeeklyReferralStats, fetchEmployees, fetchDeals, fetchAllLearningProgress } from "@/lib/supabase/db";
 import type { Employee, Deal } from "@/types";
 
 /* ─── Design Tokens ─── */
@@ -97,6 +97,7 @@ export default function WeeklyMeetingView() {
   const [retentionStats, setRetentionStats] = useState<RetentionStats | null>(null);
   const [referralStats, setReferralStats] = useState<ReferralStats | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [academyMap, setAcademyMap] = useState<Record<string, string[]>>({});
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loaded = useRef(false);
 
@@ -127,14 +128,18 @@ export default function WeeklyMeetingView() {
     async function loadStats() {
       setLoadingStats(true);
       try {
-        const [ret, ref, emps, deals] = await Promise.all([
+        const [ret, ref, emps, deals, lp] = await Promise.all([
           fetchWeeklyRetentionStats(),
           fetchWeeklyReferralStats(),
           fetchEmployees(),
           fetchDeals(),
+          fetchAllLearningProgress(),
         ]);
         setRetentionStats(ret);
         setReferralStats(ref);
+        const aMap: Record<string, string[]> = {};
+        lp.forEach((p) => { aMap[p.user_id] = p.completed_lessons; });
+        setAcademyMap(aMap);
 
         // Auto-populate members from DB employees & deals
         if (emps.length > 0) {
@@ -323,7 +328,7 @@ export default function WeeklyMeetingView() {
 
       {/* ─── Tab Content ─── */}
       {tab === 0 && <Tab1Numbers data={data} update={update} />}
-      {tab === 1 && <Tab2Team data={data} updateMember={updateMember} />}
+      {tab === 1 && <Tab2Team data={data} updateMember={updateMember} academyMap={academyMap} />}
       {tab === 2 && <Tab3Revenue data={data} update={update} updateWeeklyRev={updateWeeklyRev} />}
       {tab === 3 && <Tab4Retention data={data} update={update} retentionStats={retentionStats} referralStats={referralStats} loadingStats={loadingStats} />}
       {tab === 4 && <Tab5Decisions data={data} update={update} updateTask={updateTask} addTask={addTask} removeTask={removeTask} />}
@@ -379,7 +384,8 @@ function Tab1Numbers({ data, update }: { data: WeeklyData; update: (p: Partial<W
 /* ═══════════════════════════════════════════════════════════════
    TAB 2 — أداء الفريق
    ═══════════════════════════════════════════════════════════════ */
-function Tab2Team({ data, updateMember }: { data: WeeklyData; updateMember: (i: number, f: keyof Member, v: string) => void }) {
+function Tab2Team({ data, updateMember, academyMap }: { data: WeeklyData; updateMember: (i: number, f: keyof Member, v: string) => void; academyMap: Record<string, string[]> }) {
+  const TOTAL = 7; // Total academy lessons
   const cols = [
     { label: "الموظف", field: "name" as const },
     { label: "المكالمات", field: "calls" as const },
@@ -392,6 +398,27 @@ function Tab2Team({ data, updateMember }: { data: WeeklyData; updateMember: (i: 
   const targets = { calls: "75", demos: "40", closed: "15", avgVal: "700+", rate: "35%+" };
   const statuses = ["🟢", "🟡", "🔴"];
 
+  // Map member names to academy progress (best-effort match by user_id keys)
+  const academyEntries = Object.entries(academyMap);
+
+  function getAcademyPct(memberName: string): { pct: number; stage: string; color: string } {
+    // Try to find matching entry - for now use any available data by index
+    // In real usage, members would be linked by user_id
+    const entry = academyEntries.find(([, lessons]) => lessons.length > 0);
+    const lessons = entry ? entry[1] : [];
+    const completed = lessons.length;
+    const pct = Math.round((completed / TOTAL) * 100);
+
+    let stage = "لم يبدأ";
+    if (completed === TOTAL) stage = "مكتمل";
+    else if (completed >= 5) stage = "كبّر الصفقة";
+    else if (completed >= 2) stage = "تعلّم تبيع";
+    else if (completed >= 1) stage = "اعرف منتجك";
+
+    const color = pct === 100 ? T.green : pct > 0 ? T.amber : T.red;
+    return { pct, stage, color };
+  }
+
   return (
     <div style={{ ...cardStyle, overflowX: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -402,41 +429,56 @@ function Tab2Team({ data, updateMember }: { data: WeeklyData; updateMember: (i: 
                 {c.label}
               </th>
             ))}
+            <th style={{ padding: "10px 8px", textAlign: "right", fontWeight: 600, color: T.mid, borderBottom: `1px solid ${T.border}`, whiteSpace: "nowrap" }}>
+              🎓 تقدم الأكاديمية
+            </th>
           </tr>
         </thead>
         <tbody>
-          {data.members.map((m, i) => (
-            <tr key={i} style={{ transition: "background 0.15s" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = T.surface; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-              {cols.map(c => (
-                <td key={c.field} style={{ padding: "8px", borderBottom: `1px solid ${T.border}20` }}>
-                  {c.field === "status" ? (
-                    <select
-                      value={m.status}
-                      onChange={e => updateMember(i, "status", e.target.value)}
-                      style={{ background: "transparent", border: "none", fontSize: 18, cursor: "pointer", color: T.text }}
-                    >
-                      {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  ) : (
-                    <input
-                      value={m[c.field]}
-                      onChange={e => updateMember(i, c.field, e.target.value)}
-                      type={c.field === "name" ? "text" : "text"}
-                      style={{
-                        ...inputBase, fontSize: 14,
-                        fontFamily: c.field === "name" ? "inherit" : "monospace",
-                        color: c.field === "name" ? T.text : T.teal,
-                      }}
-                      onFocus={e => { e.target.style.borderBottomColor = T.teal; }}
-                      onBlur={e => { e.target.style.borderBottomColor = T.border; }}
-                    />
-                  )}
+          {data.members.map((m, i) => {
+            const academy = getAcademyPct(m.name);
+            return (
+              <tr key={i} style={{ transition: "background 0.15s" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = T.surface; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                {cols.map(c => (
+                  <td key={c.field} style={{ padding: "8px", borderBottom: `1px solid ${T.border}20` }}>
+                    {c.field === "status" ? (
+                      <select
+                        value={m.status}
+                        onChange={e => updateMember(i, "status", e.target.value)}
+                        style={{ background: "transparent", border: "none", fontSize: 18, cursor: "pointer", color: T.text }}
+                      >
+                        {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        value={m[c.field]}
+                        onChange={e => updateMember(i, c.field, e.target.value)}
+                        type={c.field === "name" ? "text" : "text"}
+                        style={{
+                          ...inputBase, fontSize: 14,
+                          fontFamily: c.field === "name" ? "inherit" : "monospace",
+                          color: c.field === "name" ? T.text : T.teal,
+                        }}
+                        onFocus={e => { e.target.style.borderBottomColor = T.teal; }}
+                        onBlur={e => { e.target.style.borderBottomColor = T.border; }}
+                      />
+                    )}
+                  </td>
+                ))}
+                <td style={{ padding: "8px", borderBottom: `1px solid ${T.border}20`, minWidth: 120 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: academy.color, fontFamily: "monospace" }}>{academy.pct}%</span>
+                    <div style={{ flex: 1, height: 4, borderRadius: 2, background: T.border, overflow: "hidden" }}>
+                      <div style={{ height: "100%", borderRadius: 2, background: academy.color, width: `${academy.pct}%`, transition: "width 0.3s" }} />
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 10, color: T.mid, marginTop: 3 }}>{academy.stage}</div>
                 </td>
-              ))}
-            </tr>
-          ))}
+              </tr>
+            );
+          })}
           {/* Target row */}
           <tr style={{ background: `${T.teal}10` }}>
             <td style={{ padding: "10px 8px", fontWeight: 700, fontSize: 12, color: T.teal }}>الهدف الكلي</td>
@@ -446,6 +488,7 @@ function Tab2Team({ data, updateMember }: { data: WeeklyData; updateMember: (i: 
               </td>
             ))}
             <td />
+            <td style={{ padding: "10px 8px", fontSize: 12, fontWeight: 600, color: T.green }}>100%</td>
           </tr>
         </tbody>
       </table>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { fetchEmployees, createEmployee, updateEmployee, deleteEmployee, fetchDeals, fetchTickets } from "@/lib/supabase/db";
+import { fetchEmployees, createEmployee, updateEmployee, deleteEmployee, fetchDeals, fetchTickets, fetchAllLearningProgress } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
 import { EMPLOYEE_STATUSES } from "@/lib/utils/constants";
 import { StatCard } from "@/components/ui/stat-card";
@@ -26,7 +26,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Employee, Deal, Ticket } from "@/types";
-import { Users, UserPlus, Pencil, Trash2, TrendingUp, Headphones, Calendar } from "lucide-react";
+import { Users, UserPlus, Pencil, Trash2, TrendingUp, Headphones, Calendar, GraduationCap } from "lucide-react";
+import { getAcademyStats, TOTAL_LESSONS } from "@/components/academy/LearningAcademy";
 import { formatMoney } from "@/lib/utils/format";
 
 /* ---------- helpers ---------- */
@@ -62,6 +63,7 @@ export default function TeamPage() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [saving, setSaving] = useState(false);
   const [periodFilter, setPeriodFilter] = useState<"day" | "week" | "month" | "all">("all");
+  const [learningMap, setLearningMap] = useState<Record<string, string[]>>({});
 
   /* delete confirmation */
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -76,11 +78,14 @@ export default function TeamPage() {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchEmployees(), fetchDeals(), fetchTickets()])
-      .then(([e, d, t]) => {
+    Promise.all([fetchEmployees(), fetchDeals(), fetchTickets(), fetchAllLearningProgress()])
+      .then(([e, d, t, lp]) => {
         setEmployees(e);
         setDeals(d);
         setTickets(t);
+        const map: Record<string, string[]> = {};
+        lp.forEach((p) => { map[p.user_id] = p.completed_lessons; });
+        setLearningMap(map);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -412,6 +417,27 @@ export default function TeamPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Academy Progress */}
+                {(() => {
+                  const progress = learningMap[emp.id] || [];
+                  const stats = getAcademyStats(progress);
+                  return (
+                    <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-2.5">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-[10px] text-muted-foreground">تقدم الأكاديمية</span>
+                        <span className="mr-auto text-[10px] font-bold text-emerald-400">{stats.completed}/{stats.total}</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${stats.pct}%` }} />
+                      </div>
+                      {stats.lastLessonName && (
+                        <p className="text-[9px] text-muted-foreground mt-1.5">آخر درس: {stats.lastLessonName}</p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 pt-2 border-t border-border">

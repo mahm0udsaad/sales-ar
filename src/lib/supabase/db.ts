@@ -1744,3 +1744,55 @@ export async function deleteAcademyContent(id: string): Promise<void> {
   const { error } = await supabase.from("academy_content").delete().eq("id", id);
   if (error) throw error;
 }
+
+// ─── LEARNING ACADEMY PROGRESS ──────────────────────────────────────────────
+
+export async function fetchLearningProgress(userId: string): Promise<string[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("learning_progress")
+    .select("completed_lessons")
+    .eq("user_id", userId)
+    .eq("org_id", getOrgId())
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.completed_lessons as string[]) ?? [];
+}
+
+export async function saveLearningProgress(userId: string, completedLessons: string[]): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("learning_progress")
+    .upsert(
+      {
+        user_id: userId,
+        org_id: getOrgId(),
+        completed_lessons: completedLessons,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,org_id" }
+    );
+  if (error) throw error;
+}
+
+export async function fetchAllLearningProgress(): Promise<{ user_id: string; completed_lessons: string[] }[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("learning_progress")
+    .select("user_id, completed_lessons")
+    .eq("org_id", getOrgId());
+  if (error) throw error;
+  return (data ?? []) as { user_id: string; completed_lessons: string[] }[];
+}
+
+export async function fetchLearningProgressByUserIds(userIds: string[]): Promise<{ user_id: string; completed_lessons: string[] }[]> {
+  if (userIds.length === 0) return [];
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("learning_progress")
+    .select("user_id, completed_lessons")
+    .eq("org_id", getOrgId())
+    .in("user_id", userIds);
+  if (error) throw error;
+  return (data ?? []) as { user_id: string; completed_lessons: string[] }[];
+}

@@ -52,6 +52,7 @@ const NAV_ITEMS = [
   { label: "الشراكات", href: "/partnerships", slug: "partnerships", icon: Handshake, color: "teal" },
   { label: "المسوقين", href: "/marketers", slug: "marketers", icon: Megaphone, color: "pink" },
   { label: "الفريق", href: "/team", slug: "team", icon: Users, color: "blue" },
+  { label: "أكاديمية التعلم", href: "/learning-academy", slug: "learning-academy", icon: GraduationCap, color: "emerald" },
   { label: "الباقات", href: "/packages", slug: "packages", icon: Package, color: "violet" },
   { label: "الأكاديمية", href: "/academy", slug: "academy", icon: GraduationCap, color: "amber" },
   { label: "المالية", href: "/finance", slug: "finance", icon: Banknote, color: "lime" },
