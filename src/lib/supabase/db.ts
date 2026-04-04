@@ -649,7 +649,7 @@ export async function upsertSalesGuideSetting(
 
 // ─── SALES MESSAGES & SCRIPTS ──────────────────────────────────────────────
 
-export async function fetchSalesMessages(msgType?: string): Promise<SalesMessage[]> {
+export async function fetchSalesMessages(msgType?: string, product?: string): Promise<SalesMessage[]> {
   const supabase = createClient();
   let query = supabase
     .from("sales_messages")
@@ -657,6 +657,7 @@ export async function fetchSalesMessages(msgType?: string): Promise<SalesMessage
     .eq("org_id", getOrgId())
     .order("avg_rating", { ascending: false });
   if (msgType) query = query.eq("msg_type", msgType);
+  if (product) query = query.eq("product", product);
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as SalesMessage[];

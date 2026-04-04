@@ -396,6 +396,7 @@ export interface SalesMessage {
   org_id: string;
   category: "new_client" | "renewal_client" | "cashier_client";
   msg_type: "message" | "script";
+  product?: "menu" | "reservations";
   title: string;
   content: string;
   avg_rating: number;

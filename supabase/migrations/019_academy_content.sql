@@ -20,3 +20,6 @@ CREATE POLICY "anon_select" ON academy_content FOR SELECT TO anon USING (true);
 CREATE POLICY "anon_insert" ON academy_content FOR INSERT TO anon WITH CHECK (true);
 CREATE POLICY "anon_update" ON academy_content FOR UPDATE TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "anon_delete" ON academy_content FOR DELETE TO anon USING (true);
+
+-- Add product column to sales_messages for academy product-specific messages
+ALTER TABLE sales_messages ADD COLUMN IF NOT EXISTS product text DEFAULT 'menu';
