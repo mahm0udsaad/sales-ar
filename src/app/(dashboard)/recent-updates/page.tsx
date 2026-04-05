@@ -29,6 +29,7 @@ import {
   ScrollText,
   Activity,
   Users,
+  User,
 } from "lucide-react";
 
 const SECTION_ICONS: Record<string, typeof TrendingUp> = {
@@ -522,11 +523,22 @@ export default function RecentUpdatesPage() {
                             {item.action === "created" ? "جديد" : "تحديث"}
                           </span>
                         </div>
-                        {item.subtitle && (
-                          <p className="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5">
-                            {item.subtitle}
-                          </p>
-                        )}
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {item.user_name && (
+                            <span className="inline-flex items-center gap-1 text-xs text-cyan-400/80">
+                              <User className="w-3 h-3" />
+                              {item.user_name}
+                            </span>
+                          )}
+                          {item.user_name && item.subtitle && (
+                            <span className="text-muted-foreground/30 text-[10px]">|</span>
+                          )}
+                          {item.subtitle && (
+                            <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                              {item.subtitle}
+                            </p>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2.5 shrink-0">
                         <ColorBadge
@@ -669,7 +681,10 @@ export default function RecentUpdatesPage() {
                                 {log.user_name && (
                                   <>
                                     <span className="text-[10px] text-muted-foreground/40">|</span>
-                                    <span className="text-[10px] text-muted-foreground/70">{log.user_name}</span>
+                                    <span className="inline-flex items-center gap-0.5 text-[10px] text-cyan-400/70">
+                                      <User className="w-2.5 h-2.5" />
+                                      {log.user_name}
+                                    </span>
                                   </>
                                 )}
                                 <span className="text-[10px] text-muted-foreground/40">|</span>

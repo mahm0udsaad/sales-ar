@@ -21,8 +21,21 @@ export async function logActivity(entry: {
 }): Promise<void> {
   try {
     const supabase = createClient();
+    let userName = entry.user_name;
+    if (!userName) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("user_profiles")
+          .select("name")
+          .eq("id", user.id)
+          .single();
+        userName = profile?.name || user.email || undefined;
+      }
+    }
     await supabase.from("activity_logs").insert({
       ...entry,
+      user_name: userName,
       org_id: getOrgId(),
     });
   } catch {
@@ -2313,6 +2326,7 @@ export interface RecentUpdateItem {
   section_color: string;
   title: string;
   subtitle?: string;
+  user_name?: string;
   action: "created" | "updated";
   timestamp: string;
 }
@@ -2325,17 +2339,17 @@ export async function fetchRecentUpdates(): Promise<RecentUpdateItem[]> {
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const sections = [
-    { table: "deals", key: "sales", label: "المبيعات", color: "emerald", titleField: "client_name", subtitleField: "assigned_rep_name" },
-    { table: "tickets", key: "support", label: "الدعم", color: "orange", titleField: "client_name", subtitleField: "issue" },
-    { table: "renewals", key: "renewals", label: "التجديدات", color: "sky", titleField: "customer_name", subtitleField: "plan_name" },
-    { table: "projects", key: "development", label: "التطويرات", color: "indigo", titleField: "name", subtitleField: "status_tag" },
-    { table: "partnerships", key: "partnerships", label: "الشراكات", color: "teal", titleField: "name", subtitleField: "type" },
-    { table: "employee_tasks", key: "tasks", label: "المهام", color: "indigo", titleField: "title", subtitleField: "assigned_to_name" },
-    { table: "reviews", key: "satisfaction", label: "رضا العملاء", color: "rose", titleField: "customer_name", subtitleField: "comment" },
-    { table: "monthly_expenses", key: "finance", label: "المالية", color: "lime", titleField: "category", subtitleField: "description" },
-    { table: "target_clients", key: "targeting", label: "الاستهداف", color: "fuchsia", titleField: "client_name", subtitleField: "source" },
-    { table: "gift_offers", key: "gifts", label: "الهدايا", color: "amber", titleField: "client_name", subtitleField: "gift_title" },
-    { table: "marketers", key: "marketers", label: "المسوقين", color: "pink", titleField: "name", subtitleField: "notes" },
+    { table: "deals", key: "sales", label: "المبيعات", color: "emerald", titleField: "client_name", subtitleField: "assigned_rep_name", userField: "assigned_rep_name" },
+    { table: "tickets", key: "support", label: "الدعم", color: "orange", titleField: "client_name", subtitleField: "issue", userField: "assigned_agent_name" },
+    { table: "renewals", key: "renewals", label: "التجديدات", color: "sky", titleField: "customer_name", subtitleField: "plan_name", userField: "assigned_rep" },
+    { table: "projects", key: "development", label: "التطويرات", color: "indigo", titleField: "name", subtitleField: "status_tag", userField: "team" },
+    { table: "partnerships", key: "partnerships", label: "الشراكات", color: "teal", titleField: "name", subtitleField: "type", userField: "manager_name" },
+    { table: "employee_tasks", key: "tasks", label: "المهام", color: "indigo", titleField: "title", subtitleField: "assigned_to_name", userField: "assigned_to_name" },
+    { table: "reviews", key: "satisfaction", label: "رضا العملاء", color: "rose", titleField: "customer_name", subtitleField: "comment", userField: "" },
+    { table: "monthly_expenses", key: "finance", label: "المالية", color: "lime", titleField: "category", subtitleField: "description", userField: "" },
+    { table: "target_clients", key: "targeting", label: "الاستهداف", color: "fuchsia", titleField: "client_name", subtitleField: "source", userField: "assigned_rep" },
+    { table: "gift_offers", key: "gifts", label: "الهدايا", color: "amber", titleField: "client_name", subtitleField: "gift_title", userField: "created_by" },
+    { table: "marketers", key: "marketers", label: "المسوقين", color: "pink", titleField: "name", subtitleField: "notes", userField: "" },
   ] as const;
 
   const results = await Promise.allSettled(
@@ -2362,6 +2376,7 @@ export async function fetchRecentUpdates(): Promise<RecentUpdateItem[]> {
           section_color: sec.color,
           title: (row[sec.titleField] as string) || "",
           subtitle: sec.subtitleField ? (row[sec.subtitleField] as string) || undefined : undefined,
+          user_name: sec.userField ? (row[sec.userField] as string) || undefined : undefined,
           action: isNew ? "created" : "updated",
           timestamp: updatedAt,
         };
