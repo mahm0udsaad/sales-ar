@@ -408,7 +408,7 @@ export function SalesSection({ salesType }: SalesPageProps) {
     ? monthDeals.filter(d => achieveFilterIds.has(d.id))
     : stageFilter ? monthDeals.filter((d) => d.stage === stageFilter) : monthDeals;
   const filteredDeals = clientSearch
-    ? baseFilteredDeals.filter((d) => d.client_name.toLowerCase().includes(clientSearch.toLowerCase()) || (d.client_code && d.client_code.toLowerCase().includes(clientSearch.toLowerCase())))
+    ? baseFilteredDeals.filter((d) => d.client_name.toLowerCase().includes(clientSearch.toLowerCase()) || (d.client_code && d.client_code.toLowerCase().includes(clientSearch.toLowerCase())) || (d.client_phone && d.client_phone.includes(clientSearch)))
     : baseFilteredDeals;
 
   useEffect(() => {
@@ -1043,7 +1043,7 @@ export function SalesSection({ salesType }: SalesPageProps) {
           <Input
             value={clientSearch}
             onChange={(e) => setClientSearch(e.target.value)}
-            placeholder="ابحث باسم العميل..."
+            placeholder="ابحث باسم العميل أو رقم الجوال..."
             className="max-w-xs"
           />
           <button onClick={selectAllVisible} className="text-[10px] px-2.5 py-1.5 rounded-lg border border-cyan/30 text-cyan hover:bg-cyan/10 transition-colors whitespace-nowrap" title="تحديد الكل كهدف يومي">
