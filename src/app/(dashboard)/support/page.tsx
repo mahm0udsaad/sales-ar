@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   fetchTickets, createTicket, updateTicket, deleteTicket,
-  fetchEmployees,
+  fetchEmployees, fetchActivityLogs,
 } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
 import { useTopbarControls } from "@/components/layout/topbar-context";
 import { PRIORITIES, TICKET_STATUSES, TICKET_CATEGORIES, PROBLEM_CATEGORIES, SERVICE_CATEGORIES, REQUEST_TYPES } from "@/lib/utils/constants";
 import { PRIORITY_COLORS, TICKET_STATUS_COLORS } from "@/lib/utils/constants";
 import { formatDate, formatPhone } from "@/lib/utils/format";
-import type { Ticket, Employee } from "@/types";
+import type { Ticket, Employee, ActivityLog } from "@/types";
 
 import { AchievementSummary } from "@/components/achievement-summary";
 import { StatCard } from "@/components/ui/stat-card";
@@ -58,6 +58,9 @@ import {
   BarChart3,
   Repeat,
   Sparkles,
+  ScrollText,
+  ChevronDown,
+  User,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -169,6 +172,30 @@ export default function SupportPage() {
   const [clientSearch, setClientSearch] = useState("");
   // Type filter: "problem" | "service" | null
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
+
+  // Activity log
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [logsOpen, setLogsOpen] = useState(false);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logFilter, setLogFilter] = useState<"all" | "today" | "week">("all");
+
+  const loadActivityLogs = useCallback(async () => {
+    setLogsLoading(true);
+    try {
+      const data = await fetchActivityLogs({ section: "support", limit: 100 });
+      setActivityLogs(data);
+    } catch {
+      // silent
+    } finally {
+      setLogsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (logsOpen && activityLogs.length === 0) {
+      void loadActivityLogs();
+    }
+  }, [logsOpen, activityLogs.length, loadActivityLogs]);
 
   // Achievement summary
   const [achieveFilter, setAchieveFilter] = useState<string | null>(null);
@@ -396,6 +423,7 @@ export default function SupportPage() {
         setTickets((prev) => [created, ...prev]);
       }
       setDialogOpen(false);
+      if (logsOpen) void loadActivityLogs();
     } catch (err) {
       console.error(err);
     } finally {
@@ -413,6 +441,7 @@ export default function SupportPage() {
       try {
         await deleteTicket(deletingId);
         setTickets((prev) => prev.filter((t) => t.id !== deletingId));
+        if (logsOpen) void loadActivityLogs();
       } catch (err) {
         console.error(err);
       }
@@ -906,6 +935,214 @@ export default function SupportPage() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* -------- Activity Tracking Log -------- */}
+      <div className="cc-card rounded-[14px] overflow-hidden">
+        <button
+          onClick={() => setLogsOpen(!logsOpen)}
+          className="w-full flex items-center gap-3 p-4 text-right hover:bg-white/[0.02] transition-colors"
+        >
+          <div className="w-9 h-9 rounded-xl bg-orange-500/10 flex items-center justify-center ring-1 ring-orange-500/20">
+            <ScrollText className="w-4 h-4 text-orange-400" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-bold text-foreground">سجل التتبع</h3>
+            <p className="text-[11px] text-muted-foreground">جميع العمليات على التذاكر (إضافة، تعديل، حذف)</p>
+          </div>
+          {activityLogs.length > 0 && (
+            <span className="text-[10px] bg-orange-500/10 text-orange-400 rounded-full px-2.5 py-0.5 font-medium">
+              {activityLogs.length}
+            </span>
+          )}
+          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${logsOpen ? "rotate-180" : ""}`} />
+        </button>
+
+        {logsOpen && (
+          <div className="border-t border-border px-4 pb-4">
+            {/* Time Filter */}
+            <div className="flex items-center gap-2 py-3">
+              {([
+                { key: "all" as const, label: "الكل" },
+                { key: "today" as const, label: "اليوم" },
+                { key: "week" as const, label: "هذا الأسبوع" },
+              ]).map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setLogFilter(f.key)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    logFilter === f.key
+                      ? "bg-orange-500/10 text-orange-400 ring-1 ring-orange-500/20"
+                      : "bg-white/[0.04] text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+              <button
+                onClick={loadActivityLogs}
+                className="mr-auto text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              >
+                تحديث
+              </button>
+            </div>
+
+            {logsLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02]">
+                    <Skeleton className="w-8 h-8 rounded-lg" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3 w-32" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (() => {
+              const isLogToday = (dateStr: string) => {
+                const d = new Date(dateStr);
+                const now = new Date();
+                return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+              };
+              const isLogThisWeek = (dateStr: string) => {
+                const d = new Date(dateStr);
+                const now = new Date();
+                const startOfWeek = new Date(now);
+                startOfWeek.setDate(now.getDate() - now.getDay());
+                startOfWeek.setHours(0, 0, 0, 0);
+                return d >= startOfWeek;
+              };
+
+              const filtered = logFilter === "today"
+                ? activityLogs.filter(l => isLogToday(l.created_at))
+                : logFilter === "week"
+                  ? activityLogs.filter(l => isLogThisWeek(l.created_at))
+                  : activityLogs;
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="py-8 text-center">
+                    <ScrollText className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">لا توجد عمليات مسجلة</p>
+                  </div>
+                );
+              }
+
+              const ACTION_CONFIG = {
+                create: { label: "إضافة", icon: Plus, bg: "bg-emerald-500/10 text-emerald-400", dot: "bg-emerald-400" },
+                update: { label: "تحديث", icon: Pencil, bg: "bg-amber-500/10 text-amber-400", dot: "bg-amber-400" },
+                delete: { label: "حذف", icon: Trash2, bg: "bg-red-500/10 text-red-400", dot: "bg-red-400" },
+              };
+
+              // Group by date
+              const groups: { date: string; items: ActivityLog[] }[] = [];
+              const map = new Map<string, ActivityLog[]>();
+              for (const log of filtered) {
+                const d = new Date(log.created_at);
+                const key = isLogToday(log.created_at)
+                  ? "اليوم"
+                  : (() => {
+                      const now = new Date();
+                      const yesterday = new Date(now);
+                      yesterday.setDate(now.getDate() - 1);
+                      return d.getFullYear() === yesterday.getFullYear() && d.getMonth() === yesterday.getMonth() && d.getDate() === yesterday.getDate()
+                        ? "أمس"
+                        : d.toLocaleDateString("ar-SA", { weekday: "long", month: "short", day: "numeric" });
+                    })();
+                if (!map.has(key)) {
+                  map.set(key, []);
+                  groups.push({ date: key, items: map.get(key)! });
+                }
+                map.get(key)!.push(log);
+              }
+
+              return (
+                <div className="space-y-4">
+                  {/* Action Summary */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["create", "update", "delete"] as const).map((action) => {
+                      const config = ACTION_CONFIG[action];
+                      const Icon = config.icon;
+                      const count = filtered.filter(l => l.action === action).length;
+                      return (
+                        <div key={action} className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-3 text-center">
+                          <div className="flex justify-center mb-1.5">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${config.bg}`}>
+                              <Icon className="w-3.5 h-3.5" />
+                            </div>
+                          </div>
+                          <p className="text-lg font-extrabold text-foreground font-mono">{count}</p>
+                          <p className="text-[10px] text-muted-foreground">{config.label}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Timeline */}
+                  {groups.map((group) => (
+                    <div key={group.date}>
+                      <div className="flex items-center gap-3 mb-2">
+                        <h4 className="text-xs font-bold text-foreground">{group.date}</h4>
+                        <span className="text-[10px] text-muted-foreground bg-white/[0.04] rounded-full px-2 py-0.5">
+                          {group.items.length} عملية
+                        </span>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
+
+                      <div className="relative pr-4">
+                        <div className="absolute right-[7px] top-3 bottom-3 w-px bg-border" />
+                        <div className="space-y-1">
+                          {group.items.map((log, idx) => {
+                            const config = ACTION_CONFIG[log.action];
+                            const ActionIcon = config.icon;
+                            const logTime = new Date(log.created_at);
+                            const timeStr = logTime.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+
+                            return (
+                              <div
+                                key={log.id}
+                                className="relative flex items-start gap-3 pr-5 py-1.5 animate-in fade-in-0 slide-in-from-bottom-1 duration-300"
+                                style={{ animationDelay: `${idx * 30}ms` }}
+                              >
+                                <div className={`absolute right-0 top-3.5 w-[13px] h-[13px] rounded-full border-2 border-card ${config.dot} z-10`} />
+
+                                <div className="flex-1 rounded-xl bg-white/[0.02] border border-white/[0.06] px-3.5 py-2.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${config.bg}`}>
+                                      <ActionIcon className="w-2.5 h-2.5" />
+                                      {config.label}
+                                    </span>
+                                    <span className="text-xs font-semibold text-foreground truncate">
+                                      {log.entity_title || "تذكرة"}
+                                    </span>
+                                  </div>
+                                  {log.details && (
+                                    <p className="text-[11px] text-muted-foreground mt-1 truncate">{log.details}</p>
+                                  )}
+                                  <div className="flex items-center gap-2 mt-1">
+                                    {log.user_name && (
+                                      <span className="inline-flex items-center gap-0.5 text-[10px] text-cyan-400/70">
+                                        <User className="w-2.5 h-2.5" />
+                                        {log.user_name}
+                                      </span>
+                                    )}
+                                    {log.user_name && <span className="text-[10px] text-muted-foreground/40">|</span>}
+                                    <span className="text-[10px] text-muted-foreground/70">{timeStr}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        )}
       </div>
 
       {/* -------- Create / Edit Dialog -------- */}
