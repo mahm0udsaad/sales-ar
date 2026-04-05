@@ -1,11 +1,54 @@
 import { createClient } from "./client";
-import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot, Review, Renewal, Referral, MonthlyExpense, MonthlyBudget, StartupCost, Marketer, SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, SalesGuideSetting, SalesMessage, SalesMessageRating, FollowUpNote, MentionNotification, PendingDeal, TargetClient, GiftOffer, EmployeeTask, Package, AcademyContent, LearningStage, LearningLesson, LearningQuiz } from "@/types";
+import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot, Review, Renewal, Referral, MonthlyExpense, MonthlyBudget, StartupCost, Marketer, SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, SalesGuideSetting, SalesMessage, SalesMessageRating, FollowUpNote, MentionNotification, PendingDeal, TargetClient, GiftOffer, EmployeeTask, Package, AcademyContent, LearningStage, LearningLesson, LearningQuiz, ActivityLog } from "@/types";
 
 const DEFAULT_ORG = "00000000-0000-0000-0000-000000000001";
 
 export function getOrgId(): string {
   if (typeof window === "undefined") return DEFAULT_ORG;
   return localStorage.getItem("cc_org_id") || DEFAULT_ORG;
+}
+
+// ─── ACTIVITY LOG ───────────────────────────────────────────────────────────
+
+export async function logActivity(entry: {
+  action: "create" | "update" | "delete";
+  section: string;
+  section_label: string;
+  entity_id?: string;
+  entity_title?: string;
+  user_name?: string;
+  details?: string;
+}): Promise<void> {
+  try {
+    const supabase = createClient();
+    await supabase.from("activity_logs").insert({
+      ...entry,
+      org_id: getOrgId(),
+    });
+  } catch {
+    // Logging should never break the main operation
+  }
+}
+
+export async function fetchActivityLogs(options?: {
+  section?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<ActivityLog[]> {
+  const supabase = createClient();
+  let query = supabase
+    .from("activity_logs")
+    .select("*")
+    .eq("org_id", getOrgId())
+    .order("created_at", { ascending: false });
+
+  if (options?.section) query = query.eq("section", options.section);
+  if (options?.limit) query = query.limit(options.limit);
+  if (options?.offset) query = query.range(options.offset, options.offset + (options?.limit || 50) - 1);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as ActivityLog[];
 }
 
 // ─── CLIENT CODE GENERATOR ──────────────────────────────────────────────────
@@ -56,7 +99,9 @@ export async function createDeal(
     .select()
     .single();
   if (error) throw error;
-  return data as Deal;
+  const result = data as Deal;
+  logActivity({ action: "create", section: "sales", section_label: "المبيعات", entity_id: result.id, entity_title: result.client_name, details: `صفقة جديدة بقيمة ${result.deal_value}` });
+  return result;
 }
 
 export async function updateDeal(
@@ -72,7 +117,9 @@ export async function updateDeal(
     .select()
     .single();
   if (error) throw error;
-  return data as Deal;
+  const result = data as Deal;
+  logActivity({ action: "update", section: "sales", section_label: "المبيعات", entity_id: id, entity_title: result.client_name, details: deal.stage ? `تغيير المرحلة إلى ${deal.stage}` : "تحديث بيانات الصفقة" });
+  return result;
 }
 
 export async function deleteDeal(id: string): Promise<void> {
@@ -83,6 +130,7 @@ export async function deleteDeal(id: string): Promise<void> {
     .eq("id", id)
     .eq("org_id", getOrgId());
   if (error) throw error;
+  logActivity({ action: "delete", section: "sales", section_label: "المبيعات", entity_id: id, details: "حذف صفقة" });
 }
 
 // ─── TICKETS ─────────────────────────────────────────────────────────────────
@@ -108,7 +156,9 @@ export async function createTicket(
     .select()
     .single();
   if (error) throw error;
-  return data as Ticket;
+  const result = data as Ticket;
+  logActivity({ action: "create", section: "support", section_label: "الدعم", entity_id: result.id, entity_title: result.client_name, details: `تذكرة جديدة: ${result.issue}` });
+  return result;
 }
 
 export async function updateTicket(
@@ -124,7 +174,9 @@ export async function updateTicket(
     .select()
     .single();
   if (error) throw error;
-  return data as Ticket;
+  const result = data as Ticket;
+  logActivity({ action: "update", section: "support", section_label: "الدعم", entity_id: id, entity_title: result.client_name, details: ticket.status ? `تغيير الحالة إلى ${ticket.status}` : "تحديث التذكرة" });
+  return result;
 }
 
 export async function deleteTicket(id: string): Promise<void> {
@@ -135,6 +187,7 @@ export async function deleteTicket(id: string): Promise<void> {
     .eq("id", id)
     .eq("org_id", getOrgId());
   if (error) throw error;
+  logActivity({ action: "delete", section: "support", section_label: "الدعم", entity_id: id, details: "حذف تذكرة" });
 }
 
 // ─── EMPLOYEES ───────────────────────────────────────────────────────────────
@@ -160,7 +213,9 @@ export async function createEmployee(
     .select()
     .single();
   if (error) throw error;
-  return data as Employee;
+  const result = data as Employee;
+  logActivity({ action: "create", section: "team", section_label: "الفريق", entity_id: result.id, entity_title: result.name, details: "إضافة موظف جديد" });
+  return result;
 }
 
 export async function updateEmployee(
@@ -176,7 +231,9 @@ export async function updateEmployee(
     .select()
     .single();
   if (error) throw error;
-  return data as Employee;
+  const result = data as Employee;
+  logActivity({ action: "update", section: "team", section_label: "الفريق", entity_id: id, entity_title: result.name, details: "تحديث بيانات الموظف" });
+  return result;
 }
 
 export async function deleteEmployee(id: string): Promise<void> {
@@ -187,6 +244,7 @@ export async function deleteEmployee(id: string): Promise<void> {
     .eq("id", id)
     .eq("org_id", getOrgId());
   if (error) throw error;
+  logActivity({ action: "delete", section: "team", section_label: "الفريق", entity_id: id, details: "حذف موظف" });
 }
 
 // ─── PROJECTS ────────────────────────────────────────────────────────────────
@@ -212,7 +270,9 @@ export async function createProject(
     .select()
     .single();
   if (error) throw error;
-  return data as Project;
+  const result = data as Project;
+  logActivity({ action: "create", section: "development", section_label: "التطويرات", entity_id: result.id, entity_title: result.name, details: "مشروع جديد" });
+  return result;
 }
 
 export async function updateProject(
@@ -228,7 +288,9 @@ export async function updateProject(
     .select()
     .single();
   if (error) throw error;
-  return data as Project;
+  const result = data as Project;
+  logActivity({ action: "update", section: "development", section_label: "التطويرات", entity_id: id, entity_title: result.name, details: proj.progress !== undefined ? `تقدم المشروع ${proj.progress}%` : "تحديث المشروع" });
+  return result;
 }
 
 // ─── PARTNERSHIPS ─────────────────────────────────────────────────────────────
@@ -254,7 +316,9 @@ export async function createPartnership(
     .select()
     .single();
   if (error) throw error;
-  return data as Partnership;
+  const result = data as Partnership;
+  logActivity({ action: "create", section: "partnerships", section_label: "الشراكات", entity_id: result.id, entity_title: result.name, details: "شراكة جديدة" });
+  return result;
 }
 
 export async function updatePartnership(
@@ -270,7 +334,9 @@ export async function updatePartnership(
     .select()
     .single();
   if (error) throw error;
-  return data as Partnership;
+  const result = data as Partnership;
+  logActivity({ action: "update", section: "partnerships", section_label: "الشراكات", entity_id: id, entity_title: result.name, details: "تحديث الشراكة" });
+  return result;
 }
 
 export async function deletePartnership(id: string): Promise<void> {
@@ -281,6 +347,7 @@ export async function deletePartnership(id: string): Promise<void> {
     .eq("id", id)
     .eq("org_id", getOrgId());
   if (error) throw error;
+  logActivity({ action: "delete", section: "partnerships", section_label: "الشراكات", entity_id: id, details: "حذف شراكة" });
 }
 
 // ─── REVIEWS ─────────────────────────────────────────────────────────────────
@@ -306,7 +373,9 @@ export async function createReview(
     .select()
     .single();
   if (error) throw error;
-  return data as Review;
+  const result = data as Review;
+  logActivity({ action: "create", section: "satisfaction", section_label: "رضا العملاء", entity_id: result.id, entity_title: result.customer_name, details: `تقييم ${result.stars} نجوم` });
+  return result;
 }
 
 export async function updateReview(
@@ -322,7 +391,9 @@ export async function updateReview(
     .select()
     .single();
   if (error) throw error;
-  return data as Review;
+  const result = data as Review;
+  logActivity({ action: "update", section: "satisfaction", section_label: "رضا العملاء", entity_id: id, entity_title: result.customer_name, details: "تحديث التقييم" });
+  return result;
 }
 
 export async function deleteReview(id: string): Promise<void> {
@@ -333,6 +404,7 @@ export async function deleteReview(id: string): Promise<void> {
     .eq("id", id)
     .eq("org_id", getOrgId());
   if (error) throw error;
+  logActivity({ action: "delete", section: "satisfaction", section_label: "رضا العملاء", entity_id: id, details: "حذف تقييم" });
 }
 
 // ─── RENEWALS ────────────────────────────────────────────────────────────────
@@ -359,7 +431,9 @@ export async function createRenewal(
     .select()
     .single();
   if (error) throw error;
-  return data as Renewal;
+  const result = data as Renewal;
+  logActivity({ action: "create", section: "renewals", section_label: "التجديدات", entity_id: result.id, entity_title: result.customer_name, details: `تجديد ${result.plan_name}` });
+  return result;
 }
 
 export async function updateRenewal(
@@ -375,7 +449,9 @@ export async function updateRenewal(
     .select()
     .single();
   if (error) throw error;
-  return data as Renewal;
+  const result = data as Renewal;
+  logActivity({ action: "update", section: "renewals", section_label: "التجديدات", entity_id: id, entity_title: result.customer_name, details: renewal.status ? `تغيير الحالة إلى ${renewal.status}` : "تحديث التجديد" });
+  return result;
 }
 
 export async function deleteRenewal(id: string): Promise<void> {
@@ -386,6 +462,7 @@ export async function deleteRenewal(id: string): Promise<void> {
     .eq("id", id)
     .eq("org_id", getOrgId());
   if (error) throw error;
+  logActivity({ action: "delete", section: "renewals", section_label: "التجديدات", entity_id: id, details: "حذف تجديد" });
 }
 
 // ─── BATCH INSERTS ───────────────────────────────────────────────────────────
@@ -1594,7 +1671,9 @@ export async function createEmployeeTask(
   }
   const { data, error } = await supabase.from("employee_tasks").insert(clean).select().single();
   if (error) throw error;
-  return data as EmployeeTask;
+  const result = data as EmployeeTask;
+  logActivity({ action: "create", section: "tasks", section_label: "المهام", entity_id: result.id, entity_title: result.title, details: `مهمة جديدة لـ ${result.assigned_to_name}` });
+  return result;
 }
 
 export async function updateEmployeeTask(id: string, updates: Partial<EmployeeTask>): Promise<EmployeeTask> {
@@ -1608,13 +1687,16 @@ export async function updateEmployeeTask(id: string, updates: Partial<EmployeeTa
   }
   const { data, error } = await supabase.from("employee_tasks").update(clean).eq("id", id).select().single();
   if (error) throw error;
-  return data as EmployeeTask;
+  const result = data as EmployeeTask;
+  logActivity({ action: "update", section: "tasks", section_label: "المهام", entity_id: id, entity_title: result.title, details: updates.status ? `تغيير الحالة إلى ${updates.status}` : "تحديث المهمة" });
+  return result;
 }
 
 export async function deleteEmployeeTask(id: string): Promise<void> {
   const supabase = createClient();
   const { error } = await supabase.from("employee_tasks").delete().eq("id", id);
   if (error) throw error;
+  logActivity({ action: "delete", section: "tasks", section_label: "المهام", entity_id: id, details: "حذف مهمة" });
 }
 
 // ─── DAILY AUTO-TASKS SYSTEM ──────────────────────────────────────────────

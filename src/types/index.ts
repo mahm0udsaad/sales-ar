@@ -594,3 +594,16 @@ export interface LearningQuiz {
   created_at: string;
   updated_at: string;
 }
+
+export interface ActivityLog {
+  id: string;
+  org_id: string;
+  action: "create" | "update" | "delete";
+  section: string;
+  section_label: string;
+  entity_id?: string;
+  entity_title?: string;
+  user_name?: string;
+  details?: string;
+  created_at: string;
+}
