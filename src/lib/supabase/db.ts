@@ -2221,3 +2221,77 @@ export async function seedLearningAcademy(): Promise<void> {
     }
   }
 }
+
+// ─── RECENT UPDATES ─────────────────────────────────────────────────────────
+
+export interface RecentUpdateItem {
+  id: string;
+  section: string;
+  section_label: string;
+  section_color: string;
+  title: string;
+  subtitle?: string;
+  action: "created" | "updated";
+  timestamp: string;
+}
+
+export async function fetchRecentUpdates(): Promise<RecentUpdateItem[]> {
+  const supabase = createClient();
+  const orgId = getOrgId();
+
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const sections = [
+    { table: "deals", key: "sales", label: "المبيعات", color: "emerald", titleField: "client_name", subtitleField: "assigned_rep_name" },
+    { table: "tickets", key: "support", label: "الدعم", color: "orange", titleField: "client_name", subtitleField: "issue" },
+    { table: "renewals", key: "renewals", label: "التجديدات", color: "sky", titleField: "customer_name", subtitleField: "plan_name" },
+    { table: "projects", key: "development", label: "التطويرات", color: "indigo", titleField: "name", subtitleField: "status_tag" },
+    { table: "partnerships", key: "partnerships", label: "الشراكات", color: "teal", titleField: "name", subtitleField: "type" },
+    { table: "employee_tasks", key: "tasks", label: "المهام", color: "indigo", titleField: "title", subtitleField: "assigned_to_name" },
+    { table: "reviews", key: "satisfaction", label: "رضا العملاء", color: "rose", titleField: "customer_name", subtitleField: "comment" },
+    { table: "monthly_expenses", key: "finance", label: "المالية", color: "lime", titleField: "category", subtitleField: "description" },
+    { table: "target_clients", key: "targeting", label: "الاستهداف", color: "fuchsia", titleField: "client_name", subtitleField: "source" },
+    { table: "gift_offers", key: "gifts", label: "الهدايا", color: "amber", titleField: "client_name", subtitleField: "gift_title" },
+    { table: "marketers", key: "marketers", label: "المسوقين", color: "pink", titleField: "name", subtitleField: "notes" },
+  ] as const;
+
+  const results = await Promise.allSettled(
+    sections.map(async (sec) => {
+      const { data } = await supabase
+        .from(sec.table)
+        .select("*")
+        .eq("org_id", orgId)
+        .gte("updated_at", weekAgo)
+        .order("updated_at", { ascending: false })
+        .limit(20);
+
+      if (!data) return [];
+
+      return data.map((row: Record<string, unknown>): RecentUpdateItem => {
+        const createdAt = row.created_at as string;
+        const updatedAt = row.updated_at as string;
+        const isNew = createdAt === updatedAt || (new Date(updatedAt).getTime() - new Date(createdAt).getTime()) < 2000;
+
+        return {
+          id: row.id as string,
+          section: sec.key,
+          section_label: sec.label,
+          section_color: sec.color,
+          title: (row[sec.titleField] as string) || "",
+          subtitle: sec.subtitleField ? (row[sec.subtitleField] as string) || undefined : undefined,
+          action: isNew ? "created" : "updated",
+          timestamp: updatedAt,
+        };
+      });
+    })
+  );
+
+  const allItems: RecentUpdateItem[] = [];
+  for (const r of results) {
+    if (r.status === "fulfilled") allItems.push(...r.value);
+  }
+
+  allItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  return allItems;
+}

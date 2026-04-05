@@ -29,6 +29,7 @@ import {
   Palette,
   Package,
   GraduationCap,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -36,6 +37,7 @@ import { countPendingDeals } from "@/lib/supabase/db";
 
 const NAV_ITEMS = [
   { label: "نظرة عامة", href: "/dashboard", slug: "dashboard", icon: LayoutDashboard, color: "cyan" },
+  { label: "التحديثات الأخيرة", href: "/recent-updates", slug: "recent-updates", icon: History, color: "cyan" },
   { label: "قائمة الطلبات", href: "/requests", slug: "requests", icon: Inbox, color: "violet" },
   { label: "مبيعات المكتب", href: "/sales", slug: "sales", icon: TrendingUp, color: "emerald" },
   { label: "مبيعات الدعم", href: "/support-sales", slug: "support-sales", icon: TrendingUp, color: "orange" },
