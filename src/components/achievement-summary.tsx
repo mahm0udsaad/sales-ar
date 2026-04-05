@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { formatMoneyFull } from "@/lib/utils/format";
 import {
   Award,
@@ -10,6 +10,9 @@ import {
   Users,
   Zap,
   Calendar,
+  Share2,
+  Download,
+  Loader2,
 } from "lucide-react";
 
 type SummaryPeriod = "today" | "week" | "month" | "quarter" | "custom";
@@ -50,6 +53,44 @@ export function AchievementSummary({
 }: AchievementSummaryProps) {
   const [period, setPeriod] = useState<SummaryPeriod>("month");
   const [customRange, setCustomRange] = useState({ from: "", to: "" });
+  const [isExporting, setIsExporting] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleShare = useCallback(async () => {
+    if (!cardRef.current || isExporting) return;
+    setIsExporting(true);
+    try {
+      const { toPng } = await import("html-to-image");
+      const dataUrl = await toPng(cardRef.current, {
+        backgroundColor: "#0c0e14",
+        pixelRatio: 2,
+        style: { borderRadius: "0" },
+      });
+
+      // Convert data URL to blob
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const file = new File([blob], "achievement-summary.png", { type: "image/png" });
+
+      // Try Web Share API first (works on mobile, supports WhatsApp)
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          title: "ملخص الإنجازات",
+          files: [file],
+        });
+      } else {
+        // Fallback: download the image
+        const link = document.createElement("a");
+        link.href = dataUrl;
+        link.download = "achievement-summary.png";
+        link.click();
+      }
+    } catch {
+      // User cancelled share or error
+    } finally {
+      setIsExporting(false);
+    }
+  }, [isExporting]);
 
   const summary = useMemo(() => {
     const now = new Date();
@@ -135,12 +176,25 @@ export function AchievementSummary({
   }
 
   return (
-    <div className="cc-card rounded-[14px] p-5 border border-cyan/10 bg-gradient-to-l from-cyan/[0.03] to-transparent">
+    <div ref={cardRef} className="cc-card rounded-[14px] p-5 border border-cyan/10 bg-gradient-to-l from-cyan/[0.03] to-transparent">
       {/* Header + period selector */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
           <Award className="w-5 h-5 text-cyan" />
           <h3 className="text-sm font-bold text-foreground">ملخص الإنجازات</h3>
+          <button
+            onClick={handleShare}
+            disabled={isExporting}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-cyan hover:bg-cyan/10 transition-colors disabled:opacity-50"
+            title="مشاركة كصورة"
+          >
+            {isExporting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Share2 className="w-3.5 h-3.5" />
+            )}
+            مشاركة
+          </button>
         </div>
         <div className="flex items-center gap-1.5 bg-white/[0.05] rounded-lg p-1 border border-white/[0.06]">
           {([
