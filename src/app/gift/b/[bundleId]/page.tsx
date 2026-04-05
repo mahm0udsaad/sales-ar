@@ -49,8 +49,10 @@ export default function BundleGiftPage() {
       .then((data) => {
         if (!data.length) { setNotFound(true); return; }
         setGifts(data);
+        const maxAttempts = Math.min(2, data.length);
         // Check if unregistered client
         if (data[0].client_name === UNREGISTERED_MARKER) {
+          setAttemptsLeft(maxAttempts);
           setStage("register");
           return;
         }
@@ -60,7 +62,7 @@ export default function BundleGiftPage() {
         // Check attempts from localStorage
         const key = `gift_attempts_${bundleId}`;
         const used = parseInt(localStorage.getItem(key) || "0", 10);
-        const remaining = Math.max(0, 2 - used);
+        const remaining = Math.max(0, maxAttempts - used);
         setAttemptsLeft(remaining);
         if (remaining <= 0) {
           const opened = data.find(g => g.status === "opened");
@@ -78,6 +80,10 @@ export default function BundleGiftPage() {
     try {
       await registerGiftBundleClient(bundleId, regName.trim(), regPhone.trim());
       setGifts(gifts.map(g => ({ ...g, client_name: regName.trim(), client_phone: regPhone.trim() })));
+      // Reset attempts after registration
+      const maxAttempts = Math.min(2, gifts.length);
+      localStorage.setItem(`gift_attempts_${bundleId}`, "0");
+      setAttemptsLeft(maxAttempts);
       setStage("box");
     } catch {
       // ignore
@@ -89,10 +95,11 @@ export default function BundleGiftPage() {
   const handleOpenBox = useCallback(() => {
     if (stage !== "box" || gifts.length === 0 || attemptsLeft <= 0) return;
 
+    const maxAttempts = Math.min(2, gifts.length);
     const key = `gift_attempts_${bundleId}`;
     const used = parseInt(localStorage.getItem(key) || "0", 10) + 1;
     localStorage.setItem(key, String(used));
-    setAttemptsLeft(Math.max(0, 2 - used));
+    setAttemptsLeft(Math.max(0, maxAttempts - used));
 
     setStage("spinning");
 
