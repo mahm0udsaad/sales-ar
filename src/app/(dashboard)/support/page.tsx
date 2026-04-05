@@ -167,6 +167,8 @@ export default function SupportPage() {
   // Card filter: "مفتوح" | "قيد الحل" | "محلول" | "عاجل" | null
   const [cardFilter, setCardFilter] = useState<string | null>(null);
   const [clientSearch, setClientSearch] = useState("");
+  // Type filter: "problem" | "service" | null
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
 
   // Achievement summary
   const [achieveFilter, setAchieveFilter] = useState<string | null>(null);
@@ -205,9 +207,6 @@ export default function SupportPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [orgId]);
-
-  // Type filter: "problem" | "service" | null
-  const [typeFilter, setTypeFilter] = useState<string | null>(null);
 
   /* ---------- derived counts ---------- */
   const countOpen = monthTickets.filter((t) => t.status === "مفتوح").length;
