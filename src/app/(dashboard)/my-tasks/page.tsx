@@ -13,10 +13,15 @@ import {
   fetchDeals,
   fetchPendingDeals,
   getOrgId,
+  generateDailyAutoTasks,
+  fetchWeeklyTaskStats,
+  fetchAllRepsDailyStats,
+  fetchDailyTasksTemplate,
+  upsertDailyTasksTemplate,
+  type DailyTaskTemplate,
 } from "@/lib/supabase/db";
 import { SOURCES, PLANS } from "@/lib/utils/constants";
 import { formatMoney } from "@/lib/utils/format";
-import type { EmployeeTask } from "@/types";
 import {
   CheckCircle2,
   Clock,
@@ -43,7 +48,12 @@ import {
   Play,
   Pause,
   RotateCcw,
+  Eye,
+  Settings,
+  Trash2,
+  ChevronDown,
 } from "lucide-react";
+import type { EmployeeTask } from "@/types";
 
 /* ─── Motivational Quotes ─── */
 const MOTIVATIONAL_QUOTES = [
@@ -166,14 +176,33 @@ const EMPTY_CLIENT_FORM = {
   sales_type: "office" as "office" | "support",
 };
 
+type PageTab = "my-tasks" | "overview" | "settings";
+
 export default function MyTasksPage() {
   const { user } = useAuth();
+  const isAdmin = user?.isSuperAdmin || user?.roleName === "admin" || user?.roleName === "مدير";
   const [tasks, setTasks] = useState<EmployeeTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("today");
   const [stats, setStats] = useState({ total: 0, completed: 0, pending: 0, in_progress: 0, overdue: 0 });
   const [myRank, setMyRank] = useState<{ rank: number; total: number; rate: number }>({ rank: 0, total: 0, rate: 0 });
   const [completionNote, setCompletionNote] = useState<{ taskId: string; note: string } | null>(null);
+
+  /* Page tab (admin sees more tabs) */
+  const [activeTab, setActiveTab] = useState<PageTab>("my-tasks");
+
+  /* Weekly stats for stats bar */
+  const [weekStats, setWeekStats] = useState({ completed: 0, total: 0 });
+
+  /* Admin overview */
+  const [repsStats, setRepsStats] = useState<{ employee_id: string; employee_name: string; total: number; completed: number; rate: number; tasks: EmployeeTask[] }[]>([]);
+  const [expandedRep, setExpandedRep] = useState<string | null>(null);
+
+  /* Admin settings — task templates */
+  const [taskTemplates, setTaskTemplates] = useState<DailyTaskTemplate[]>([]);
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [templateDraft, setTemplateDraft] = useState<DailyTaskTemplate[]>([]);
+  const [templateSaving, setTemplateSaving] = useState(false);
 
   /* Sales performance */
   const [salesStats, setSalesStats] = useState({
@@ -288,13 +317,22 @@ export default function MyTasksPage() {
   const loadData = useCallback(async () => {
     if (!user) return;
     try {
-      const [tasksResult, statsResult, teamResult, dealsResult, pendingResult] = await Promise.allSettled([
+      // Generate auto-tasks for today (idempotent — won't duplicate)
+      await generateDailyAutoTasks(user.id, user.name).catch(() => {});
+
+      const [tasksResult, statsResult, teamResult, dealsResult, pendingResult, weekResult] = await Promise.allSettled([
         fetchEmployeeTasks({ assigned_to: user.id }),
         fetchMyTaskStats(user.id),
         fetchTeamTaskStats(),
         fetchDeals(),
         fetchPendingDeals(),
+        fetchWeeklyTaskStats(user.id),
       ]);
+
+      // Weekly stats
+      if (weekResult.status === "fulfilled") {
+        setWeekStats(weekResult.value);
+      }
 
       // Tasks - core data, always update
       if (tasksResult.status === "fulfilled") {
@@ -345,6 +383,33 @@ export default function MyTasksPage() {
   }, [user]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  /* Load admin data when switching to admin tabs */
+  const loadAdminData = useCallback(async () => {
+    const today = new Date().toISOString().split("T")[0];
+    const [repsResult, templateResult] = await Promise.allSettled([
+      fetchAllRepsDailyStats(today),
+      fetchDailyTasksTemplate(),
+    ]);
+    if (repsResult.status === "fulfilled") setRepsStats(repsResult.value);
+    if (templateResult.status === "fulfilled") setTaskTemplates(templateResult.value);
+  }, []);
+
+  useEffect(() => {
+    if (isAdmin && (activeTab === "overview" || activeTab === "settings")) {
+      loadAdminData();
+    }
+  }, [isAdmin, activeTab, loadAdminData]);
+
+  /* ─── Today's task stats for stats bar ─── */
+  const todayStats = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    const todayTasks = tasks.filter(t => t.due_date === today);
+    const completed = todayTasks.filter(t => t.status === "completed").length;
+    const total = todayTasks.length;
+    const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+    return { completed, total, rate };
+  }, [tasks]);
 
   /* ─── Add Client Handler ─── */
   const handleAddClient = async () => {
@@ -579,6 +644,261 @@ export default function MyTasksPage() {
           </div>
         </div>
       </div>
+
+      {/* ─── Admin Tabs ─── */}
+      {isAdmin && (
+        <div className="flex items-center gap-2 bg-white/[0.05] rounded-[14px] p-1 border border-white/[0.06]">
+          <button
+            onClick={() => setActiveTab("my-tasks")}
+            className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+              activeTab === "my-tasks" ? "bg-cyan-500 text-white shadow-lg" : "text-gray-400 hover:text-white hover:bg-white/[0.10]"
+            }`}
+          >
+            <Target className="w-4 h-4" /> مهامي
+          </button>
+          <button
+            onClick={() => setActiveTab("overview")}
+            className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+              activeTab === "overview" ? "bg-cyan-500 text-white shadow-lg" : "text-gray-400 hover:text-white hover:bg-white/[0.10]"
+            }`}
+          >
+            <Eye className="w-4 h-4" /> نظرة عامة
+          </button>
+          <button
+            onClick={() => setActiveTab("settings")}
+            className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+              activeTab === "settings" ? "bg-cyan-500 text-white shadow-lg" : "text-gray-400 hover:text-white hover:bg-white/[0.10]"
+            }`}
+          >
+            <Settings className="w-4 h-4" /> إعدادات المهام
+          </button>
+        </div>
+      )}
+
+      {/* ─── Stats Bar ─── */}
+      {activeTab === "my-tasks" && (
+        <div className="grid grid-cols-3 gap-4">
+          <div className="glass-surface rounded-2xl p-4 border border-white/[0.06] text-center">
+            <p className="text-gray-400 text-xs mb-1">نشاط اليوم</p>
+            <p className="text-2xl font-bold">
+              <span className={todayStats.rate >= 80 ? "text-emerald-400" : todayStats.rate >= 50 ? "text-amber-400" : "text-red-400"}>
+                {todayStats.completed}
+              </span>
+              <span className="text-gray-500 text-sm">/{todayStats.total}</span>
+            </p>
+          </div>
+          <div className="glass-surface rounded-2xl p-4 border border-white/[0.06] text-center">
+            <p className="text-gray-400 text-xs mb-1">نشاط الأسبوع</p>
+            <p className="text-2xl font-bold">
+              <span className="text-cyan-400">{weekStats.completed}</span>
+              <span className="text-gray-500 text-sm">/{weekStats.total}</span>
+            </p>
+          </div>
+          <div className="glass-surface rounded-2xl p-4 border border-white/[0.06] text-center">
+            <p className="text-gray-400 text-xs mb-1">نسبة الإنجاز</p>
+            <p className={`text-2xl font-bold ${todayStats.rate >= 80 ? "text-emerald-400" : todayStats.rate >= 50 ? "text-amber-400" : "text-red-400"}`}>
+              {todayStats.rate}%
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ─── ADMIN: Overview Tab ─── */}
+      {activeTab === "overview" && isAdmin && (
+        <div className="space-y-4">
+          <h2 className="text-white font-bold text-lg flex items-center gap-2">
+            <Users className="w-5 h-5 text-cyan-400" /> أداء المندوبين اليوم
+          </h2>
+          {repsStats.length === 0 ? (
+            <div className="text-center py-12 glass-surface rounded-2xl border border-white/[0.06]">
+              <Users className="w-10 h-10 text-gray-500 mx-auto mb-3" />
+              <p className="text-gray-400">لا توجد بيانات لليوم بعد</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {repsStats.map((rep) => (
+                <div key={rep.employee_id}>
+                  <button
+                    onClick={() => setExpandedRep(expandedRep === rep.employee_id ? null : rep.employee_id)}
+                    className={`w-full glass-surface rounded-2xl p-4 border transition-all ${
+                      rep.rate >= 80 ? "border-emerald-500/20" : rep.rate >= 50 ? "border-amber-500/20" : "border-red-500/20"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-[14px] flex items-center justify-center text-sm font-bold ring-1 ${
+                          rep.rate >= 80 ? "bg-emerald-500/15 text-emerald-400 ring-emerald-500/20" :
+                          rep.rate >= 50 ? "bg-amber-500/15 text-amber-400 ring-amber-500/20" :
+                          "bg-red-500/15 text-red-400 ring-red-500/20"
+                        }`}>
+                          {rep.employee_name?.[0] || "م"}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-white font-semibold text-sm">{rep.employee_name}</p>
+                          <p className="text-gray-400 text-xs">{rep.completed}/{rep.total} مهام</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-lg font-bold ${
+                          rep.rate >= 80 ? "text-emerald-400" : rep.rate >= 50 ? "text-amber-400" : "text-red-400"
+                        }`}>
+                          {rep.rate}%
+                        </span>
+                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${expandedRep === rep.employee_id ? "rotate-180" : ""}`} />
+                      </div>
+                    </div>
+                    {/* Progress bar */}
+                    <div className="w-full h-2 rounded-full bg-white/[0.10] mt-3 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ${
+                          rep.rate >= 80 ? "bg-emerald-500" : rep.rate >= 50 ? "bg-amber-500" : "bg-red-500"
+                        }`}
+                        style={{ width: `${rep.rate}%` }}
+                      />
+                    </div>
+                  </button>
+                  {/* Expanded task details */}
+                  {expandedRep === rep.employee_id && (
+                    <div className="mt-1 mr-4 space-y-1.5">
+                      {rep.tasks.map((t) => (
+                        <div key={t.id} className="flex items-center gap-2 bg-white/[0.03] rounded-xl p-3 border border-white/[0.04]">
+                          <div className={`w-5 h-5 rounded-md flex items-center justify-center ${t.status === "completed" ? "bg-emerald-500" : "border border-white/20"}`}>
+                            {t.status === "completed" && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                          </div>
+                          <span className={`text-sm flex-1 ${t.status === "completed" ? "text-gray-500 line-through" : "text-white"}`}>{t.title}</span>
+                          {t.completed_at && (
+                            <span className="text-[10px] text-gray-500">{new Date(t.completed_at).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── ADMIN: Settings Tab ─── */}
+      {activeTab === "settings" && isAdmin && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-white font-bold text-lg flex items-center gap-2">
+              <Settings className="w-5 h-5 text-cyan-400" /> المهام اليومية التلقائية
+            </h2>
+            <button
+              onClick={() => {
+                setTemplateDraft([...taskTemplates]);
+                setShowTemplateEditor(true);
+              }}
+              className="px-4 py-2 rounded-[14px] bg-cyan-500 hover:bg-cyan-600 text-white text-sm font-medium transition-all flex items-center gap-2"
+            >
+              <Settings className="w-4 h-4" /> تعديل المهام
+            </button>
+          </div>
+
+          <div className="glass-surface rounded-2xl p-5 border border-white/[0.06]">
+            <p className="text-gray-400 text-sm mb-4">هذه المهام تنزل تلقائياً لكل مندوب كل يوم عمل (الأحد - الخميس):</p>
+            <div className="space-y-2">
+              {taskTemplates.map((t, i) => (
+                <div key={i} className="flex items-center gap-3 bg-white/[0.04] rounded-xl p-3 border border-white/[0.06]">
+                  <span className="text-base">{TASK_TYPES[t.type]?.emoji || "📋"}</span>
+                  <span className="text-white text-sm font-medium flex-1">{t.title}</span>
+                  <span className="text-gray-500 text-xs px-2 py-1 rounded-lg bg-white/[0.06]">{TASK_TYPES[t.type]?.label || t.type}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Template Editor Modal ─── */}
+      {showTemplateEditor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" dir="rtl">
+          <div className="bg-card rounded-2xl border border-border w-full max-w-lg p-6 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Settings className="w-5 h-5 text-cyan-400" /> تعديل المهام اليومية
+              </h2>
+              <button onClick={() => setShowTemplateEditor(false)} className="p-2 rounded-lg hover:bg-white/10 text-gray-400"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="space-y-3 mb-4">
+              {templateDraft.map((t, i) => (
+                <div key={i} className="flex items-center gap-2 bg-white/[0.04] rounded-xl p-3 border border-white/[0.06]">
+                  <input
+                    value={t.title}
+                    onChange={(e) => {
+                      const draft = [...templateDraft];
+                      draft[i] = { ...draft[i], title: e.target.value };
+                      setTemplateDraft(draft);
+                    }}
+                    className="flex-1 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-500/50"
+                  />
+                  <select
+                    value={t.type}
+                    onChange={(e) => {
+                      const draft = [...templateDraft];
+                      draft[i] = { ...draft[i], type: e.target.value as DailyTaskTemplate["type"] };
+                      setTemplateDraft(draft);
+                    }}
+                    className="px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white text-sm focus:outline-none focus:border-cyan-500/50"
+                  >
+                    {Object.entries(TASK_TYPES).map(([k, v]) => (
+                      <option key={k} value={k}>{v.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setTemplateDraft(templateDraft.filter((_, j) => j !== i))}
+                    className="p-2 rounded-lg hover:bg-red-500/10 text-gray-400 hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setTemplateDraft([...templateDraft, { title: "", type: "general" }])}
+              className="w-full py-2.5 rounded-[14px] border-2 border-dashed border-white/10 text-gray-400 hover:border-cyan-500/30 hover:text-cyan-400 text-sm font-medium transition-all flex items-center justify-center gap-2 mb-4"
+            >
+              <Plus className="w-4 h-4" /> إضافة مهمة
+            </button>
+
+            <div className="flex gap-3">
+              <button
+                onClick={async () => {
+                  const valid = templateDraft.filter(t => t.title.trim());
+                  setTemplateSaving(true);
+                  try {
+                    await upsertDailyTasksTemplate(valid);
+                    setTaskTemplates(valid);
+                    setShowTemplateEditor(false);
+                  } catch (e) {
+                    console.error(e);
+                  } finally {
+                    setTemplateSaving(false);
+                  }
+                }}
+                disabled={templateSaving}
+                className="flex-1 py-3 rounded-[14px] bg-cyan-500 hover:bg-cyan-600 disabled:opacity-40 text-white font-medium transition-all flex items-center justify-center gap-2"
+              >
+                {templateSaving ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "حفظ التغييرات"}
+              </button>
+              <button
+                onClick={() => setShowTemplateEditor(false)}
+                className="px-5 py-3 rounded-[14px] bg-white/[0.10] hover:bg-white/10 text-gray-400 font-medium transition-all"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── My Tasks Content (only show when on my-tasks tab) ─── */}
+      {activeTab !== "my-tasks" ? null : (<>
 
       {/* Daily Quote */}
       <div className="glass-surface rounded-2xl p-5 border border-white/[0.06] relative overflow-hidden">
@@ -990,6 +1310,9 @@ export default function MyTasksPage() {
           })
         )}
       </div>
+
+      {/* End of my-tasks tab conditional */}
+      </>)}
 
       {/* ─── Add Client Modal ─── */}
       {showClientForm && (

@@ -1617,6 +1617,150 @@ export async function deleteEmployeeTask(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// ─── DAILY AUTO-TASKS SYSTEM ──────────────────────────────────────────────
+
+export interface DailyTaskTemplate {
+  title: string;
+  type: "call" | "followup" | "meeting" | "general" | "renewal" | "support";
+}
+
+const DEFAULT_DAILY_TASKS: DailyTaskTemplate[] = [
+  { title: "إجراء 5 مكالمات جديدة", type: "call" },
+  { title: "متابعة 3 عملاء حاليين", type: "followup" },
+  { title: "تحديث Pipeline", type: "general" },
+  { title: "إرسال عرض سعر واحد على الأقل", type: "general" },
+];
+
+export async function fetchDailyTasksTemplate(): Promise<DailyTaskTemplate[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("sales_guide_settings")
+    .select("setting_value")
+    .eq("org_id", getOrgId())
+    .eq("setting_key", "daily_tasks_template")
+    .single();
+  if (data?.setting_value && Array.isArray(data.setting_value)) {
+    return data.setting_value as DailyTaskTemplate[];
+  }
+  return DEFAULT_DAILY_TASKS;
+}
+
+export async function upsertDailyTasksTemplate(template: DailyTaskTemplate[]): Promise<void> {
+  await upsertSalesGuideSetting("daily_tasks_template", template);
+}
+
+export async function generateDailyAutoTasks(
+  userId: string,
+  userName: string
+): Promise<EmployeeTask[]> {
+  const today = new Date().toISOString().split("T")[0];
+  const dayOfWeek = new Date().getDay(); // 0=Sun, 5=Fri, 6=Sat
+  // Only generate on workdays (Sun=0 through Thu=4)
+  if (dayOfWeek === 5 || dayOfWeek === 6) return [];
+
+  const supabase = createClient();
+  const orgId = getOrgId();
+
+  // Check if auto-tasks for today already exist
+  const { data: existing } = await supabase
+    .from("employee_tasks")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("assigned_to", userId)
+    .eq("due_date", today)
+    .eq("assigned_by_name", "نظام تلقائي")
+    .limit(1);
+
+  if (existing && existing.length > 0) return [];
+
+  // Fetch template
+  const template = await fetchDailyTasksTemplate();
+
+  // Create tasks
+  const tasksToInsert = template.map((t) => ({
+    org_id: orgId,
+    title: t.title,
+    task_type: t.type,
+    priority: "medium" as const,
+    status: "pending" as const,
+    assigned_to: userId,
+    assigned_to_name: userName,
+    assigned_by: "system",
+    assigned_by_name: "نظام تلقائي",
+    due_date: today,
+    start_date: today,
+  }));
+
+  const { data, error } = await supabase
+    .from("employee_tasks")
+    .insert(tasksToInsert)
+    .select();
+  if (error) throw error;
+  return (data ?? []) as EmployeeTask[];
+}
+
+export async function fetchAllRepsDailyStats(date: string): Promise<{
+  employee_id: string;
+  employee_name: string;
+  total: number;
+  completed: number;
+  rate: number;
+  tasks: EmployeeTask[];
+}[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("employee_tasks")
+    .select("*")
+    .eq("org_id", getOrgId())
+    .eq("due_date", date);
+  if (error) throw error;
+  const tasks = (data ?? []) as EmployeeTask[];
+
+  const map = new Map<string, { name: string; total: number; completed: number; tasks: EmployeeTask[] }>();
+  for (const t of tasks) {
+    const existing = map.get(t.assigned_to) || { name: t.assigned_to_name, total: 0, completed: 0, tasks: [] };
+    existing.total++;
+    if (t.status === "completed") existing.completed++;
+    existing.tasks.push(t);
+    map.set(t.assigned_to, existing);
+  }
+
+  return Array.from(map.entries()).map(([id, s]) => ({
+    employee_id: id,
+    employee_name: s.name,
+    total: s.total,
+    completed: s.completed,
+    rate: s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0,
+    tasks: s.tasks,
+  })).sort((a, b) => b.rate - a.rate);
+}
+
+export async function fetchWeeklyTaskStats(userId: string): Promise<{ completed: number; total: number }> {
+  const supabase = createClient();
+  const now = new Date();
+  const day = now.getDay();
+  const start = new Date(now);
+  start.setDate(now.getDate() - day);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  const startStr = start.toISOString().split("T")[0];
+  const endStr = end.toISOString().split("T")[0];
+
+  const { data, error } = await supabase
+    .from("employee_tasks")
+    .select("status")
+    .eq("org_id", getOrgId())
+    .eq("assigned_to", userId)
+    .gte("due_date", startStr)
+    .lte("due_date", endStr);
+  if (error) throw error;
+  const tasks = data ?? [];
+  return {
+    total: tasks.length,
+    completed: tasks.filter((t) => t.status === "completed").length,
+  };
+}
+
 export async function fetchMyTaskStats(userId: string): Promise<{ total: number; completed: number; pending: number; in_progress: number; overdue: number }> {
   const supabase = createClient();
   const { data, error } = await supabase
