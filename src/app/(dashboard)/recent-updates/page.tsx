@@ -524,13 +524,21 @@ export default function RecentUpdatesPage() {
                           </span>
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          {item.user_name && (
-                            <span className="inline-flex items-center gap-1 text-xs text-cyan-400/80">
+                          {item.modified_by && (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-400/90">
                               <User className="w-3 h-3" />
+                              {item.modified_by}
+                            </span>
+                          )}
+                          {item.modified_by && item.user_name && (
+                            <span className="text-muted-foreground/30 text-[10px]">|</span>
+                          )}
+                          {item.user_name && (
+                            <span className="inline-flex items-center gap-1 text-xs text-cyan-400/70">
                               {item.user_name}
                             </span>
                           )}
-                          {item.user_name && item.subtitle && (
+                          {(item.modified_by || item.user_name) && item.subtitle && (
                             <span className="text-muted-foreground/30 text-[10px]">|</span>
                           )}
                           {item.subtitle && (

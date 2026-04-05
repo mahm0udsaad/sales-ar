@@ -2343,6 +2343,7 @@ export interface RecentUpdateItem {
   title: string;
   subtitle?: string;
   user_name?: string;
+  modified_by?: string;
   action: "created" | "updated";
   timestamp: string;
 }
@@ -2368,6 +2369,24 @@ export async function fetchRecentUpdates(): Promise<RecentUpdateItem[]> {
     { table: "marketers", key: "marketers", label: "المسوقين", color: "pink", titleField: "name", subtitleField: "notes", userField: "" },
   ] as const;
 
+  // Fetch activity logs for the same period to get the actual user who performed the action
+  const { data: logs } = await supabase
+    .from("activity_logs")
+    .select("entity_id, user_name, section, action, created_at")
+    .eq("org_id", orgId)
+    .gte("created_at", weekAgo)
+    .order("created_at", { ascending: false });
+
+  // Build a lookup: entity_id → most recent user_name from logs
+  const logLookup = new Map<string, string>();
+  if (logs) {
+    for (const log of logs) {
+      if (log.entity_id && log.user_name && !logLookup.has(log.entity_id)) {
+        logLookup.set(log.entity_id, log.user_name);
+      }
+    }
+  }
+
   const results = await Promise.allSettled(
     sections.map(async (sec) => {
       const { data } = await supabase
@@ -2384,15 +2403,17 @@ export async function fetchRecentUpdates(): Promise<RecentUpdateItem[]> {
         const createdAt = row.created_at as string;
         const updatedAt = row.updated_at as string;
         const isNew = createdAt === updatedAt || (new Date(updatedAt).getTime() - new Date(createdAt).getTime()) < 2000;
+        const entityId = row.id as string;
 
         return {
-          id: row.id as string,
+          id: entityId,
           section: sec.key,
           section_label: sec.label,
           section_color: sec.color,
           title: (row[sec.titleField] as string) || "",
           subtitle: sec.subtitleField ? (row[sec.subtitleField] as string) || undefined : undefined,
           user_name: sec.userField ? (row[sec.userField] as string) || undefined : undefined,
+          modified_by: logLookup.get(entityId) || undefined,
           action: isNew ? "created" : "updated",
           timestamp: updatedAt,
         };
