@@ -130,7 +130,7 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-24 left-6 z-50 w-[420px] max-h-[80vh] bg-card border border-border rounded-2xl shadow-2xl shadow-black/50 flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+    <div className="fixed bottom-24 right-[280px] z-50 w-[420px] max-h-[80vh] bg-card border border-border rounded-2xl shadow-2xl shadow-black/50 flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-gradient-to-l from-cyan/5 to-cc-purple/5">
         <div className="flex items-center gap-2">
