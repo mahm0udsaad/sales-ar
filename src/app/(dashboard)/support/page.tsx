@@ -61,6 +61,8 @@ import {
   ScrollText,
   ChevronDown,
   User,
+  Phone,
+  Search,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -222,7 +224,12 @@ export default function SupportPage() {
         : typeFilteredTickets.filter((t) => t.status === cardFilter)
       : typeFilteredTickets;
   const filteredTickets = clientSearch
-    ? baseFilteredTickets.filter((t) => t.client_name.toLowerCase().includes(clientSearch.toLowerCase()))
+    ? baseFilteredTickets.filter((t) => {
+        const q = clientSearch.toLowerCase().trim();
+        const nameMatch = t.client_name.toLowerCase().includes(q);
+        const phoneMatch = t.client_phone ? t.client_phone.replace(/\s+/g, "").includes(q.replace(/\s+/g, "")) : false;
+        return nameMatch || phoneMatch;
+      })
     : baseFilteredTickets;
 
   useEffect(() => {
@@ -796,12 +803,15 @@ export default function SupportPage() {
       {/* -------- Tickets Table -------- */}
       <div id="tickets-table" className="cc-card rounded-[14px] overflow-x-auto">
         <div className="p-4 pb-0">
-          <Input
-            value={clientSearch}
-            onChange={(e) => setClientSearch(e.target.value)}
-            placeholder="ابحث باسم العميل..."
-            className="max-w-xs"
-          />
+          <div className="relative max-w-sm">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <Input
+              value={clientSearch}
+              onChange={(e) => setClientSearch(e.target.value)}
+              placeholder="ابحث باسم العميل أو رقم الجوال..."
+              className="pr-9"
+            />
+          </div>
         </div>
         <Table>
           <TableHeader>
@@ -990,13 +1000,13 @@ export default function SupportPage() {
             {logsLoading ? (
               <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02]">
-                    <Skeleton className="w-8 h-8 rounded-lg" />
-                    <div className="flex-1 space-y-1.5">
-                      <Skeleton className="h-3 w-32" />
-                      <Skeleton className="h-3 w-20" />
-                    </div>
-                  </div>
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                  </TableRow>
                 ))}
               </div>
             ) : (() => {
@@ -1029,33 +1039,11 @@ export default function SupportPage() {
                 );
               }
 
-              const ACTION_CONFIG = {
+              const ACTION_CONFIG: Record<string, { label: string; icon: typeof Plus; bg: string; dot: string }> = {
                 create: { label: "إضافة", icon: Plus, bg: "bg-emerald-500/10 text-emerald-400", dot: "bg-emerald-400" },
                 update: { label: "تحديث", icon: Pencil, bg: "bg-amber-500/10 text-amber-400", dot: "bg-amber-400" },
                 delete: { label: "حذف", icon: Trash2, bg: "bg-red-500/10 text-red-400", dot: "bg-red-400" },
               };
-
-              // Group by date
-              const groups: { date: string; items: ActivityLog[] }[] = [];
-              const map = new Map<string, ActivityLog[]>();
-              for (const log of filtered) {
-                const d = new Date(log.created_at);
-                const key = isLogToday(log.created_at)
-                  ? "اليوم"
-                  : (() => {
-                      const now = new Date();
-                      const yesterday = new Date(now);
-                      yesterday.setDate(now.getDate() - 1);
-                      return d.getFullYear() === yesterday.getFullYear() && d.getMonth() === yesterday.getMonth() && d.getDate() === yesterday.getDate()
-                        ? "أمس"
-                        : d.toLocaleDateString("ar-SA", { weekday: "long", month: "short", day: "numeric" });
-                    })();
-                if (!map.has(key)) {
-                  map.set(key, []);
-                  groups.push({ date: key, items: map.get(key)! });
-                }
-                map.get(key)!.push(log);
-              }
 
               return (
                 <div className="space-y-4">
@@ -1079,65 +1067,61 @@ export default function SupportPage() {
                     })}
                   </div>
 
-                  {/* Timeline */}
-                  {groups.map((group) => (
-                    <div key={group.date}>
-                      <div className="flex items-center gap-3 mb-2">
-                        <h4 className="text-xs font-bold text-foreground">{group.date}</h4>
-                        <span className="text-[10px] text-muted-foreground bg-white/[0.04] rounded-full px-2 py-0.5">
-                          {group.items.length} عملية
-                        </span>
-                        <div className="flex-1 h-px bg-border" />
-                      </div>
+                  {/* Table View */}
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-right">التاريخ</TableHead>
+                          <TableHead className="text-right">الإجراء</TableHead>
+                          <TableHead className="text-right">التذكرة</TableHead>
+                          <TableHead className="text-right">المستخدم</TableHead>
+                          <TableHead className="text-right">التفاصيل</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filtered.slice(0, 50).map((log) => {
+                          const config = ACTION_CONFIG[log.action];
+                          const ActionIcon = config.icon;
+                          const logDate = new Date(log.created_at);
+                          const dateStr = formatDate(logDate.toISOString().slice(0, 10));
+                          const timeStr = logDate.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
 
-                      <div className="relative pr-4">
-                        <div className="absolute right-[7px] top-3 bottom-3 w-px bg-border" />
-                        <div className="space-y-1">
-                          {group.items.map((log, idx) => {
-                            const config = ACTION_CONFIG[log.action];
-                            const ActionIcon = config.icon;
-                            const logTime = new Date(log.created_at);
-                            const timeStr = logTime.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
-
-                            return (
-                              <div
-                                key={log.id}
-                                className="relative flex items-start gap-3 pr-5 py-1.5 animate-in fade-in-0 slide-in-from-bottom-1 duration-300"
-                                style={{ animationDelay: `${idx * 30}ms` }}
-                              >
-                                <div className={`absolute right-0 top-3.5 w-[13px] h-[13px] rounded-full border-2 border-card ${config.dot} z-10`} />
-
-                                <div className="flex-1 rounded-xl bg-white/[0.02] border border-white/[0.06] px-3.5 py-2.5">
-                                  <div className="flex items-center gap-2">
-                                    <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${config.bg}`}>
-                                      <ActionIcon className="w-2.5 h-2.5" />
-                                      {config.label}
-                                    </span>
-                                    <span className="text-xs font-semibold text-foreground truncate">
-                                      {log.entity_title || "تذكرة"}
-                                    </span>
-                                  </div>
-                                  {log.details && (
-                                    <p className="text-[11px] text-muted-foreground mt-1 truncate">{log.details}</p>
-                                  )}
-                                  <div className="flex items-center gap-2 mt-1">
-                                    {log.user_name && (
-                                      <span className="inline-flex items-center gap-0.5 text-[10px] text-cyan-400/70">
-                                        <User className="w-2.5 h-2.5" />
-                                        {log.user_name}
-                                      </span>
-                                    )}
-                                    {log.user_name && <span className="text-[10px] text-muted-foreground/40">|</span>}
-                                    <span className="text-[10px] text-muted-foreground/70">{timeStr}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                          return (
+                            <TableRow key={log.id}>
+                              <TableCell className="text-right text-xs">
+                                <div className="text-foreground">{dateStr}</div>
+                                <div className="text-[10px] text-muted-foreground/70">{timeStr}</div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-full ${config.bg}`}>
+                                  <ActionIcon className="w-3 h-3" />
+                                  {config.label}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-right text-xs font-medium">
+                                {log.entity_title || "تذكرة"}
+                              </TableCell>
+                              <TableCell className="text-right text-xs">
+                                {log.user_name ? (
+                                  <span className="inline-flex items-center gap-1 text-cyan-400/80">
+                                    <User className="w-3 h-3" />
+                                    {log.user_name}
+                                  </span>
+                                ) : <span className="text-muted-foreground">—</span>}
+                              </TableCell>
+                              <TableCell className="text-right text-xs text-muted-foreground max-w-[250px] truncate">
+                                {log.details || "—"}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {filtered.length > 50 && (
+                    <p className="text-center text-[11px] text-muted-foreground">يتم عرض آخر 50 عملية من أصل {filtered.length}</p>
+                  )}
                 </div>
               );
             })()}
