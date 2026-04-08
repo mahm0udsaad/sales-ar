@@ -31,7 +31,6 @@ import {
   Package,
   GraduationCap,
   History,
-  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -47,7 +46,6 @@ const NAV_ITEMS = [
   // Hidden: merged into "مهامي" — { label: "دليل المبيعات", href: "/sales-guide", slug: "sales-guide", icon: BookOpen, color: "amber" },
   { label: "الاجتماع الأسبوعي", href: "/weekly", slug: "weekly", icon: ClipboardList, color: "violet" },
   { label: "التجديدات", href: "/renewals", slug: "renewals", icon: RefreshCw, color: "sky" },
-  { label: "تحسين التجديدات", href: "/renewal-boost", slug: "renewal-boost", icon: Zap, color: "amber" },
   { label: "تحسين التجديدات", href: "/renewal-boost", slug: "renewal-boost", icon: Zap, color: "amber" },
   { label: "رضا العملاء", href: "/satisfaction", slug: "satisfaction", icon: Heart, color: "rose" },
   { label: "قائمة الاستهداف", href: "/targeting", slug: "targeting", icon: Target, color: "fuchsia" },
