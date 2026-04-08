@@ -24,33 +24,13 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { NAV_ITEMS } from "@/components/layout/sidebar";
 
-// All available pages with Arabic labels
+// Derive pages from sidebar nav items automatically + extra hidden pages
 const ALL_PAGES = [
-  { slug: "dashboard", label: "نظرة عامة" },
-  { slug: "my-tasks", label: "مهامي" },
-  { slug: "tasks", label: "إدارة المهام" },
-  { slug: "requests", label: "قائمة الطلبات" },
-  { slug: "sales", label: "المبيعات" },
-  { slug: "support-sales", label: "مبيعات الدعم" },
+  ...NAV_ITEMS.map((item) => ({ slug: item.slug, label: item.label })),
+  // Pages not in sidebar but need permission control
   { slug: "sales-guide", label: "دليل المبيعات" },
-  { slug: "weekly", label: "الاجتماع الأسبوعي" },
-  { slug: "renewals", label: "التجديدات" },
-  { slug: "satisfaction", label: "رضا العملاء" },
-  { slug: "targeting", label: "قائمة الاستهداف" },
-  { slug: "gifts", label: "بوكس الهدايا" },
-  { slug: "support", label: "الدعم" },
-  { slug: "development", label: "التطويرات" },
-  { slug: "partnerships", label: "الشراكات" },
-  { slug: "marketers", label: "المسوقين" },
-  { slug: "team", label: "الفريق" },
-  { slug: "learning-academy", label: "أكاديمية التعلم" },
-  { slug: "packages", label: "الباقات" },
-  { slug: "academy", label: "الأكاديمية" },
-  { slug: "finance", label: "المالية" },
-  { slug: "upload", label: "رفع البيانات" },
-  { slug: "users", label: "إدارة المستخدمين" },
-  { slug: "appearance", label: "المظهر" },
   { slug: "agent", label: "المساعد الذكي" },
 ];
 
