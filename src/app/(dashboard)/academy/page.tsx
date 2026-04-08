@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { useOrg } from "@/lib/org-context";
 import {
   fetchAcademyContent,
   createAcademyContent,
@@ -159,11 +160,15 @@ const MSG_CATEGORIES = [
 /* ------------------------------------------------------------------ */
 export default function AcademyPage() {
   const { activeOrgId: orgId, user } = useAuth();
+  const { orgId: currentOrgId } = useOrg();
   const isSuperAdmin = user?.isSuperAdmin ?? false;
+
+  // Map org to platform: org ...001 = menu, org ...002 = reservations
+  const platformSection: SectionKey = currentOrgId === "00000000-0000-0000-0000-000000000002" ? "reservations" : "menu";
 
   const [showTraining, setShowTraining] = useState(false);
   const [showKnowledgeEditor, setShowKnowledgeEditor] = useState(false);
-  const [activeSection, setActiveSection] = useState<SectionKey>("menu");
+  const activeSection = platformSection;
   const [contents, setContents] = useState<AcademyContent[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
@@ -388,29 +393,6 @@ export default function AcademyPage() {
             </Button>
           )}
         </div>
-      </div>
-
-      {/* -------- Section Tabs -------- */}
-      <div className="flex gap-2">
-        {(Object.entries(SECTIONS) as [SectionKey, typeof SECTIONS[SectionKey]][]).map(([key, sec]) => {
-          const Icon = sec.icon;
-          const isActive = activeSection === key;
-          const cm = colorMap[sec.color];
-          return (
-            <button
-              key={key}
-              onClick={() => setActiveSection(key)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-[14px] text-sm font-medium transition-all ${
-                isActive
-                  ? `${cm.bg} ${cm.text} ring-1 ${cm.ring}`
-                  : "bg-white/[0.04] text-muted-foreground hover:bg-white/[0.07]"
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {sec.label}
-            </button>
-          );
-        })}
       </div>
 
       {/* -------- Section Hero -------- */}
@@ -812,18 +794,6 @@ export default function AcademyPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>القسم</Label>
-              <Select value={formSection} onValueChange={(v) => setFormSection(v as SectionKey)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="menu">المنيو الالكتروني</SelectItem>
-                  <SelectItem value="reservations">إدارة الحجوزات</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div className="space-y-1.5">
               <Label>العنوان</Label>
               <Input
