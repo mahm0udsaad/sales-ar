@@ -430,7 +430,7 @@ export interface AppNotification {
 export interface FollowUpNote {
   id: string;
   org_id: string;
-  entity_type: "deal" | "renewal";
+  entity_type: "deal" | "renewal" | "ticket";
   entity_id: string;
   note: string;
   author_name: string;
@@ -443,7 +443,7 @@ export interface MentionNotification {
   id: string;
   org_id: string;
   note_id: string;
-  entity_type: "deal" | "renewal";
+  entity_type: "deal" | "renewal" | "ticket";
   entity_id: string;
   entity_name: string;
   mentioned_name: string;

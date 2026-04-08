@@ -44,7 +44,7 @@ function MentionNotifLoader({ onLoad }: { onLoad: (n: AppNotification[]) => void
           type: "crud_action" as const,
           icon: "💬",
           message: `${m.author_name} أشار إليك في متابعة "${m.entity_name}": ${m.note_text.slice(0, 60)}...`,
-          section: m.entity_type === "deal" ? "sales" : "renewals",
+          section: m.entity_type === "deal" ? "sales" : m.entity_type === "ticket" ? "support" : "renewals",
           timestamp: m.created_at,
           isRead: false,
         }));
@@ -186,14 +186,14 @@ async function generateLiveNotifications(): Promise<AppNotification[]> {
       recentNotes
         .filter((n) => new Date(n.created_at).getTime() > oneDayAgo)
         .forEach((n) => {
-          const entityLabel = n.entity_type === "deal" ? "صفقة" : "تجديد";
+          const entityLabel = n.entity_type === "deal" ? "صفقة" : n.entity_type === "ticket" ? "تذكرة" : "تجديد";
           const entityName = n.entity_name || "";
           notifications.push({
             id: `followup-${n.id}`,
             type: "crud_action",
             icon: "📝",
             message: `${n.author_name} أضاف متابعة على ${entityLabel} "${entityName}": ${n.note.slice(0, 60)}${n.note.length > 60 ? "..." : ""}`,
-            section: n.entity_type === "deal" ? "sales" : "renewals",
+            section: n.entity_type === "deal" ? "sales" : n.entity_type === "ticket" ? "support" : "renewals",
             timestamp: n.created_at,
             isRead: false,
           });

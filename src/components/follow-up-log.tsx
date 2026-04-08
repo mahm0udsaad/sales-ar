@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { MessageSquarePlus, Send, Clock, AtSign, Pencil, Trash2, Check, X } from "lucide-react";
 
 interface FollowUpLogProps {
-  entityType: "deal" | "renewal";
+  entityType: "deal" | "renewal" | "ticket";
   entityId: string;
   entityName: string;
 }

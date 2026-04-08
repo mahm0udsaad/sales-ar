@@ -1210,7 +1210,7 @@ export async function deleteMarketer(id: string): Promise<void> {
 
 // ─── FOLLOW-UP NOTES ──────────────────────────────────────────────────────────
 
-export async function fetchFollowUpNotes(entityType: "deal" | "renewal", entityId: string): Promise<FollowUpNote[]> {
+export async function fetchFollowUpNotes(entityType: "deal" | "renewal" | "ticket", entityId: string): Promise<FollowUpNote[]> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("follow_up_notes")
@@ -1224,7 +1224,7 @@ export async function fetchFollowUpNotes(entityType: "deal" | "renewal", entityI
 }
 
 export async function createFollowUpNote(
-  entityType: "deal" | "renewal",
+  entityType: "deal" | "renewal" | "ticket",
   entityId: string,
   note: string,
   authorName: string
