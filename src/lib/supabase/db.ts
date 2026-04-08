@@ -1302,7 +1302,7 @@ export async function fetchRecentFollowUpNotes(limit = 20): Promise<(FollowUpNot
 
 export async function createMentionNotification(
   noteId: string,
-  entityType: "deal" | "renewal",
+  entityType: "deal" | "renewal" | "ticket",
   entityId: string,
   entityName: string,
   mentionedName: string,
