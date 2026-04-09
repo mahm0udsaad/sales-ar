@@ -2502,3 +2502,50 @@ export async function deleteProductFeature(id: string): Promise<void> {
   const { error } = await supabase.from("product_features").delete().eq("id", id);
   if (error) throw error;
 }
+
+// ── Quote Commitments ──────────────────────────────────────────────
+export async function fetchQuoteCommitments(
+  orgId: string,
+  quoteDate: string,
+  salesType: string
+): Promise<{ user_name: string; created_at: string }[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("quote_commitments")
+    .select("user_name, created_at")
+    .eq("org_id", orgId)
+    .eq("quote_date", quoteDate)
+    .eq("sales_type", salesType);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function addQuoteCommitment(
+  orgId: string,
+  userName: string,
+  quoteDate: string,
+  salesType: string
+): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("quote_commitments")
+    .insert({ org_id: orgId, user_name: userName, quote_date: quoteDate, sales_type: salesType });
+  if (error) throw error;
+}
+
+export async function removeQuoteCommitment(
+  orgId: string,
+  userName: string,
+  quoteDate: string,
+  salesType: string
+): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("quote_commitments")
+    .delete()
+    .eq("org_id", orgId)
+    .eq("user_name", userName)
+    .eq("quote_date", quoteDate)
+    .eq("sales_type", salesType);
+  if (error) throw error;
+}

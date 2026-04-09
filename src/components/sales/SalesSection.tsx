@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import type { Deal, Marketer, Package } from "@/types";
-import { fetchDeals, createDeal, updateDeal, deleteDeal, fetchMarketers, createFollowUpNote, fetchRecentFollowUpNotes, fetchPackages } from "@/lib/supabase/db";
+import { fetchDeals, createDeal, updateDeal, deleteDeal, fetchMarketers, createFollowUpNote, fetchRecentFollowUpNotes, fetchPackages, fetchQuoteCommitments, addQuoteCommitment, removeQuoteCommitment } from "@/lib/supabase/db";
 import { AssignTaskModal } from "@/components/tasks/AssignTaskModal";
 import { useAuth } from "@/lib/auth-context";
 import { useTopbarControls } from "@/components/layout/topbar-context";
@@ -69,6 +69,7 @@ import {
   Share2,
   UserPlus,
   User,
+  ThumbsUp,
 } from "lucide-react";
 
 /* ─── Stage badge color mapping ─── */
@@ -429,6 +430,31 @@ export function SalesSection({ salesType }: SalesPageProps) {
       .finally(() => setLoading(false));
   }, [orgId, salesType]);
 
+  /* ─── Quote Commitment ─── */
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [commitments, setCommitments] = useState<{ user_name: string; created_at: string }[]>([]);
+  const myName = authUser?.name || authUser?.email || "";
+  const hasCommitted = commitments.some((c) => c.user_name === myName);
+
+  useEffect(() => {
+    if (orgId) {
+      fetchQuoteCommitments(orgId, todayStr, salesType).then(setCommitments).catch(console.error);
+    }
+  }, [orgId, todayStr, salesType]);
+
+  const toggleCommitment = useCallback(async () => {
+    if (!orgId || !myName) return;
+    try {
+      if (hasCommitted) {
+        await removeQuoteCommitment(orgId, myName, todayStr, salesType);
+        setCommitments((prev) => prev.filter((c) => c.user_name !== myName));
+      } else {
+        await addQuoteCommitment(orgId, myName, todayStr, salesType);
+        setCommitments((prev) => [...prev, { user_name: myName, created_at: new Date().toISOString() }]);
+      }
+    } catch (e) { console.error(e); }
+  }, [orgId, myName, todayStr, salesType, hasCommitted]);
+
   /* ─── Computed values ─── */
   const totalDeals = repFilteredDeals.length;
   const totalValue = repFilteredDeals.reduce((s, d) => s + d.deal_value, 0);
@@ -748,13 +774,40 @@ export function SalesSection({ salesType }: SalesPageProps) {
               const hourIndex = Math.floor(Date.now() / 3600000) % quotes.length;
               const q = quotes[hourIndex];
               return (
-                <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-l from-amber/[0.08] via-cc-purple/[0.05] to-transparent border border-amber/15">
-                  <span className="text-lg">🔥</span>
-                  <div>
-                    <p className="text-[11px] font-medium text-amber italic leading-tight">"{q.text}"</p>
-                    <p className="text-[10px] text-cc-purple mt-0.5 font-semibold">📖 {q.author}</p>
+                <>
+                  <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-l from-amber/[0.08] via-cc-purple/[0.05] to-transparent border border-amber/15">
+                    <span className="text-lg">🔥</span>
+                    <div className="flex-1">
+                      <p className="text-[11px] font-medium text-amber italic leading-tight">"{q.text}"</p>
+                      <p className="text-[10px] text-cc-purple mt-0.5 font-semibold">📖 {q.author}</p>
+                    </div>
+                    <button
+                      onClick={toggleCommitment}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all ${
+                        hasCommitted
+                          ? "bg-green-500/15 text-green-600 border border-green-500/30"
+                          : "bg-muted/50 text-muted-foreground border border-border hover:bg-amber/10 hover:text-amber hover:border-amber/30"
+                      }`}
+                    >
+                      <ThumbsUp className={`w-3 h-3 ${hasCommitted ? "fill-green-500" : ""}`} />
+                      {hasCommitted ? "ملتزم" : "ألتزم"}
+                      {commitments.length > 0 && (
+                        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber/20 text-amber text-[9px] font-bold">
+                          {commitments.length}
+                        </span>
+                      )}
+                    </button>
                   </div>
-                </div>
+                  {commitments.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1 px-3">
+                      {commitments.map((c) => (
+                        <span key={c.user_name} className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 border border-green-500/20">
+                          {c.user_name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </>
               );
             })()}
           </div>
