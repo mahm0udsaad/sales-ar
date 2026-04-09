@@ -22,6 +22,8 @@ import {
   Pencil,
   AlertTriangle,
   Clock,
+  Hourglass,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +40,8 @@ interface Task {
   priority: Priority;
   createdAt: number;
   completedAt?: number;
+  dueDate?: string;
+  dueTime?: string;
 }
 
 interface DailyWin {
@@ -78,6 +82,36 @@ function saveData(tasks: Task[], wins: DailyWin[], notes: string) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ tasks, wins, notes, _day: new Date().toDateString() }));
 }
 
+function getCountdown(dueDate?: string, dueTime?: string): { label: string; urgency: "passed" | "critical" | "warning" | "normal" | "none" } {
+  if (!dueDate) return { label: "", urgency: "none" };
+  const target = new Date(`${dueDate}T${dueTime || "23:59"}:00`);
+  const now = new Date();
+  const diffMs = target.getTime() - now.getTime();
+  if (diffMs <= 0) {
+    const pastMins = Math.floor(Math.abs(diffMs) / 60_000);
+    if (pastMins < 60) return { label: `متأخر ${pastMins} د`, urgency: "passed" };
+    const pastHrs = Math.floor(pastMins / 60);
+    if (pastHrs < 24) return { label: `متأخر ${pastHrs} س`, urgency: "passed" };
+    return { label: `متأخر ${Math.floor(pastHrs / 24)} يوم`, urgency: "passed" };
+  }
+  const totalMins = Math.floor(diffMs / 60_000);
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  const days = Math.floor(hours / 24);
+  const rHrs = hours % 24;
+  if (days > 0) return { label: `متبقي ${days} يوم${rHrs > 0 ? ` ${rHrs} س` : ""}`, urgency: days <= 1 ? "warning" : "normal" };
+  if (hours > 0) return { label: `متبقي ${hours} س${mins > 0 ? ` ${mins} د` : ""}`, urgency: hours <= 2 ? "critical" : "warning" };
+  return { label: `متبقي ${mins} د`, urgency: "critical" };
+}
+
+const COUNTDOWN_COLORS: Record<string, string> = {
+  passed: "text-red-400 bg-red-500/10 border-red-500/20",
+  critical: "text-orange-400 bg-orange-500/10 border-orange-500/20",
+  warning: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+  normal: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+  none: "",
+};
+
 /* ─── Page ─── */
 export default function MaestroPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -99,18 +133,32 @@ export default function MaestroPage() {
     if (loaded) saveData(tasks, wins, notes);
   }, [tasks, wins, notes, loaded]);
 
+  /* ── Tick for countdown ── */
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => clearInterval(iv);
+  }, []);
+
   /* ── Task CRUD ── */
   const [newTask, setNewTask] = useState("");
   const [newCategory, setNewCategory] = useState<Category>("operations");
   const [newPriority, setNewPriority] = useState<Priority>("normal");
+  const [newDueDate, setNewDueDate] = useState("");
+  const [newDueTime, setNewDueTime] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
 
   const addTask = () => {
     const text = newTask.trim();
     if (!text) return;
-    setTasks((prev) => [...prev, { id: crypto.randomUUID(), text, done: false, category: newCategory, priority: newPriority, createdAt: Date.now() }]);
+    const task: Task = { id: crypto.randomUUID(), text, done: false, category: newCategory, priority: newPriority, createdAt: Date.now() };
+    if (newDueDate) task.dueDate = newDueDate;
+    if (newDueTime) task.dueTime = newDueTime;
+    setTasks((prev) => [...prev, task]);
     setNewTask("");
+    setNewDueDate("");
+    setNewDueTime("");
   };
 
   const toggleTask = (id: string) => {
@@ -303,15 +351,21 @@ export default function MaestroPage() {
 
       {/* ── Add Task ── */}
       <div className="cc-card rounded-xl p-4 border border-white/5">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Input
-            value={newTask}
-            onChange={(e) => setNewTask(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addTask()}
-            placeholder="أضف مهمة جديدة..."
-            className="flex-1"
-          />
-          <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              value={newTask}
+              onChange={(e) => setNewTask(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addTask()}
+              placeholder="أضف مهمة جديدة..."
+              className="flex-1"
+            />
+            <Button onClick={addTask} size="sm" className="gap-1 shrink-0">
+              <Plus className="w-4 h-4" />
+              أضف
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
             <select
               value={newCategory}
               onChange={(e) => setNewCategory(e.target.value as Category)}
@@ -326,10 +380,21 @@ export default function MaestroPage() {
             >
               {Object.entries(PRIORITY_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
-            <Button onClick={addTask} size="sm" className="gap-1">
-              <Plus className="w-4 h-4" />
-              أضف
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+              <input
+                type="date"
+                value={newDueDate}
+                onChange={(e) => setNewDueDate(e.target.value)}
+                className="rounded-lg bg-white/5 border border-white/10 text-xs text-foreground px-2 py-1.5"
+              />
+              <input
+                type="time"
+                value={newDueTime}
+                onChange={(e) => setNewDueTime(e.target.value)}
+                className="rounded-lg bg-white/5 border border-white/10 text-xs text-foreground px-2 py-1.5 w-[90px]"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -349,45 +414,61 @@ export default function MaestroPage() {
               </span>
             </h2>
             <div className="space-y-1.5">
-              {catTasks.map((t) => (
-                <div
-                  key={t.id}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-2 transition-all ${
-                    t.done ? "bg-white/[0.02] opacity-50" : "bg-white/[0.04] hover:bg-white/[0.06]"
-                  }`}
-                >
-                  <button onClick={() => toggleTask(t.id)} className="shrink-0">
-                    {t.done
-                      ? <CheckCircle className="w-4 h-4 text-emerald-400" />
-                      : <Circle className="w-4 h-4 text-muted-foreground" />}
-                  </button>
-                  {editingId === t.id ? (
-                    <Input
-                      value={editText}
-                      onChange={(e) => setEditText(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && saveEdit()}
-                      onBlur={saveEdit}
-                      className="flex-1 h-7 text-sm"
-                      autoFocus
-                    />
-                  ) : (
-                    <span className={`flex-1 text-sm ${t.done ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                      {t.text}
-                    </span>
-                  )}
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${PRIORITY_META[t.priority].bg} ${PRIORITY_META[t.priority].color}`}>
-                    {PRIORITY_META[t.priority].label}
-                  </span>
-                  {!t.done && (
-                    <button onClick={() => startEdit(t)} className="text-muted-foreground hover:text-foreground">
-                      <Pencil className="w-3 h-3" />
-                    </button>
-                  )}
-                  <button onClick={() => deleteTask(t.id)} className="text-muted-foreground hover:text-red-400">
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
+              {catTasks.map((t) => {
+                const cd = !t.done ? getCountdown(t.dueDate, t.dueTime) : { label: "", urgency: "none" as const };
+                void tick;
+                const CdIcon = cd.urgency === "passed" ? AlertTriangle : cd.urgency === "critical" ? Timer : Hourglass;
+                return (
+                  <div
+                    key={t.id}
+                    className={`rounded-lg px-3 py-2 transition-all ${
+                      t.done ? "bg-white/[0.02] opacity-50" : "bg-white/[0.04] hover:bg-white/[0.06]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => toggleTask(t.id)} className="shrink-0">
+                        {t.done
+                          ? <CheckCircle className="w-4 h-4 text-emerald-400" />
+                          : <Circle className="w-4 h-4 text-muted-foreground" />}
+                      </button>
+                      {editingId === t.id ? (
+                        <Input
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && saveEdit()}
+                          onBlur={saveEdit}
+                          className="flex-1 h-7 text-sm"
+                          autoFocus
+                        />
+                      ) : (
+                        <span className={`flex-1 text-sm ${t.done ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                          {t.text}
+                        </span>
+                      )}
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${PRIORITY_META[t.priority].bg} ${PRIORITY_META[t.priority].color}`}>
+                        {PRIORITY_META[t.priority].label}
+                      </span>
+                      {!t.done && (
+                        <button onClick={() => startEdit(t)} className="text-muted-foreground hover:text-foreground">
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      )}
+                      <button onClick={() => deleteTask(t.id)} className="text-muted-foreground hover:text-red-400">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                    {cd.urgency !== "none" && (
+                      <div className="mr-6 mt-1">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${COUNTDOWN_COLORS[cd.urgency]} ${cd.urgency === "passed" || cd.urgency === "critical" ? "animate-pulse" : ""}`}>
+                          <CdIcon className="w-3 h-3" />
+                          {cd.label}
+                          {t.dueDate && <span className="font-normal opacity-70 mr-1">({t.dueDate}{t.dueTime ? ` ${t.dueTime}` : ""})</span>}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         );
