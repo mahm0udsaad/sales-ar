@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { fetchWeeklyRetentionStats, fetchWeeklyReferralStats, fetchEmployees, fetchDeals, fetchAllLearningProgress } from "@/lib/supabase/db";
-import type { Employee, Deal } from "@/types";
+import { fetchWeeklyRetentionStats, fetchWeeklyReferralStats, fetchEmployees, fetchDeals, fetchAllLearningProgress, fetchCurrentWeeklyMeeting, upsertWeeklyMeeting, createNewWeeklyMeeting, fetchWeeklyMeetingHistory, fetchEmployeeTasks, updateEmployeeTask, deleteEmployeeTask, getOrgId } from "@/lib/supabase/db";
+import { createClient } from "@/lib/supabase/client";
+import type { Employee, Deal, EmployeeTask } from "@/types";
+import { useAuth } from "@/lib/auth-context";
 
 /* ─── Design Tokens ─── */
 const T = {
@@ -91,6 +93,7 @@ type RetentionStats = { renewed: number; expiring: number; contacted: number; up
 type ReferralStats = { active: number; newRefs: number; converted: number; rewards: number; convRate: number };
 
 export default function WeeklyMeetingView() {
+  const { user } = useAuth();
   const [data, setData] = useState<WeeklyData>(emptyData);
   const [tab, setTab] = useState(0);
   const [saved, setSaved] = useState(true);
@@ -98,29 +101,72 @@ export default function WeeklyMeetingView() {
   const [referralStats, setReferralStats] = useState<ReferralStats | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
   const [academyMap, setAcademyMap] = useState<Record<string, string[]>>({});
+  const [dbRowId, setDbRowId] = useState<string | null>(null);
+  const [meetingTasks, setMeetingTasks] = useState<EmployeeTask[]>([]);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loaded = useRef(false);
 
-  // Auto-save with debounce
+  // Get week start (Saturday)
+  const getWeekStart = useCallback(() => {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = (day + 1) % 7;
+    const sat = new Date(now);
+    sat.setDate(now.getDate() - diff);
+    return sat.toISOString().slice(0, 10);
+  }, []);
+
+  // Auto-save with debounce to Supabase
   const schedSave = useCallback((d: WeeklyData) => {
     setSaved(false);
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      try { localStorage.setItem(LS_KEY, JSON.stringify(d)); } catch { /* ignore */ }
+    saveTimer.current = setTimeout(async () => {
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify(d));
+        const result = await upsertWeeklyMeeting({
+          id: dbRowId || undefined,
+          week_label: d.weekLabel,
+          week_start: getWeekStart(),
+          data: d as unknown as Record<string, unknown>,
+          updated_by: user?.name || "",
+        });
+        if (!dbRowId) setDbRowId(result.id);
+      } catch (err) { console.error("Save error:", err); }
       setSaved(true);
-    }, 700);
+    }, 1200);
+  }, [dbRowId, getWeekStart, user?.name]);
+
+  // Load from Supabase (with localStorage fallback)
+  useEffect(() => {
+    async function load() {
+      try {
+        const row = await fetchCurrentWeeklyMeeting();
+        if (row) {
+          const weekData = row.data as unknown as WeeklyData;
+          if (weekData && weekData.weekLabel) {
+            setData(weekData);
+            setDbRowId(row.id);
+          }
+        } else {
+          const raw = localStorage.getItem(LS_KEY);
+          if (raw) setData(JSON.parse(raw) as WeeklyData);
+        }
+      } catch {
+        try {
+          const raw = localStorage.getItem(LS_KEY);
+          if (raw) setData(JSON.parse(raw) as WeeklyData);
+        } catch { /* ignore */ }
+      }
+      loaded.current = true;
+    }
+    load();
   }, []);
 
-  // Load from localStorage
+  // Load meeting tasks from employee_tasks
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as WeeklyData;
-        setData(parsed);
-      }
-    } catch { /* ignore */ }
-    loaded.current = true;
+    fetchEmployeeTasks({ status: undefined })
+      .then(all => setMeetingTasks(all.filter(t => t.task_type === "meeting")))
+      .catch(console.error);
   }, []);
 
   // Load real stats from DB + employees & deals
@@ -246,7 +292,7 @@ export default function WeeklyMeetingView() {
     });
   }
 
-  function archiveWeek() {
+  async function archiveWeek() {
     try {
       const raw = localStorage.getItem(LS_HISTORY);
       const history: WeeklyData[] = raw ? JSON.parse(raw) : [];
@@ -254,7 +300,13 @@ export default function WeeklyMeetingView() {
       if (history.length > 12) history.length = 12;
       localStorage.setItem(LS_HISTORY, JSON.stringify(history));
     } catch { /* ignore */ }
+
     const fresh = emptyData();
+    try {
+      const row = await createNewWeeklyMeeting(fresh.weekLabel, getWeekStart(), fresh as unknown as Record<string, unknown>, user?.name || "");
+      setDbRowId(row.id);
+    } catch { /* ignore */ }
+
     setData(fresh);
     try { localStorage.setItem(LS_KEY, JSON.stringify(fresh)); } catch { /* ignore */ }
   }
@@ -269,7 +321,7 @@ export default function WeeklyMeetingView() {
     URL.revokeObjectURL(url);
   }
 
-  const tabs = ["📊 أرقام الأسبوع", "👥 أداء الفريق", "💰 تتبع الإيراد", "🔄 الاحتفاظ والإحالة", "🎯 قرارات ومهام"];
+  const tabs = ["📊 أرقام الأسبوع", "👥 أداء الفريق", "💰 تتبع الإيراد", "🔄 الاحتفاظ والإحالة", "🎯 قرارات ومهام", "📅 جدول الاجتماعات"];
 
   // Computed
   const rev = parseFloat(data.revenue) || 0;
@@ -332,6 +384,7 @@ export default function WeeklyMeetingView() {
       {tab === 2 && <Tab3Revenue data={data} update={update} updateWeeklyRev={updateWeeklyRev} />}
       {tab === 3 && <Tab4Retention data={data} update={update} retentionStats={retentionStats} referralStats={referralStats} loadingStats={loadingStats} />}
       {tab === 4 && <Tab5Decisions data={data} update={update} updateTask={updateTask} addTask={addTask} removeTask={removeTask} />}
+      {tab === 5 && <Tab6MeetingCalendar meetings={meetingTasks} onRefresh={() => fetchEmployeeTasks().then(all => setMeetingTasks(all.filter(t => t.task_type === "meeting"))).catch(console.error)} />}
     </div>
   );
 }
@@ -965,6 +1018,427 @@ function Tab5Decisions({ data, update, updateTask, addTask, removeTask }: {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TAB 6 — جدول الاجتماعات (Meeting Calendar)
+   ═══════════════════════════════════════════════════════════════ */
+const DAY_NAMES = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+const HOURS = Array.from({ length: 14 }, (_, i) => i + 7);
+const PRIORITIES: Record<string, { label: string; color: string }> = {
+  low: { label: "منخفضة", color: "#9CA3AF" },
+  medium: { label: "متوسطة", color: "#60A5FA" },
+  high: { label: "عالية", color: "#FBBF24" },
+  urgent: { label: "عاجلة", color: "#F87171" },
+};
+const STATUSES: Record<string, { label: string; color: string }> = {
+  pending: { label: "قيد الانتظار", color: "#9CA3AF" },
+  in_progress: { label: "جاري", color: "#60A5FA" },
+  completed: { label: "مكتمل", color: "#34D399" },
+  cancelled: { label: "ملغي", color: "#F87171" },
+};
+
+function getWeekDays(base: Date): Date[] {
+  const d = new Date(base);
+  const day = d.getDay();
+  const sun = new Date(d);
+  sun.setDate(d.getDate() - day);
+  return Array.from({ length: 7 }, (_, i) => {
+    const dd = new Date(sun);
+    dd.setDate(sun.getDate() + i);
+    return dd;
+  });
+}
+
+function getMeetingCountdown(dueDate?: string, dueTime?: string): { label: string; urgency: "passed" | "critical" | "warning" | "normal" | "none"; color: string } {
+  if (!dueDate) return { label: "", urgency: "none", color: "" };
+  const target = new Date(`${dueDate}T${dueTime ? dueTime.slice(0, 5) : "23:59"}:00`);
+  const now = new Date();
+  const diffMs = target.getTime() - now.getTime();
+  if (diffMs <= 0) {
+    const pastMs = Math.abs(diffMs);
+    const pastMins = Math.floor(pastMs / 60_000);
+    if (pastMins < 60) return { label: `متأخر ${pastMins} د`, urgency: "passed", color: T.red };
+    const pastHrs = Math.floor(pastMins / 60);
+    if (pastHrs < 24) return { label: `متأخر ${pastHrs} س`, urgency: "passed", color: T.red };
+    return { label: `متأخر ${Math.floor(pastHrs / 24)} يوم`, urgency: "passed", color: T.red };
+  }
+  const totalMins = Math.floor(diffMs / 60_000);
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  const days = Math.floor(hours / 24);
+  const rh = hours % 24;
+  if (days > 0) {
+    const lbl = rh > 0 ? `${days} يوم ${rh} س` : `${days} يوم`;
+    return { label: `متبقي ${lbl}`, urgency: days <= 1 ? "warning" : "normal", color: days <= 1 ? T.amber : T.green };
+  }
+  if (hours > 0) {
+    const lbl = mins > 0 ? `${hours} س ${mins} د` : `${hours} س`;
+    return { label: `متبقي ${lbl}`, urgency: hours <= 2 ? "critical" : "warning", color: hours <= 2 ? "#F97316" : T.amber };
+  }
+  return { label: `متبقي ${mins} د`, urgency: "critical", color: "#F97316" };
+}
+
+function Tab6MeetingCalendar({ meetings, onRefresh }: { meetings: EmployeeTask[]; onRefresh: () => void }) {
+  const { user } = useAuth();
+  const [calView, setCalView] = useState<"day" | "week">("week");
+  const [calDate, setCalDate] = useState(new Date());
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<EmployeeTask | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [tick, setTick] = useState(0);
+  const [form, setForm] = useState({ title: "", description: "", assigned_to: "", assigned_to_name: "", due_date: "", due_time: "", priority: "medium", notes: "", location: "", agenda: "" });
+
+  useEffect(() => { fetchEmployees().then(e => setEmployees(e.filter(x => x.status === "نشط"))).catch(console.error); }, []);
+  useEffect(() => { const iv = setInterval(() => setTick(t => t + 1), 30_000); return () => clearInterval(iv); }, []);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const weekDays = useMemo(() => getWeekDays(calDate), [calDate]);
+  const calDateStr = calDate.toISOString().slice(0, 10);
+
+  const getMeetingsForDate = useCallback((dateStr: string) =>
+    meetings.filter(m => m.due_date === dateStr).sort((a, b) => (a.due_time || "00:00").localeCompare(b.due_time || "00:00")),
+  [meetings]);
+
+  const navigate = (dir: number) => {
+    const d = new Date(calDate);
+    d.setDate(d.getDate() + (calView === "week" ? dir * 7 : dir));
+    setCalDate(d);
+  };
+
+  const resetForm = () => { setForm({ title: "", description: "", assigned_to: "", assigned_to_name: "", due_date: "", due_time: "", priority: "medium", notes: "", location: "", agenda: "" }); setEditing(null); setShowForm(false); };
+
+  const openNew = (date?: string, time?: string) => {
+    resetForm();
+    setForm(f => ({ ...f, due_date: date || today, due_time: time || "09:00" }));
+    setShowForm(true);
+  };
+
+  const openEdit = (task: EmployeeTask) => {
+    setForm({ title: task.title, description: task.description || "", assigned_to: task.assigned_to, assigned_to_name: task.assigned_to_name, due_date: task.due_date || "", due_time: task.due_time || "", priority: task.priority, notes: task.notes || "", location: task.client_name || "", agenda: task.completion_notes || "" });
+    setEditing(task);
+    setShowForm(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!form.title || !form.due_date) return;
+    setSubmitting(true);
+    try {
+      if (editing) {
+        await updateEmployeeTask(editing.id, {
+          title: form.title, description: form.description || undefined,
+          assigned_to: form.assigned_to || undefined, assigned_to_name: form.assigned_to_name || undefined,
+          due_date: form.due_date || undefined, due_time: form.due_time || undefined,
+          priority: form.priority as EmployeeTask["priority"], notes: form.notes || undefined,
+          client_name: form.location || undefined, completion_notes: form.agenda || undefined,
+        });
+      } else {
+        const supabase = createClient();
+        const taskData: Record<string, unknown> = {
+          title: form.title, task_type: "meeting", priority: form.priority, status: "pending",
+          assigned_to: form.assigned_to || user?.id, assigned_to_name: form.assigned_to_name || user?.name || "",
+          org_id: getOrgId(), due_date: form.due_date,
+        };
+        if (form.description) taskData.description = form.description;
+        if (form.due_time) taskData.due_time = form.due_time;
+        if (form.notes) taskData.notes = form.notes;
+        if (form.location) taskData.client_name = form.location;
+        if (form.agenda) taskData.completion_notes = form.agenda;
+        if (user?.id) taskData.assigned_by = user.id;
+        if (user?.name) taskData.assigned_by_name = user.name;
+        await supabase.from("employee_tasks").insert(taskData).select().single();
+      }
+      resetForm();
+      onRefresh();
+    } catch (e) { console.error("Meeting save error:", e); }
+    setSubmitting(false);
+  };
+
+  const handleStatusChange = async (m: EmployeeTask, status: string) => {
+    await updateEmployeeTask(m.id, { status: status as EmployeeTask["status"] });
+    onRefresh();
+  };
+
+  const handleDelete = async (id: string) => {
+    await deleteEmployeeTask(id);
+    onRefresh();
+  };
+
+  const inputStyle: React.CSSProperties = {
+    background: `${T.surface}`, border: `1px solid ${T.border}`, borderRadius: 10,
+    color: T.text, fontSize: 13, padding: "8px 12px", width: "100%", outline: "none", fontFamily: "inherit", direction: "rtl",
+  };
+  const selectStyle: React.CSSProperties = { ...inputStyle, cursor: "pointer" };
+  const labelStyle: React.CSSProperties = { fontSize: 12, color: T.mid, marginBottom: 4, display: "block" };
+
+  const upcoming = meetings
+    .filter(m => m.status !== "completed" && m.status !== "cancelled" && m.due_date && m.due_date >= today)
+    .sort((a, b) => `${a.due_date}${a.due_time || ""}`.localeCompare(`${b.due_date}${b.due_time || ""}`));
+
+  void tick;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Calendar Navigation */}
+      <div style={{ ...cardStyle }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button onClick={() => navigate(-1)} style={{ ...btnStyle, padding: "6px 10px", fontSize: 16 }}>→</button>
+            <button onClick={() => setCalDate(new Date())} style={{ ...btnStyle, background: `${T.teal}20`, color: T.teal, borderColor: `${T.teal}40` }}>اليوم</button>
+            <button onClick={() => navigate(1)} style={{ ...btnStyle, padding: "6px 10px", fontSize: 16 }}>←</button>
+            <span style={{ fontSize: 15, fontWeight: 700, color: T.text }}>
+              {calView === "day"
+                ? calDate.toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })
+                : `${weekDays[0].toLocaleDateString("ar-SA", { month: "short", day: "numeric" })} — ${weekDays[6].toLocaleDateString("ar-SA", { month: "short", day: "numeric", year: "numeric" })}`
+              }
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: 4 }}>
+            <button onClick={() => openNew()} style={{ ...btnStyle, background: T.purple, color: "#fff", border: "none" }}>+ اجتماع جديد</button>
+            <button onClick={() => setCalView("day")} style={{ ...btnStyle, background: calView === "day" ? `${T.teal}25` : "transparent", color: calView === "day" ? T.teal : T.mid }}>يومي</button>
+            <button onClick={() => setCalView("week")} style={{ ...btnStyle, background: calView === "week" ? `${T.teal}25` : "transparent", color: calView === "week" ? T.teal : T.mid }}>أسبوعي</button>
+          </div>
+        </div>
+
+        {/* Weekly View */}
+        {calView === "week" && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
+            {weekDays.map(day => {
+              const dateStr = day.toISOString().slice(0, 10);
+              const dayMeetings = getMeetingsForDate(dateStr);
+              const isToday = dateStr === today;
+              return (
+                <div key={dateStr} style={{
+                  borderRadius: 10, padding: 10, minHeight: 140,
+                  border: `1px solid ${isToday ? T.teal + "50" : T.border + "30"}`,
+                  background: isToday ? `${T.teal}08` : `${T.surface}40`,
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <div>
+                      <p style={{ fontSize: 10, fontWeight: 500, color: isToday ? T.teal : T.dim }}>{DAY_NAMES[day.getDay()]}</p>
+                      <p style={{ fontSize: 14, fontWeight: 700, color: isToday ? T.teal : T.text }}>{day.getDate()}</p>
+                    </div>
+                    <button onClick={() => openNew(dateStr)} style={{ background: "transparent", border: "none", color: T.dim, cursor: "pointer", fontSize: 16, padding: 2 }}>+</button>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {dayMeetings.map(m => {
+                      const cd = m.status !== "completed" ? getMeetingCountdown(m.due_date, m.due_time) : { urgency: "none" as const, color: "" };
+                      return (
+                        <button key={m.id} onClick={() => openEdit(m)} style={{
+                          width: "100%", textAlign: "right", borderRadius: 8, padding: "6px 8px", border: "none", cursor: "pointer",
+                          background: m.status === "completed" ? `${T.green}15` : cd.urgency === "passed" ? `${T.red}15` : `${T.purple}15`,
+                          opacity: m.status === "completed" ? 0.6 : 1, transition: "all 0.15s",
+                        }}>
+                          <p style={{ fontSize: 11, fontWeight: 700, color: T.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.title}</p>
+                          {m.due_time && <p style={{ fontSize: 10, color: T.mid, margin: "2px 0 0" }}>{m.due_time.slice(0, 5)}</p>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Daily View */}
+        {calView === "day" && (
+          <div>
+            {HOURS.map(hour => {
+              const hourMeetings = getMeetingsForDate(calDateStr).filter(m => {
+                const h = parseInt(m.due_time?.slice(0, 2) || "0", 10);
+                return h === hour;
+              });
+              return (
+                <div key={hour} style={{ display: "flex", borderTop: `1px solid ${T.border}30`, minHeight: 56 }}>
+                  <div style={{ width: 56, padding: "8px 0", fontSize: 12, color: T.dim, textAlign: "left", flexShrink: 0, fontFamily: "monospace" }}>
+                    {hour.toString().padStart(2, "0")}:00
+                  </div>
+                  <div style={{ flex: 1, padding: "4px 8px 4px 0" }}>
+                    {hourMeetings.length > 0 ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {hourMeetings.map(m => {
+                          const cd = m.status !== "completed" ? getMeetingCountdown(m.due_date, m.due_time) : { label: "", urgency: "none" as const, color: "" };
+                          return (
+                            <button key={m.id} onClick={() => openEdit(m)} style={{
+                              width: "100%", textAlign: "right", borderRadius: 10, padding: 10, border: `1px solid ${T.purple}30`,
+                              background: m.status === "completed" ? `${T.green}10` : `${T.purple}10`,
+                              cursor: "pointer", transition: "all 0.15s",
+                            }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 14 }}>🤝</span>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: T.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.title}</span>
+                                {m.due_time && <span style={{ fontSize: 11, color: T.mid }}>{m.due_time.slice(0, 5)}</span>}
+                                {m.status === "completed" && <span style={{ fontSize: 13 }}>✅</span>}
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 6, flexWrap: "wrap" }}>
+                                {m.assigned_to_name && <span style={{ fontSize: 11, color: T.mid }}>👤 {m.assigned_to_name}</span>}
+                                {m.client_name && <span style={{ fontSize: 11, color: T.mid }}>📍 {m.client_name}</span>}
+                                {cd.urgency !== "none" && (
+                                  <span style={{ fontSize: 10, fontWeight: 700, color: cd.color, background: `${cd.color}15`, padding: "2px 8px", borderRadius: 6 }}>
+                                    ⏳ {cd.label}
+                                  </span>
+                                )}
+                              </div>
+                              {m.completion_notes && (
+                                <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${T.border}20` }}>
+                                  <p style={{ fontSize: 10, color: T.purple, fontWeight: 700, margin: "0 0 4px" }}>📋 الأجندة</p>
+                                  <p style={{ fontSize: 11, color: T.mid, whiteSpace: "pre-wrap", lineHeight: 1.6, margin: 0 }}>{m.completion_notes}</p>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <button onClick={() => openNew(calDateStr, `${hour.toString().padStart(2, "0")}:00`)}
+                        style={{ width: "100%", height: "100%", minHeight: 44, background: "transparent", border: "none", borderRadius: 8, cursor: "pointer" }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${T.surface}40`; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                      />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Upcoming Meetings */}
+      <div style={{ ...cardStyle }}>
+        <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+          📅 الاجتماعات القادمة
+          <span style={{ fontSize: 11, color: T.dim, fontWeight: 400 }}>({upcoming.length})</span>
+        </h3>
+        {upcoming.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "30px 0", color: T.dim }}>
+            <p style={{ fontSize: 32, margin: "0 0 8px" }}>🤝</p>
+            <p style={{ fontSize: 13 }}>لا توجد اجتماعات قادمة</p>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {upcoming.map(m => {
+              const cd = getMeetingCountdown(m.due_date, m.due_time);
+              return (
+                <div key={m.id} style={{ background: `${T.surface}60`, borderRadius: 12, padding: 14, border: `1px solid ${T.border}30`, transition: "all 0.15s" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 10, background: `${T.purple}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🤝</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h4 style={{ fontSize: 14, fontWeight: 700, color: T.text, margin: 0 }}>{m.title}</h4>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, flexWrap: "wrap", fontSize: 11, color: T.mid }}>
+                        <span>📅 {m.due_date}{m.due_time && ` — ${m.due_time.slice(0, 5)}`}</span>
+                        {m.assigned_to_name && <span>👤 {m.assigned_to_name}</span>}
+                        {m.client_name && <span>📍 {m.client_name}</span>}
+                      </div>
+                      {cd.urgency !== "none" && (
+                        <div style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          marginTop: 8, padding: "4px 10px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+                          color: cd.color, background: `${cd.color}12`, border: `1px solid ${cd.color}30`,
+                        }}>
+                          ⏳ {cd.label}
+                        </div>
+                      )}
+                      {m.description && <p style={{ fontSize: 12, color: T.mid, marginTop: 8 }}>{m.description}</p>}
+                      {m.completion_notes && (
+                        <div style={{ marginTop: 8, padding: 10, background: `${T.surface}80`, borderRadius: 8, border: `1px solid ${T.border}20` }}>
+                          <p style={{ fontSize: 10, color: T.purple, fontWeight: 700, margin: "0 0 4px" }}>📋 الأجندة</p>
+                          <p style={{ fontSize: 11, color: T.mid, whiteSpace: "pre-wrap", lineHeight: 1.6, margin: 0 }}>{m.completion_notes}</p>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                      <select value={m.status} onChange={e => handleStatusChange(m, e.target.value)}
+                        style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8, color: T.text, fontSize: 11, padding: "4px 6px", cursor: "pointer", outline: "none" }}>
+                        {Object.entries(STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                      </select>
+                      <button onClick={() => openEdit(m)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, padding: 4, color: T.mid }}>✏️</button>
+                      <button onClick={() => handleDelete(m.id)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, padding: 4, color: T.red }}>🗑️</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Meeting Form Modal */}
+      {showForm && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", padding: 16 }} onClick={e => { if (e.target === e.currentTarget) resetForm(); }}>
+          <div style={{ background: T.card, borderRadius: 16, border: `1px solid ${T.border}`, width: "100%", maxWidth: 560, maxHeight: "90vh", overflowY: "auto", padding: 24, direction: "rtl" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: T.text, display: "flex", alignItems: "center", gap: 8 }}>🤝 {editing ? "تعديل الاجتماع" : "اجتماع جديد"}</h2>
+              <button onClick={resetForm} style={{ background: "transparent", border: "none", color: T.dim, cursor: "pointer", fontSize: 20 }}>✕</button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={labelStyle}>عنوان الاجتماع *</label>
+                <input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="مثال: اجتماع مراجعة الأداء" style={inputStyle} />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>التاريخ *</label>
+                  <input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>الوقت</label>
+                  <input type="time" value={form.due_time} onChange={e => setForm(f => ({ ...f, due_time: e.target.value }))} style={inputStyle} />
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>المسؤول</label>
+                  <select value={form.assigned_to} onChange={e => {
+                    const emp = employees.find(em => em.id === e.target.value);
+                    setForm(f => ({ ...f, assigned_to: e.target.value, assigned_to_name: emp?.name || "" }));
+                  }} style={selectStyle}>
+                    <option value="">اختر الموظف</option>
+                    {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>الأولوية</label>
+                  <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} style={selectStyle}>
+                    {Object.entries(PRIORITIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>📍 المكان</label>
+                <input type="text" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="قاعة الاجتماعات / رابط Zoom" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>وصف الاجتماع</label>
+                <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  style={{ ...inputStyle, minHeight: 50, resize: "vertical" as const }} rows={2} placeholder="ملخص قصير..." />
+              </div>
+              <div>
+                <label style={{ ...labelStyle, color: T.purple, fontWeight: 600 }}>📋 الأجندة</label>
+                <textarea value={form.agenda} onChange={e => setForm(f => ({ ...f, agenda: e.target.value }))}
+                  style={{ ...inputStyle, minHeight: 100, resize: "vertical" as const, borderColor: `${T.purple}40` }} rows={5}
+                  placeholder={"1. مراجعة إنجازات الأسبوع\n2. مناقشة التحديات\n3. توزيع المهام الجديدة"} />
+              </div>
+              <div>
+                <label style={labelStyle}>ملاحظات</label>
+                <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} style={{ ...inputStyle, minHeight: 40, resize: "vertical" as const }} rows={2} />
+              </div>
+              <button onClick={handleSubmit} disabled={!form.title || !form.due_date || submitting}
+                style={{
+                  width: "100%", padding: "10px 0", borderRadius: 12, border: "none", cursor: !form.title || !form.due_date || submitting ? "default" : "pointer",
+                  background: T.purple, color: "#fff", fontSize: 14, fontWeight: 700, fontFamily: "inherit",
+                  opacity: !form.title || !form.due_date || submitting ? 0.4 : 1, transition: "all 0.2s",
+                }}>
+                {submitting ? "جاري الحفظ..." : editing ? "حفظ التعديلات" : "إنشاء الاجتماع"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

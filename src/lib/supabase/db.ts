@@ -2596,3 +2596,87 @@ export async function fetchTrainingSessionLogs(limit = 100): Promise<TrainingSes
   if (error) throw error;
   return (data ?? []) as TrainingSessionLog[];
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Weekly Meetings — CRUD for weekly_meetings table
+   ═══════════════════════════════════════════════════════════════ */
+
+export interface WeeklyMeetingRow {
+  id: string;
+  org_id: string;
+  week_label: string;
+  week_start: string;
+  data: Record<string, unknown>;
+  created_by?: string;
+  updated_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchCurrentWeeklyMeeting(): Promise<WeeklyMeetingRow | null> {
+  const supabase = createClient();
+  const orgId = getOrgId();
+  // Get the most recent weekly meeting for this org
+  const { data, error } = await supabase
+    .from("weekly_meetings")
+    .select("*")
+    .eq("org_id", orgId)
+    .order("week_start", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data as WeeklyMeetingRow | null;
+}
+
+export async function fetchWeeklyMeetingHistory(limit = 12): Promise<WeeklyMeetingRow[]> {
+  const supabase = createClient();
+  const orgId = getOrgId();
+  const { data, error } = await supabase
+    .from("weekly_meetings")
+    .select("*")
+    .eq("org_id", orgId)
+    .order("week_start", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as WeeklyMeetingRow[];
+}
+
+export async function upsertWeeklyMeeting(row: {
+  id?: string;
+  week_label: string;
+  week_start: string;
+  data: Record<string, unknown>;
+  updated_by?: string;
+}): Promise<WeeklyMeetingRow> {
+  const supabase = createClient();
+  const orgId = getOrgId();
+  if (row.id) {
+    const { data, error } = await supabase
+      .from("weekly_meetings")
+      .update({ week_label: row.week_label, data: row.data, updated_by: row.updated_by, updated_at: new Date().toISOString() })
+      .eq("id", row.id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as WeeklyMeetingRow;
+  }
+  const { data, error } = await supabase
+    .from("weekly_meetings")
+    .insert({ org_id: orgId, week_label: row.week_label, week_start: row.week_start, data: row.data, created_by: row.updated_by, updated_by: row.updated_by })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as WeeklyMeetingRow;
+}
+
+export async function createNewWeeklyMeeting(weekLabel: string, weekStart: string, data: Record<string, unknown>, createdBy?: string): Promise<WeeklyMeetingRow> {
+  const supabase = createClient();
+  const orgId = getOrgId();
+  const { data: row, error } = await supabase
+    .from("weekly_meetings")
+    .insert({ org_id: orgId, week_label: weekLabel, week_start: weekStart, data, created_by: createdBy, updated_by: createdBy })
+    .select()
+    .single();
+  if (error) throw error;
+  return row as WeeklyMeetingRow;
+}
