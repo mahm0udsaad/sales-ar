@@ -1,5 +1,5 @@
 import { createClient } from "./client";
-import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot, Review, Renewal, Referral, MonthlyExpense, MonthlyBudget, StartupCost, Marketer, SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, SalesGuideSetting, SalesMessage, SalesMessageRating, FollowUpNote, MentionNotification, PendingDeal, TargetClient, GiftOffer, EmployeeTask, Package, AcademyContent, LearningStage, LearningLesson, LearningQuiz, ActivityLog, TrainingKnowledge, ProductFeature } from "@/types";
+import type { Deal, Ticket, Employee, Project, Partnership, KPISnapshot, Review, Renewal, Referral, MonthlyExpense, MonthlyBudget, StartupCost, Marketer, SalesActivity, SalesTarget, RepWeeklyScore, PipPlan, SalesGuideSetting, SalesMessage, SalesMessageRating, FollowUpNote, MentionNotification, PendingDeal, TargetClient, GiftOffer, EmployeeTask, Package, AcademyContent, LearningStage, LearningLesson, LearningQuiz, ActivityLog, TrainingKnowledge, ProductFeature, TrainingSessionLog } from "@/types";
 
 const DEFAULT_ORG = "00000000-0000-0000-0000-000000000001";
 
@@ -2548,4 +2548,51 @@ export async function removeQuoteCommitment(
     .eq("quote_date", quoteDate)
     .eq("sales_type", salesType);
   if (error) throw error;
+}
+
+// ── Training Session Logs ──────────────────────────────────────────
+export async function createTrainingSession(session: {
+  org_id: string;
+  user_name: string;
+  topic_key: string;
+  topic_title: string;
+  platform: string;
+}): Promise<string> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("training_sessions")
+    .insert(session)
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id;
+}
+
+export async function completeTrainingSession(id: string, messageCount: number): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("training_sessions")
+    .update({ status: "completed", message_count: messageCount, completed_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateTrainingSessionMessageCount(id: string, messageCount: number): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("training_sessions")
+    .update({ message_count: messageCount })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function fetchTrainingSessionLogs(limit = 100): Promise<TrainingSessionLog[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("training_sessions")
+    .select("*")
+    .order("started_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as TrainingSessionLog[];
 }

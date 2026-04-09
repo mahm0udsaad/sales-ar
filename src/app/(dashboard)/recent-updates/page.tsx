@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState, useMemo } from "react";
-import { fetchRecentUpdates, fetchActivityLogs, type RecentUpdateItem } from "@/lib/supabase/db";
-import type { ActivityLog } from "@/types";
+import { fetchRecentUpdates, fetchActivityLogs, fetchTrainingSessionLogs, type RecentUpdateItem } from "@/lib/supabase/db";
+import type { ActivityLog, TrainingSessionLog } from "@/types";
 import { useAuth } from "@/lib/auth-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ColorBadge } from "@/components/ui/color-badge";
@@ -30,6 +30,9 @@ import {
   Activity,
   Users,
   User,
+  GraduationCap,
+  CheckCircle,
+  PlayCircle,
 } from "lucide-react";
 
 const SECTION_ICONS: Record<string, typeof TrendingUp> = {
@@ -78,7 +81,7 @@ const SECTION_COLORS: Record<string, string> = {
 };
 
 type FilterMode = "all" | "today" | "week";
-type TabMode = "updates" | "log";
+type TabMode = "updates" | "log" | "academy";
 
 function isToday(dateStr: string): boolean {
   const d = new Date(dateStr);
@@ -160,6 +163,7 @@ export default function RecentUpdatesPage() {
   const [activeTab, setActiveTab] = useState<TabMode>("updates");
   const [items, setItems] = useState<RecentUpdateItem[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [trainingSessions, setTrainingSessions] = useState<TrainingSessionLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -178,13 +182,15 @@ export default function RecentUpdatesPage() {
       setError(null);
 
       try {
-        const [updatesData, logsData] = await Promise.allSettled([
+        const [updatesData, logsData, trainingData] = await Promise.allSettled([
           fetchRecentUpdates(),
           fetchActivityLogs({ limit: 200 }),
+          fetchTrainingSessionLogs(200),
         ]);
 
         if (updatesData.status === "fulfilled") setItems(updatesData.value);
         if (logsData.status === "fulfilled") setLogs(logsData.value);
+        if (trainingData.status === "fulfilled") setTrainingSessions(trainingData.value);
 
         setLastUpdatedAt(new Date().toISOString());
       } catch {
@@ -340,6 +346,20 @@ export default function RecentUpdatesPage() {
           سجل التتبع
           {logs.length > 0 && (
             <span className="text-[10px] bg-white/[0.06] rounded-full px-2 py-0.5">{logs.length}</span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("academy")}
+          className={`flex items-center gap-2 rounded-[14px] px-5 py-3 text-sm font-bold transition-all ${
+            activeTab === "academy"
+              ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+              : "glass-surface text-muted-foreground hover:text-foreground border border-transparent"
+          }`}
+        >
+          <GraduationCap className="w-4 h-4" />
+          سجل الأكاديمية
+          {trainingSessions.length > 0 && (
+            <span className="text-[10px] bg-white/[0.06] rounded-full px-2 py-0.5">{trainingSessions.length}</span>
           )}
         </button>
       </div>
@@ -715,6 +735,116 @@ export default function RecentUpdatesPage() {
           ))}
         </>
       )}
+
+      {/* ─── Academy Tab ─── */}
+      {!isLoading && !error && activeTab === "academy" && (() => {
+        const filteredSessions = trainingSessions.filter((s) => {
+          if (filter === "today") return isToday(s.started_at);
+          if (filter === "week") return isThisWeek(s.started_at);
+          return true;
+        });
+
+        const completedCount = filteredSessions.filter((s) => s.status === "completed").length;
+        const startedCount = filteredSessions.filter((s) => s.status === "started").length;
+
+        // Group by date
+        const grouped = new Map<string, TrainingSessionLog[]>();
+        for (const s of filteredSessions) {
+          const d = new Date(s.started_at);
+          const key = d.toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
+          if (!grouped.has(key)) grouped.set(key, []);
+          grouped.get(key)!.push(s);
+        }
+
+        return (
+          <>
+            {/* Summary */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="cc-card rounded-xl p-4 border border-amber-500/10">
+                <div className="flex items-center gap-2 mb-1">
+                  <GraduationCap className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs text-muted-foreground">إجمالي الجلسات</span>
+                </div>
+                <div className="text-2xl font-bold text-foreground">{filteredSessions.length}</div>
+              </div>
+              <div className="cc-card rounded-xl p-4 border border-emerald-500/10">
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs text-muted-foreground">مكتملة</span>
+                </div>
+                <div className="text-2xl font-bold text-emerald-400">{completedCount}</div>
+              </div>
+              <div className="cc-card rounded-xl p-4 border border-orange-500/10">
+                <div className="flex items-center gap-2 mb-1">
+                  <PlayCircle className="w-4 h-4 text-orange-400" />
+                  <span className="text-xs text-muted-foreground">لم تكتمل</span>
+                </div>
+                <div className="text-2xl font-bold text-orange-400">{startedCount}</div>
+              </div>
+            </div>
+
+            {filteredSessions.length === 0 ? (
+              <div className="cc-card rounded-[14px] p-10 text-center border border-white/[0.04]">
+                <GraduationCap className="w-8 h-8 text-muted-foreground mx-auto mb-3 opacity-40" />
+                <p className="text-sm font-semibold text-foreground">لا توجد جلسات تدريبية</p>
+                <p className="text-xs text-muted-foreground mt-1">ستظهر هنا سجلات الجلسات التدريبية للموظفين</p>
+              </div>
+            ) : (
+              [...grouped.entries()].map(([dateLabel, sessions]) => (
+                <div key={dateLabel}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span className="text-xs font-semibold text-muted-foreground">{dateLabel}</span>
+                    <span className="text-[10px] text-muted-foreground">({sessions.length})</span>
+                  </div>
+                  <div className="space-y-2">
+                    {sessions.map((s) => (
+                      <div key={s.id} className="cc-card rounded-xl p-4 border border-white/[0.04] hover:border-white/[0.08] transition-all">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                            s.status === "completed" ? "bg-emerald-500/15" : "bg-orange-500/15"
+                          }`}>
+                            {s.status === "completed"
+                              ? <CheckCircle className="w-4 h-4 text-emerald-400" />
+                              : <PlayCircle className="w-4 h-4 text-orange-400" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-foreground">{s.topic_title}</span>
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
+                                s.status === "completed"
+                                  ? "bg-emerald-500/15 text-emerald-400"
+                                  : "bg-orange-500/15 text-orange-400"
+                              }`}>
+                                {s.status === "completed" ? "مكتملة" : "لم تكتمل"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 mt-1">
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <User className="w-3 h-3" />
+                                {s.user_name}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">
+                                {s.platform === "reservations" ? "حجوزات" : "منيو"}
+                              </span>
+                              {s.message_count > 0 && (
+                                <span className="text-[10px] text-muted-foreground">{s.message_count} رسالة</span>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">
+                            {formatTime(s.started_at)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }

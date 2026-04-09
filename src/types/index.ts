@@ -586,6 +586,19 @@ export interface TrainingKnowledge {
   updated_at: string;
 }
 
+export interface TrainingSessionLog {
+  id: string;
+  org_id: string;
+  user_name: string;
+  topic_key: string;
+  topic_title: string;
+  platform: string;
+  status: "started" | "completed";
+  message_count: number;
+  started_at: string;
+  completed_at?: string;
+}
+
 export interface LearningStage {
   id: string;
   org_id: string;

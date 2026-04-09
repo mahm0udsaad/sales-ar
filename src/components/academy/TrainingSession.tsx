@@ -2,7 +2,9 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
+import { useAuth } from "@/lib/auth-context";
+import { createTrainingSession, completeTrainingSession, updateTrainingSessionMessageCount } from "@/lib/supabase/db";
 import {
   GraduationCap,
   Send,
@@ -255,6 +257,9 @@ function ChatSession({ topic, platform, savedMessages, onReset }: { topic: strin
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const topicInfo = TOPICS.find((t) => t.key === topic)!;
   const platformLabel = platform === "reservations" ? "حجوزات (نظام إدارة الحجوزات)" : "Menus (قائمة الطلبات)";
+  const { activeOrgId: orgId, user: authUser } = useAuth();
+  const sessionIdRef = useRef<string | null>(null);
+  const loggedRef = useRef(false);
 
   const { messages, sendMessage, status } = useChat({
     messages: savedMessages,
@@ -266,12 +271,44 @@ function ChatSession({ topic, platform, savedMessages, onReset }: { topic: strin
 
   const isLoading = status === "streaming" || status === "submitted";
 
-  // Save messages to localStorage on change
+  // Log session start to DB (once)
+  useEffect(() => {
+    if (loggedRef.current || (savedMessages && savedMessages.length > 0)) return;
+    if (!orgId || !authUser) return;
+    loggedRef.current = true;
+    const userName = authUser.name || authUser.email || "مجهول";
+    createTrainingSession({ org_id: orgId, user_name: userName, topic_key: topic, topic_title: topicInfo.title, platform })
+      .then((id) => { sessionIdRef.current = id; })
+      .catch(console.error);
+  }, [orgId, authUser, topic, topicInfo.title, platform, savedMessages]);
+
+  // Save messages to localStorage + detect completion
+  const getMessageText = useCallback((msg: { content?: string; parts?: { type: string; text?: string }[] }): string => {
+    if ("content" in msg && typeof msg.content === "string") return msg.content;
+    return (
+      (msg.parts as { type: string; text: string }[] | undefined)
+        ?.filter((p) => p.type === "text")
+        .map((p) => p.text)
+        .join("") || ""
+    );
+  }, []);
+
   useEffect(() => {
     if (messages.length > 0 && status === "ready") {
       saveSession(topic, platform, messages);
+      // Update message count and check for completion
+      if (sessionIdRef.current) {
+        const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant");
+        const text = lastAssistantMsg ? getMessageText(lastAssistantMsg) : "";
+        const isCompleted = text.includes("تقييم الجلسة التدريبية");
+        if (isCompleted) {
+          completeTrainingSession(sessionIdRef.current, messages.length).catch(console.error);
+        } else {
+          updateTrainingSessionMessageCount(sessionIdRef.current, messages.length).catch(console.error);
+        }
+      }
     }
-  }, [messages, status, topic, platform]);
+  }, [messages, status, topic, platform, getMessageText]);
 
   // Auto-send initial message on mount (only if no saved messages)
   useEffect(() => {
@@ -292,16 +329,6 @@ function ChatSession({ topic, platform, savedMessages, onReset }: { topic: strin
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
-
-  const getMessageText = (msg: typeof messages[number]): string => {
-    if ("content" in msg && typeof msg.content === "string") return msg.content;
-    return (
-      msg.parts
-        ?.filter((p): p is { type: "text"; text: string } => p.type === "text")
-        .map((p) => p.text)
-        .join("") || ""
-    );
-  };
 
   const submitMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
