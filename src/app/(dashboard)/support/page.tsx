@@ -175,6 +175,8 @@ export default function SupportPage() {
   const [clientSearch, setClientSearch] = useState("");
   // Type filter: "problem" | "service" | null
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  // Employee filter
+  const [agentFilter, setAgentFilter] = useState<string | null>(null);
 
   // Activity log
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
@@ -204,7 +206,11 @@ export default function SupportPage() {
   const [achieveFilter, setAchieveFilter] = useState<string | null>(null);
   const [achieveFilterIds, setAchieveFilterIds] = useState<Set<string>>(new Set());
 
-  const achievementItems = useMemo(() => tickets.map(t => ({
+  const agentFilteredTickets = agentFilter
+    ? monthTickets.filter((t) => t.assigned_agent_name === agentFilter)
+    : monthTickets;
+
+  const achievementItems = useMemo(() => agentFilteredTickets.map(t => ({
     id: t.id,
     updated_at: t.updated_at,
     value: 0,
@@ -212,11 +218,10 @@ export default function SupportPage() {
     isCancelled: false,
     isContacted: t.status === "قيد الحل",
     repName: t.assigned_agent_name || undefined,
-  })), [tickets]);
-
+  })), [agentFilteredTickets]);
   const typeFilteredTickets = typeFilter
-    ? monthTickets.filter((t) => (t.request_type || "problem") === typeFilter)
-    : monthTickets;
+    ? agentFilteredTickets.filter((t) => (t.request_type || "problem") === typeFilter)
+    : agentFilteredTickets;
   const baseFilteredTickets = achieveFilter
     ? typeFilteredTickets.filter(t => achieveFilterIds.has(t.id))
     : cardFilter
@@ -244,12 +249,12 @@ export default function SupportPage() {
   }, [orgId]);
 
   /* ---------- derived counts ---------- */
-  const countOpen = monthTickets.filter((t) => t.status === "مفتوح").length;
-  const countInProgress = monthTickets.filter((t) => t.status === "قيد الحل").length;
-  const countResolved = monthTickets.filter((t) => t.status === "محلول").length;
-  const countUrgent = monthTickets.filter((t) => t.priority === "عاجل").length;
-  const countProblems = monthTickets.filter((t) => (t.request_type || "problem") === "problem").length;
-  const countServices = monthTickets.filter((t) => t.request_type === "service").length;
+  const countOpen = agentFilteredTickets.filter((t) => t.status === "مفتوح").length;
+  const countInProgress = agentFilteredTickets.filter((t) => t.status === "قيد الحل").length;
+  const countResolved = agentFilteredTickets.filter((t) => t.status === "محلول").length;
+  const countUrgent = agentFilteredTickets.filter((t) => t.priority === "عاجل").length;
+  const countProblems = agentFilteredTickets.filter((t) => (t.request_type || "problem") === "problem").length;
+  const countServices = agentFilteredTickets.filter((t) => t.request_type === "service").length;
 
   /* ---------- Issue Pattern Analytics ---------- */
   const issueAnalytics = useMemo(() => {
@@ -608,6 +613,37 @@ export default function SupportPage() {
           </>
         )}
       </div>
+
+      {/* -------- Employee Filter -------- */}
+      {!loading && (
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <User className="w-4 h-4" />
+            <span className="font-medium">الموظف:</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => setAgentFilter(null)}
+              className={`px-3 py-1.5 rounded-xl text-xs transition-all border ${
+                !agentFilter ? "bg-cyan/15 text-cyan font-medium border-cyan/30" : "text-muted-foreground hover:text-foreground border-border"
+              }`}
+            >
+              الكل
+            </button>
+            {[...new Set(monthTickets.map(t => t.assigned_agent_name).filter(Boolean))].map((name) => (
+              <button
+                key={name}
+                onClick={() => setAgentFilter(agentFilter === name ? null : name!)}
+                className={`px-3 py-1.5 rounded-xl text-xs transition-all border ${
+                  agentFilter === name ? "bg-cyan/15 text-cyan font-medium border-cyan/30" : "text-muted-foreground hover:text-foreground border-border"
+                }`}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* -------- Achievement Summary -------- */}
       {!loading && (
