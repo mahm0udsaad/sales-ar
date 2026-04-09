@@ -210,7 +210,10 @@ export default function SupportPage() {
     ? monthTickets.filter((t) => t.assigned_agent_name === agentFilter)
     : monthTickets;
 
-  const achievementItems = useMemo(() => agentFilteredTickets.map(t => ({
+  /* Achievement items — uses all tickets filtered by agent only (not month)
+     because AchievementSummary has its own internal period filter */
+  const agentOnlyTickets = agentFilter ? tickets.filter((t) => t.assigned_agent_name === agentFilter) : tickets;
+  const achievementItems = useMemo(() => agentOnlyTickets.map(t => ({
     id: t.id,
     updated_at: t.updated_at,
     value: 0,
@@ -218,7 +221,7 @@ export default function SupportPage() {
     isCancelled: false,
     isContacted: t.status === "قيد الحل",
     repName: t.assigned_agent_name || undefined,
-  })), [agentFilteredTickets]);
+  })), [agentOnlyTickets]);
   const typeFilteredTickets = typeFilter
     ? agentFilteredTickets.filter((t) => (t.request_type || "problem") === typeFilter)
     : agentFilteredTickets;

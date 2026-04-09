@@ -397,8 +397,10 @@ export function SalesSection({ salesType }: SalesPageProps) {
     : monthDeals;
   const nonCompletedDeals = repFilteredDeals.filter((d) => d.stage !== "مكتملة" && d.stage !== "مرفوض مع سبب");
 
-  /* Achievement summary items */
-  const achievementItems = useMemo(() => repFilteredDeals.map(d => ({
+  /* Achievement summary items — uses all deals (filtered by rep only, not month)
+     because AchievementSummary has its own internal period filter on updated_at */
+  const repOnlyDeals = repFilter ? deals.filter((d) => d.assigned_rep_name === repFilter) : deals;
+  const achievementItems = useMemo(() => repOnlyDeals.map(d => ({
     id: d.id,
     updated_at: d.updated_at,
     value: d.deal_value,
@@ -406,7 +408,7 @@ export function SalesSection({ salesType }: SalesPageProps) {
     isCancelled: d.stage === "مرفوض مع سبب" || d.stage === "كنسل التجربة",
     isContacted: d.stage === "تواصل" || d.stage === "تفاوض" || d.stage === "انتظار الدفع",
     repName: d.assigned_rep_name || undefined,
-  })), [repFilteredDeals]);
+  })), [repOnlyDeals]);
 
   // Apply achievement filter or stage filter
   const baseFilteredDeals = achieveFilter
