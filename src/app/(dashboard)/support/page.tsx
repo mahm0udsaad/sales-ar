@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   fetchTickets, createTicket, updateTicket, deleteTicket,
   fetchEmployees, fetchActivityLogs,
+  fetchQuoteCommitments, addQuoteCommitment, removeQuoteCommitment,
 } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
 import { useTopbarControls } from "@/components/layout/topbar-context";
@@ -64,6 +65,7 @@ import {
   User,
   Phone,
   Search,
+  ThumbsUp,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -147,7 +149,7 @@ const EMPTY_FORM: TicketForm = {
 /*  Page Component                                                     */
 /* ------------------------------------------------------------------ */
 export default function SupportPage() {
-  const { activeOrgId: orgId } = useAuth();
+  const { activeOrgId: orgId, user: authUser } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -517,6 +519,31 @@ export default function SupportPage() {
 
   const dailyQuote = getDailySupportQuote();
 
+  /* ─── Quote Commitment ─── */
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const [commitments, setCommitments] = useState<{ user_name: string; created_at: string }[]>([]);
+  const myName = authUser?.name || authUser?.email || "";
+  const hasCommitted = commitments.some((c) => c.user_name === myName);
+
+  useEffect(() => {
+    if (orgId) {
+      fetchQuoteCommitments(orgId, todayStr, "support").then(setCommitments).catch(console.error);
+    }
+  }, [orgId, todayStr]);
+
+  const toggleCommitment = useCallback(async () => {
+    if (!orgId || !myName) return;
+    try {
+      if (hasCommitted) {
+        await removeQuoteCommitment(orgId, myName, todayStr, "support");
+        setCommitments((prev) => prev.filter((c) => c.user_name !== myName));
+      } else {
+        await addQuoteCommitment(orgId, myName, todayStr, "support");
+        setCommitments((prev) => [...prev, { user_name: myName, created_at: new Date().toISOString() }]);
+      }
+    } catch (e) { console.error(e); }
+  }, [orgId, myName, todayStr, hasCommitted]);
+
   /* ================================================================ */
   /*  RENDER                                                           */
   /* ================================================================ */
@@ -546,7 +573,32 @@ export default function SupportPage() {
               <span className="text-[10px] text-muted-foreground">— {dailyQuote.book}</span>
             </div>
           </div>
+          <button
+            onClick={toggleCommitment}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all shrink-0 ${
+              hasCommitted
+                ? "bg-green-500/15 text-green-600 border border-green-500/30"
+                : "bg-muted/50 text-muted-foreground border border-border hover:bg-cyan/10 hover:text-cyan hover:border-cyan/30"
+            }`}
+          >
+            <ThumbsUp className={`w-3 h-3 ${hasCommitted ? "fill-green-500" : ""}`} />
+            {hasCommitted ? "ملتزم" : "ألتزم"}
+            {commitments.length > 0 && (
+              <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-cyan/20 text-cyan text-[9px] font-bold">
+                {commitments.length}
+              </span>
+            )}
+          </button>
         </div>
+        {commitments.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1 px-12">
+            {commitments.map((c) => (
+              <span key={c.user_name} className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 border border-green-500/20">
+                {c.user_name}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* -------- Type Filter Pills -------- */}
