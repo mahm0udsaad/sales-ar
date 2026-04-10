@@ -104,7 +104,7 @@ const SALES_COL_PATTERNS: Record<string, string[]> = {
   client_phone:  ["جوال", "الجوال", "رقم الجوال", "phone", "هاتف"],
   deal_value:    ["قيمة الصفقة", "القيمة قبل الضريبة", "القيمة", "value", "amount", "المبلغ"],
   source:        ["المصدر", "مصدر", "source"],
-  stage:         ["المرحلة", "مرحلة", "stage"],
+  stage:         ["المرحلة", "مرحلة", "الحالة", "حالة", "stage", "status"],
   probability:   ["احتمالية", "الاحتمالية", "probability", "prob"],
   assigned_rep:  ["المسؤول", "مندوب المبيعات", "مندوب", "assigned_rep", "rep", "موظف"],
   cycle_days:    ["أيام الدورة", "دورة البيع", "cycle_days", "cycle"],
