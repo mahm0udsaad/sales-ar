@@ -86,6 +86,8 @@ const STAGE_BADGE_COLOR: Record<string, "green" | "amber" | "purple" | "cyan" | 
   "تجريبي": "purple",
   "كنسل التجربة": "red",
   "مرفوض مع سبب": "red",
+  "استهداف خاطئ": "red",
+  "تم إرسال العرض": "purple",
 };
 
 /* ─── Stage summary config ─── */
