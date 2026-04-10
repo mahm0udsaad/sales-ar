@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
-import type { Deal, Marketer, Package } from "@/types";
-import { fetchDeals, createDeal, updateDeal, deleteDeal, fetchMarketers, createFollowUpNote, fetchRecentFollowUpNotes, fetchPackages, fetchQuoteCommitments, addQuoteCommitment, removeQuoteCommitment } from "@/lib/supabase/db";
+import type { Deal, Marketer, Package, Employee } from "@/types";
+import { fetchDeals, createDeal, updateDeal, deleteDeal, fetchMarketers, createFollowUpNote, fetchRecentFollowUpNotes, fetchPackages, fetchQuoteCommitments, addQuoteCommitment, removeQuoteCommitment, fetchEmployees } from "@/lib/supabase/db";
 import { AssignTaskModal } from "@/components/tasks/AssignTaskModal";
 import { useAuth } from "@/lib/auth-context";
 import { useTopbarControls } from "@/components/layout/topbar-context";
@@ -109,6 +109,8 @@ const EMPTY_FORM = {
   deal_date: new Date().toISOString().slice(0, 10),
   probability: 50,
   marketer_name: "",
+  notes: "",
+  last_contact: new Date().toISOString().slice(0, 10),
 };
 
 export interface SalesPageProps {
@@ -124,6 +126,7 @@ export function SalesSection({ salesType }: SalesPageProps) {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [marketers, setMarketers] = useState<Marketer[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [countdown, setCountdown] = useState({ h: 0, m: 0, s: 0, timeUp: false });
 
@@ -425,6 +428,7 @@ export function SalesSection({ salesType }: SalesPageProps) {
       fetchDeals(salesType).then(setDeals),
       fetchMarketers().then(setMarketers),
       fetchPackages().then(setPackages),
+      fetchEmployees().then(setEmployees),
     ])
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -583,6 +587,8 @@ export function SalesSection({ salesType }: SalesPageProps) {
       deal_date: deal.deal_date || new Date().toISOString().slice(0, 10),
       probability: deal.probability,
       marketer_name: deal.marketer_name || "",
+      notes: deal.notes || "",
+      last_contact: deal.last_contact || deal.deal_date || new Date().toISOString().slice(0, 10),
     });
     setModalOpen(true);
   }
@@ -610,6 +616,8 @@ export function SalesSection({ salesType }: SalesPageProps) {
           deal_date: form.deal_date,
           probability: form.probability,
           marketer_name: marketerName || undefined,
+          notes: form.notes || undefined,
+          last_contact: form.last_contact || undefined,
           month,
           year,
         });
@@ -641,6 +649,8 @@ export function SalesSection({ salesType }: SalesPageProps) {
           deal_date: form.deal_date,
           probability: form.probability,
           marketer_name: marketerName,
+          notes: form.notes || undefined,
+          last_contact: form.last_contact || undefined,
           cycle_days: 0,
           month,
           year,
@@ -1200,12 +1210,17 @@ export function SalesSection({ salesType }: SalesPageProps) {
               <TableHead className="w-10 text-center">هدف</TableHead>
               <TableHead className="w-20">الكود</TableHead>
               <TableHead>العميل</TableHead>
-              <TableHead>التاريخ</TableHead>
+              <TableHead>رقم الجوال</TableHead>
               <TableHead>المصدر</TableHead>
-              <TableHead>القيمة</TableHead>
-              <TableHead>المرحلة</TableHead>
               <TableHead>الباقة</TableHead>
+              <TableHead>المرحلة</TableHead>
+              <TableHead>القيمة</TableHead>
+              <TableHead>احتمالية</TableHead>
               <TableHead>المسؤول</TableHead>
+              <TableHead>التاريخ</TableHead>
+              <TableHead>آخر تواصل</TableHead>
+              <TableHead>أيام بدون تواصل</TableHead>
+              <TableHead>ملاحظات</TableHead>
               <TableHead className="text-center">إجراءات</TableHead>
             </TableRow>
           </TableHeader>
@@ -1231,7 +1246,7 @@ export function SalesSection({ salesType }: SalesPageProps) {
               ))
             ) : filteredDeals.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={15} className="text-center text-muted-foreground py-8">
                   {stageFilter ? `لا توجد مبيعات في مرحلة "${stageFilter}"` : "لا توجد مبيعات"}
                 </TableCell>
               </TableRow>
@@ -1269,14 +1284,14 @@ export function SalesSection({ salesType }: SalesPageProps) {
                       <span className="mr-1.5 inline-block text-[9px] px-1.5 py-0.5 rounded bg-cc-green/15 text-cc-green font-medium">تم الإنجاز</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">
-                    {deal.deal_date ? formatDate(deal.deal_date) : "—"}
+                  <TableCell className="text-muted-foreground text-xs" dir="ltr">
+                    {deal.client_phone ? formatPhone(deal.client_phone) : "—"}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     {deal.source || "—"}
                   </TableCell>
-                  <TableCell className="font-bold text-cyan text-xs">
-                    {formatMoneyFull(deal.deal_value)}
+                  <TableCell>
+                    <span className="text-xs text-muted-foreground">{deal.plan || "—"}</span>
                   </TableCell>
                   <TableCell>
                     <ColorBadge
@@ -1284,11 +1299,35 @@ export function SalesSection({ salesType }: SalesPageProps) {
                       color={STAGE_BADGE_COLOR[deal.stage] || "blue"}
                     />
                   </TableCell>
-                  <TableCell>
-                    <span className="text-xs text-muted-foreground">{deal.plan || "—"}</span>
+                  <TableCell className="font-bold text-cyan text-xs">
+                    {formatMoneyFull(deal.deal_value)}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {formatPercent(deal.probability)}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     {deal.assigned_rep_name || "—"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    {deal.deal_date ? formatDate(deal.deal_date) : "—"}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs">
+                    {deal.last_contact ? formatDate(deal.last_contact) : "—"}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {(() => {
+                      const ref = deal.last_contact || deal.deal_date;
+                      if (!ref) return "—";
+                      const days = Math.floor((Date.now() - new Date(ref).getTime()) / 86400000);
+                      return (
+                        <span className={days > 7 ? "text-cc-red font-medium" : days > 3 ? "text-amber" : "text-cc-green"}>
+                          {days} يوم
+                        </span>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs max-w-[120px] truncate" title={deal.notes || ""}>
+                    {deal.notes || "—"}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-center gap-1">
@@ -1725,12 +1764,21 @@ export function SalesSection({ salesType }: SalesPageProps) {
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div className="grid gap-1.5">
                 <Label htmlFor="assigned_rep_name">المسؤول</Label>
-                <Input
-                  id="assigned_rep_name"
+                <Select
                   value={form.assigned_rep_name}
-                  onChange={(e) => setForm({ ...form, assigned_rep_name: e.target.value })}
-                  placeholder="اسم المسؤول"
-                />
+                  onValueChange={(val) => val && setForm({ ...form, assigned_rep_name: val })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="اختر المسؤول" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.filter((e) => e.status === "نشط" || e.status === "مشغول" || e.status === "متاح").map((e) => (
+                      <SelectItem key={e.id} value={e.name}>
+                        {e.name}{e.role ? ` — ${e.role}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="deal_date">التاريخ</Label>
@@ -1743,6 +1791,19 @@ export function SalesSection({ salesType }: SalesPageProps) {
                   className="text-right"
                 />
               </div>
+            </div>
+
+            {/* Last contact */}
+            <div className="grid gap-1.5">
+              <Label htmlFor="last_contact">آخر تواصل</Label>
+              <Input
+                id="last_contact"
+                type="date"
+                value={form.last_contact}
+                onChange={(e) => setForm({ ...form, last_contact: e.target.value })}
+                dir="ltr"
+                className="text-right"
+              />
             </div>
 
             {/* Source (radio buttons) */}
@@ -1831,6 +1892,19 @@ export function SalesSection({ salesType }: SalesPageProps) {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Notes */}
+            <div className="grid gap-1.5">
+              <Label htmlFor="notes">الملاحظات</Label>
+              <textarea
+                id="notes"
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                placeholder="أضف ملاحظات..."
+                rows={2}
+                className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none"
+              />
             </div>
 
             {/* Probability slider */}

@@ -18,6 +18,7 @@ export interface Deal {
   marketer_name?: string;
   loss_reason?: string;
   notes?: string;
+  last_contact?: string;
   month?: number;
   year?: number;
   created_at: string;
