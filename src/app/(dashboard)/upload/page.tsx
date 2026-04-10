@@ -12,6 +12,12 @@ import {
   saveUploadRecord,
   fetchUploadHistory,
   fetchEmployees,
+  fetchDeals,
+  fetchRenewals,
+  fetchTickets,
+  updateDeal,
+  updateRenewal,
+  updateTicket,
   type UploadRecord,
 } from "@/lib/supabase/db";
 import { mapStage, mapSource, mapRenewalStatus } from "@/lib/utils/value-maps";
@@ -49,7 +55,7 @@ interface UploadState {
   sheets: SheetInfo[];
   aiMappings: AiSheetMapping[] | null;
   error: string | null;
-  importResults: { deals: number; tickets: number; renewals: number } | null;
+  importResults: { deals: number; tickets: number; renewals: number; skipped: number; updated: number } | null;
 }
 
 /* ─── Sheet name detection ─── */
@@ -218,6 +224,35 @@ function matchEmployeeName(raw: string, employees: Employee[]): string {
   return trimmed; // no match found
 }
 
+/* ─── Deduplication helpers ─── */
+function dealKey(name: string, phone?: string, date?: string): string {
+  return normalizeArabic(name) + "|" + (phone?.replace(/\s/g, "") || "") + "|" + (date || "");
+}
+
+function renewalKey(name: string, phone?: string, date?: string): string {
+  return normalizeArabic(name) + "|" + (phone?.replace(/\s/g, "") || "") + "|" + (date || "");
+}
+
+function ticketKey(name: string, issue?: string, date?: string): string {
+  return normalizeArabic(name) + "|" + normalizeArabic(issue || "") + "|" + (date || "");
+}
+
+function hasDealChanges(
+  existing: Deal,
+  incoming: Omit<Deal, "id" | "org_id" | "created_at" | "updated_at">
+): Partial<Omit<Deal, "id" | "org_id">> | null {
+  const changes: Record<string, unknown> = {};
+  if (incoming.stage && incoming.stage !== existing.stage) changes.stage = incoming.stage;
+  if (incoming.deal_value && incoming.deal_value !== existing.deal_value) changes.deal_value = incoming.deal_value;
+  if (incoming.probability != null && incoming.probability !== existing.probability) changes.probability = incoming.probability;
+  if (incoming.assigned_rep_name && incoming.assigned_rep_name !== existing.assigned_rep_name) changes.assigned_rep_name = incoming.assigned_rep_name;
+  if (incoming.plan && incoming.plan !== (existing.plan || "")) changes.plan = incoming.plan;
+  if (incoming.source && incoming.source !== (existing.source || "")) changes.source = incoming.source;
+  if (incoming.notes && incoming.notes !== (existing.notes || "")) changes.notes = incoming.notes;
+  if (incoming.last_contact && incoming.last_contact !== (existing.last_contact || "")) changes.last_contact = incoming.last_contact;
+  return Object.keys(changes).length > 0 ? changes : null;
+}
+
 /* ─── Page ─── */
 export default function UploadPage() {
   const [state, setState] = useState<UploadState>({
@@ -336,9 +371,32 @@ export default function UploadPage() {
     let dealsImported = 0;
     let ticketsImported = 0;
     let renewalsImported = 0;
+    let totalSkipped = 0;
+    let totalUpdated = 0;
     const fixes: { original: string; corrected: string }[] = [];
 
     try {
+      // Fetch existing data for deduplication
+      const [existingDeals, existingRenewals, existingTickets] = await Promise.all([
+        fetchDeals().catch(() => [] as Deal[]),
+        fetchRenewals().catch(() => [] as Renewal[]),
+        fetchTickets().catch(() => [] as Ticket[]),
+      ]);
+
+      // Build lookup maps
+      const dealMap = new Map<string, Deal>();
+      for (const d of existingDeals) {
+        dealMap.set(dealKey(d.client_name, d.client_phone, d.deal_date), d);
+      }
+      const renewalMap = new Map<string, Renewal>();
+      for (const r of existingRenewals) {
+        renewalMap.set(renewalKey(r.customer_name, r.customer_phone, r.renewal_date), r);
+      }
+      const ticketMap = new Map<string, Ticket>();
+      for (const t of existingTickets) {
+        ticketMap.set(ticketKey(t.client_name, t.issue, t.open_date), t);
+      }
+
       for (const sheet of sheets) {
         if (sheet.type === "skip" || sheet.type === "summary" || sheet.type === "unknown") continue;
 
@@ -363,7 +421,7 @@ export default function UploadPage() {
         const col = (f: string) => mapping[f]?.column ?? -1;
 
         if (sheet.type === "sales") {
-          const batch: Omit<Deal, "id" | "org_id" | "created_at" | "updated_at">[] = [];
+          const newBatch: Omit<Deal, "id" | "org_id" | "created_at" | "updated_at">[] = [];
           for (const rawRow of sheet.rows) {
             const row = rawRow as unknown[];
             const clientName = cellStr(row, col("client_name"));
@@ -388,9 +446,10 @@ export default function UploadPage() {
               fixes.push({ original: rawRepName, corrected: correctedRepName });
             }
 
-            batch.push({
+            const phone = cellStr(row, col("client_phone")) || undefined;
+            const incoming = {
               client_name: clientName,
-              client_phone: cellStr(row, col("client_phone")) || undefined,
+              client_phone: phone,
               deal_value: toNum(col("deal_value") >= 0 ? row[col("deal_value")] : 0),
               source,
               stage,
@@ -405,13 +464,30 @@ export default function UploadPage() {
               last_contact: toDateStr(col("last_contact") >= 0 ? row[col("last_contact")] : undefined),
               month: d.getMonth() + 1,
               year: d.getFullYear(),
-              sales_type: "office",
-            });
+              sales_type: "office" as const,
+            };
+
+            // Check for existing deal
+            const key = dealKey(clientName, phone, dealDate);
+            const existing = dealMap.get(key);
+            if (existing) {
+              const changes = hasDealChanges(existing, incoming);
+              if (changes) {
+                await updateDeal(existing.id, changes);
+                totalUpdated++;
+              } else {
+                totalSkipped++;
+              }
+            } else {
+              newBatch.push(incoming);
+            }
           }
-          dealsImported += await insertManyDeals(batch);
+          if (newBatch.length > 0) {
+            dealsImported += await insertManyDeals(newBatch);
+          }
 
         } else if (sheet.type === "support") {
-          const batch: Omit<Ticket, "id" | "org_id" | "created_at" | "updated_at">[] = [];
+          const newBatch: Omit<Ticket, "id" | "org_id" | "created_at" | "updated_at">[] = [];
           for (const rawRow of sheet.rows) {
             const row = rawRow as unknown[];
             const clientName = cellStr(row, col("client_name"));
@@ -434,25 +510,41 @@ export default function UploadPage() {
               fixes.push({ original: rawAgent, corrected: correctedAgent });
             }
 
-            batch.push({
-              ticket_number: rawNum ? toNum(rawNum) || undefined : undefined,
-              client_name: clientName,
-              client_phone: cellStr(row, col("client_phone")) || undefined,
-              issue: cellStr(row, col("issue")) || "—",
-              priority,
-              status,
-              assigned_agent_name: correctedAgent || undefined,
-              open_date: openDate,
-              due_date: toDateStr(col("due_date") >= 0 ? row[col("due_date")] : undefined),
-              resolved_date: toDateStr(col("resolved_date") >= 0 ? row[col("resolved_date")] : undefined),
-              month: od.getMonth() + 1,
-              year: od.getFullYear(),
-            });
+            const issue = cellStr(row, col("issue")) || "—";
+            const key = ticketKey(clientName, issue, openDate);
+            const existingTicket = ticketMap.get(key);
+
+            if (existingTicket) {
+              // Update if status changed
+              if (status !== existingTicket.status || priority !== existingTicket.priority) {
+                await updateTicket(existingTicket.id, { status, priority });
+                totalUpdated++;
+              } else {
+                totalSkipped++;
+              }
+            } else {
+              newBatch.push({
+                ticket_number: rawNum ? toNum(rawNum) || undefined : undefined,
+                client_name: clientName,
+                client_phone: cellStr(row, col("client_phone")) || undefined,
+                issue,
+                priority,
+                status,
+                assigned_agent_name: correctedAgent || undefined,
+                open_date: openDate,
+                due_date: toDateStr(col("due_date") >= 0 ? row[col("due_date")] : undefined),
+                resolved_date: toDateStr(col("resolved_date") >= 0 ? row[col("resolved_date")] : undefined),
+                month: od.getMonth() + 1,
+                year: od.getFullYear(),
+              });
+            }
           }
-          ticketsImported += await insertManyTickets(batch);
+          if (newBatch.length > 0) {
+            ticketsImported += await insertManyTickets(newBatch);
+          }
 
         } else if (sheet.type === "renewals") {
-          const batch: Omit<Renewal, "id" | "org_id" | "created_at" | "updated_at">[] = [];
+          const newBatch: Omit<Renewal, "id" | "org_id" | "created_at" | "updated_at">[] = [];
           for (const rawRow of sheet.rows) {
             const row = rawRow as unknown[];
             const customerName = cellStr(row, col("customer_name"));
@@ -469,20 +561,38 @@ export default function UploadPage() {
               fixes.push({ original: rawRep, corrected: correctedRep });
             }
 
-            batch.push({
-              customer_name: customerName,
-              customer_phone: cellStr(row, col("customer_phone")) || undefined,
-              plan_name: cellStr(row, col("plan_name")) || "الاساسية",
-              plan_price: toNum(col("plan_price") >= 0 ? row[col("plan_price")] : 0),
-              renewal_date: toDateStr(col("renewal_date") >= 0 ? row[col("renewal_date")] : undefined)
-                ?? new Date().toISOString().slice(0, 10),
-              status,
-              cancel_reason: cellStr(row, col("cancel_reason")) || undefined,
-              assigned_rep: correctedRep || undefined,
-              notes: cellStr(row, col("notes")) || undefined,
-            });
+            const phone = cellStr(row, col("customer_phone")) || undefined;
+            const renewalDate = toDateStr(col("renewal_date") >= 0 ? row[col("renewal_date")] : undefined)
+              ?? new Date().toISOString().slice(0, 10);
+
+            const key = renewalKey(customerName, phone, renewalDate);
+            const existingRenewal = renewalMap.get(key);
+
+            if (existingRenewal) {
+              // Update if status changed
+              if (status !== existingRenewal.status) {
+                await updateRenewal(existingRenewal.id, { status, assigned_rep: correctedRep || undefined });
+                totalUpdated++;
+              } else {
+                totalSkipped++;
+              }
+            } else {
+              newBatch.push({
+                customer_name: customerName,
+                customer_phone: phone,
+                plan_name: cellStr(row, col("plan_name")) || "الاساسية",
+                plan_price: toNum(col("plan_price") >= 0 ? row[col("plan_price")] : 0),
+                renewal_date: renewalDate,
+                status,
+                cancel_reason: cellStr(row, col("cancel_reason")) || undefined,
+                assigned_rep: correctedRep || undefined,
+                notes: cellStr(row, col("notes")) || undefined,
+              });
+            }
           }
-          renewalsImported += await insertManyRenewals(batch);
+          if (newBatch.length > 0) {
+            renewalsImported += await insertManyRenewals(newBatch);
+          }
         }
       }
 
@@ -508,7 +618,7 @@ export default function UploadPage() {
       setState((s) => ({
         ...s,
         status: "done",
-        importResults: { deals: dealsImported, tickets: ticketsImported, renewals: renewalsImported },
+        importResults: { deals: dealsImported, tickets: ticketsImported, renewals: renewalsImported, skipped: totalSkipped, updated: totalUpdated },
       }));
     } catch (err) {
       console.error("Import error:", err);
@@ -746,26 +856,38 @@ export default function UploadPage() {
         <div className="text-center py-8 space-y-4">
           <CheckCircle className="w-16 h-16 text-cc-green mx-auto" />
           <h3 className="text-lg font-bold text-foreground">تم الاستيراد بنجاح!</h3>
-          <div className="flex justify-center gap-10">
+          <div className="flex justify-center gap-6 flex-wrap">
             {importResults.deals > 0 && (
               <div>
                 <p className="text-3xl font-bold text-cyan">{importResults.deals}</p>
-                <p className="text-sm text-muted-foreground">صفقة مبيعات</p>
+                <p className="text-sm text-muted-foreground">صفقة جديدة</p>
               </div>
             )}
             {importResults.tickets > 0 && (
               <div>
                 <p className="text-3xl font-bold text-cc-green">{importResults.tickets}</p>
-                <p className="text-sm text-muted-foreground">تذكرة دعم</p>
+                <p className="text-sm text-muted-foreground">تذكرة جديدة</p>
               </div>
             )}
             {importResults.renewals > 0 && (
               <div>
                 <p className="text-3xl font-bold text-cc-purple">{importResults.renewals}</p>
-                <p className="text-sm text-muted-foreground">تجديد</p>
+                <p className="text-sm text-muted-foreground">تجديد جديد</p>
               </div>
             )}
-            {importResults.deals === 0 && importResults.tickets === 0 && importResults.renewals === 0 && (
+            {importResults.updated > 0 && (
+              <div>
+                <p className="text-3xl font-bold text-amber">{importResults.updated}</p>
+                <p className="text-sm text-muted-foreground">تم تحديثه</p>
+              </div>
+            )}
+            {importResults.skipped > 0 && (
+              <div>
+                <p className="text-3xl font-bold text-muted-foreground">{importResults.skipped}</p>
+                <p className="text-sm text-muted-foreground">مكرر (تم تخطيه)</p>
+              </div>
+            )}
+            {importResults.deals === 0 && importResults.tickets === 0 && importResults.renewals === 0 && importResults.updated === 0 && importResults.skipped === 0 && (
               <p className="text-sm text-muted-foreground">
                 لم يُستورد شيء — تحقق من محتوى الملف
               </p>
