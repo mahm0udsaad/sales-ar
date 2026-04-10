@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState, useMemo } from "react";
-import { fetchRecentUpdates, fetchActivityLogs, fetchTrainingSessionLogs, type RecentUpdateItem } from "@/lib/supabase/db";
-import type { ActivityLog, TrainingSessionLog } from "@/types";
+import { fetchRecentUpdates, fetchActivityLogs, fetchTrainingSessionLogs, fetchEmployees, type RecentUpdateItem } from "@/lib/supabase/db";
+import type { ActivityLog, TrainingSessionLog, Employee } from "@/types";
 import { useAuth } from "@/lib/auth-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ColorBadge } from "@/components/ui/color-badge";
@@ -33,6 +33,7 @@ import {
   GraduationCap,
   CheckCircle,
   PlayCircle,
+  UserX,
 } from "lucide-react";
 
 const SECTION_ICONS: Record<string, typeof TrendingUp> = {
@@ -164,6 +165,7 @@ export default function RecentUpdatesPage() {
   const [items, setItems] = useState<RecentUpdateItem[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [trainingSessions, setTrainingSessions] = useState<TrainingSessionLog[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -182,15 +184,17 @@ export default function RecentUpdatesPage() {
       setError(null);
 
       try {
-        const [updatesData, logsData, trainingData] = await Promise.allSettled([
+        const [updatesData, logsData, trainingData, empsData] = await Promise.allSettled([
           fetchRecentUpdates(),
           fetchActivityLogs({ limit: 200 }),
           fetchTrainingSessionLogs(200),
+          fetchEmployees(),
         ]);
 
         if (updatesData.status === "fulfilled") setItems(updatesData.value);
         if (logsData.status === "fulfilled") setLogs(logsData.value);
         if (trainingData.status === "fulfilled") setTrainingSessions(trainingData.value);
+        if (empsData.status === "fulfilled") setEmployees(empsData.value.filter(e => e.status === "نشط"));
 
         setLastUpdatedAt(new Date().toISOString());
       } catch {
@@ -297,6 +301,28 @@ export default function RecentUpdatesPage() {
     }
     return counts;
   }, [filteredLogs]);
+
+  // ── Inactive Employees (no activity in last 24h) ──
+  const inactiveEmployees = useMemo(() => {
+    if (employees.length === 0) return [];
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    // Collect all active user names from recent updates and activity logs
+    const activeNames = new Set<string>();
+    for (const item of items) {
+      if (new Date(item.timestamp) >= cutoff) {
+        if (item.user_name) activeNames.add(item.user_name.trim());
+        if (item.modified_by) activeNames.add(item.modified_by.trim());
+      }
+    }
+    for (const log of logs) {
+      if (new Date(log.created_at) >= cutoff) {
+        if (log.user_name) activeNames.add(log.user_name.trim());
+      }
+    }
+
+    return employees.filter(emp => !activeNames.has(emp.name.trim()));
+  }, [employees, items, logs]);
 
   return (
     <div className="space-y-6">
@@ -479,6 +505,36 @@ export default function RecentUpdatesPage() {
                   </button>
                 );
               })}
+            </div>
+          )}
+
+          {/* Inactive Employees Alert */}
+          {inactiveEmployees.length > 0 && (
+            <div className="rounded-[14px] border border-red-500/20 bg-red-500/[0.06] p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0">
+                  <UserX className="w-5 h-5 text-red-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-bold text-red-400 flex items-center gap-2">
+                    موظفين بدون تحديثات خلال آخر 24 ساعة
+                    <span className="text-[10px] bg-red-500/15 rounded-full px-2 py-0.5 font-bold">{inactiveEmployees.length}</span>
+                  </h3>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {inactiveEmployees.map(emp => (
+                      <div key={emp.id} className="flex items-center gap-2 bg-white/[0.04] rounded-lg px-3 py-2 border border-white/[0.06]">
+                        <div className="w-7 h-7 rounded-full bg-red-500/10 flex items-center justify-center">
+                          <User className="w-3.5 h-3.5 text-red-400" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-foreground">{emp.name}</p>
+                          {emp.role && <p className="text-[10px] text-muted-foreground">{emp.role}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
