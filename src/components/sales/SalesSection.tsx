@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import type { Deal, Marketer, Package, Employee, EmployeeTask } from "@/types";
-import { fetchDeals, createDeal, updateDeal, deleteDeal, fetchMarketers, createFollowUpNote, fetchRecentFollowUpNotes, fetchPackages, fetchQuoteCommitments, addQuoteCommitment, removeQuoteCommitment, fetchEmployees, fetchEmployeeTasks, createEmployeeTask } from "@/lib/supabase/db";
+import { fetchDeals, createDeal, updateDeal, deleteDeal, fetchMarketers, createFollowUpNote, fetchRecentFollowUpNotes, fetchPackages, fetchQuoteCommitments, addQuoteCommitment, removeQuoteCommitment, fetchEmployees, fetchEmployeeTasks, createEmployeeTask, createRenewal } from "@/lib/supabase/db";
 import { checkDealsForFollowUp, buildFollowUpTask, type FollowUpAction } from "@/lib/auto-followup";
 import { AssignTaskModal } from "@/components/tasks/AssignTaskModal";
 import { useAuth } from "@/lib/auth-context";
@@ -666,6 +666,24 @@ export function SalesSection({ salesType }: SalesPageProps) {
           if ((oldDeal.source || "") !== form.source) changes.push(`المصدر: ${oldDeal.source || "—"} ← ${form.source}`);
           if (changes.length > 0) {
             createFollowUpNote("deal", editingId, `📝 تحديث تلقائي:\n${changes.join("\n")}`, author).catch(console.error);
+          }
+
+          /* Auto-create renewal when deal is completed */
+          if (oldDeal.stage !== "مكتملة" && form.stage === "مكتملة" && form.plan) {
+            const renewalDate = new Date();
+            renewalDate.setFullYear(renewalDate.getFullYear() + 1);
+            createRenewal({
+              customer_name: form.client_name,
+              customer_phone: form.client_phone || undefined,
+              plan_name: form.plan,
+              plan_price: form.deal_value,
+              renewal_date: renewalDate.toISOString().slice(0, 10),
+              status: "مجدول",
+              assigned_rep: form.assigned_rep_name || undefined,
+              notes: `تجديد تلقائي من صفقة مكتملة — ${author}`,
+            }).then(() => {
+              createFollowUpNote("deal", editingId, `🔄 تم إنشاء تجديد تلقائي للعميل بتاريخ ${renewalDate.toISOString().slice(0, 10)}`, author).catch(console.error);
+            }).catch(console.error);
           }
         }
       } else {
