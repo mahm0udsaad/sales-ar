@@ -177,6 +177,8 @@ export default function SupportPage() {
   const [clientSearch, setClientSearch] = useState("");
   // Type filter: "problem" | "service" | null
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  // Category filter from analytics cards
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   // Employee filter
   const [agentFilter, setAgentFilter] = useState<string | null>(null);
 
@@ -227,13 +229,16 @@ export default function SupportPage() {
   const typeFilteredTickets = typeFilter
     ? agentFilteredTickets.filter((t) => (t.request_type || "problem") === typeFilter)
     : agentFilteredTickets;
+  const categoryFilteredTickets = categoryFilter
+    ? typeFilteredTickets.filter((t) => t.issue_category === categoryFilter)
+    : typeFilteredTickets;
   const baseFilteredTickets = achieveFilter
-    ? typeFilteredTickets.filter(t => achieveFilterIds.has(t.id))
+    ? categoryFilteredTickets.filter(t => achieveFilterIds.has(t.id))
     : cardFilter
       ? cardFilter === "عاجل"
-        ? typeFilteredTickets.filter((t) => t.priority === "عاجل")
-        : typeFilteredTickets.filter((t) => t.status === cardFilter)
-      : typeFilteredTickets;
+        ? categoryFilteredTickets.filter((t) => t.priority === "عاجل")
+        : categoryFilteredTickets.filter((t) => t.status === cardFilter)
+      : categoryFilteredTickets;
   const filteredTickets = clientSearch
     ? baseFilteredTickets.filter((t) => {
         const q = clientSearch.toLowerCase().trim();
@@ -736,7 +741,20 @@ export default function SupportPage() {
             {issueAnalytics.sorted.map(([cat, data]) => {
               const resRate = data.total > 0 ? Math.round((data.resolved / data.total) * 100) : 0;
               return (
-                <div key={cat} className="p-3 rounded-[14px] bg-white/[0.03] border border-white/[0.06] text-center">
+                <button
+                  key={cat}
+                  onClick={() => {
+                    setCategoryFilter(categoryFilter === cat ? null : cat);
+                    setCardFilter(null);
+                    setAchieveFilter(null);
+                    setTimeout(() => document.getElementById("tickets-table")?.scrollIntoView({ behavior: "smooth" }), 100);
+                  }}
+                  className={`p-3 rounded-[14px] text-center transition-all cursor-pointer ${
+                    categoryFilter === cat
+                      ? "bg-cyan/10 border-2 border-cyan/40 ring-2 ring-cyan/20"
+                      : "bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] hover:scale-[1.02]"
+                  }`}
+                >
                   <span className="text-lg">{TICKET_CATEGORIES[cat]?.icon || "📋"}</span>
                   <p className="text-xl font-bold text-foreground mt-1">{data.total}</p>
                   <p className="text-[10px] text-muted-foreground">{cat}</p>
@@ -750,7 +768,7 @@ export default function SupportPage() {
                   {data.urgent > 0 && (
                     <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/10 text-red-400">{data.urgent} عاجل</span>
                   )}
-                </div>
+                </button>
               );
             })}
           </div>
@@ -953,6 +971,20 @@ export default function SupportPage() {
               عاجل <span className="font-mono mr-1 opacity-70">{countUrgent}</span>
             </button>
           </div>
+          {/* Active category filter indicator */}
+          {categoryFilter && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-cyan/10 border border-cyan/20">
+              <span className="text-xs text-cyan font-medium">
+                {TICKET_CATEGORIES[categoryFilter]?.icon || "📋"} تصنيف: {categoryFilter}
+              </span>
+              <button
+                onClick={() => setCategoryFilter(null)}
+                className="mr-auto text-xs text-cyan hover:text-white font-medium px-2 py-1 rounded-md hover:bg-cyan/20 transition-colors"
+              >
+                ✕ إلغاء
+              </button>
+            </div>
+          )}
           {/* Search */}
           <div className="relative max-w-sm">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
