@@ -106,9 +106,16 @@ export async function createDeal(
   const supabase = createClient();
   const prefix = deal.sales_type === "support" ? "D" : "S";
   const client_code = await getNextClientCode("deals", prefix);
+  // Auto-trim name fields to prevent duplicates
+  const trimmed = {
+    ...deal,
+    client_name: deal.client_name?.trim(),
+    assigned_rep_name: deal.assigned_rep_name?.trim(),
+    marketer_name: deal.marketer_name?.trim(),
+  };
   const { data, error } = await supabase
     .from("deals")
-    .insert({ ...deal, org_id: getOrgId(), client_code })
+    .insert({ ...trimmed, org_id: getOrgId(), client_code })
     .select()
     .single();
   if (error) throw error;
@@ -122,9 +129,14 @@ export async function updateDeal(
   deal: Partial<Omit<Deal, "id" | "org_id">>
 ): Promise<Deal> {
   const supabase = createClient();
+  // Auto-trim name fields
+  const trimmed = { ...deal };
+  if (trimmed.client_name) trimmed.client_name = trimmed.client_name.trim();
+  if (trimmed.assigned_rep_name) trimmed.assigned_rep_name = trimmed.assigned_rep_name.trim();
+  if (trimmed.marketer_name) trimmed.marketer_name = trimmed.marketer_name.trim();
   const { data, error } = await supabase
     .from("deals")
-    .update({ ...deal, updated_at: new Date().toISOString() })
+    .update({ ...trimmed, updated_at: new Date().toISOString() })
     .eq("id", id)
     .eq("org_id", getOrgId())
     .select()
@@ -438,9 +450,15 @@ export async function createRenewal(
 ): Promise<Renewal> {
   const supabase = createClient();
   const client_code = await getNextClientCode("renewals", "R");
+  // Auto-trim name fields
+  const trimmed = {
+    ...renewal,
+    customer_name: renewal.customer_name?.trim(),
+    assigned_rep: renewal.assigned_rep?.trim(),
+  };
   const { data, error } = await supabase
     .from("renewals")
-    .insert({ ...renewal, org_id: getOrgId(), client_code })
+    .insert({ ...trimmed, org_id: getOrgId(), client_code })
     .select()
     .single();
   if (error) throw error;
@@ -454,9 +472,13 @@ export async function updateRenewal(
   renewal: Partial<Omit<Renewal, "id" | "org_id">>
 ): Promise<Renewal> {
   const supabase = createClient();
+  // Auto-trim name fields
+  const trimmed = { ...renewal };
+  if (trimmed.customer_name) trimmed.customer_name = trimmed.customer_name.trim();
+  if (trimmed.assigned_rep) trimmed.assigned_rep = trimmed.assigned_rep.trim();
   const { data, error } = await supabase
     .from("renewals")
-    .update({ ...renewal, updated_at: new Date().toISOString() })
+    .update({ ...trimmed, updated_at: new Date().toISOString() })
     .eq("id", id)
     .eq("org_id", getOrgId())
     .select()
