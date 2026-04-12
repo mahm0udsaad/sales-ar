@@ -433,6 +433,7 @@ export function SalesSection({ salesType }: SalesPageProps) {
     isCancelled: d.stage === "مرفوض مع سبب" || d.stage === "كنسل التجربة",
     isContacted: d.stage === "تواصل" || d.stage === "تفاوض" || d.stage === "انتظار الدفع",
     repName: d.assigned_rep_name || undefined,
+    planName: d.plan || undefined,
   })), [repOnlyDeals]);
 
   // Apply achievement filter or stage filter

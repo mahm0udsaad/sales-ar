@@ -509,6 +509,18 @@ export default function RenewalsPage() {
     completed.forEach(r => { if (r.assigned_rep) repMap[r.assigned_rep] = (repMap[r.assigned_rep] || 0) + 1; });
     const topRep = Object.entries(repMap).sort((a, b) => b[1] - a[1])[0];
 
+    // Plan/package breakdown for completed renewals
+    const planMap: Record<string, { count: number; revenue: number }> = {};
+    completed.forEach(r => {
+      const plan = r.plan_name || "بدون باقة";
+      if (!planMap[plan]) planMap[plan] = { count: 0, revenue: 0 };
+      planMap[plan].count += 1;
+      planMap[plan].revenue += r.plan_price;
+    });
+    const planBreakdown = Object.entries(planMap)
+      .map(([plan, data]) => ({ plan, ...data }))
+      .sort((a, b) => b.count - a.count);
+
     return {
       periodRenewals: periodRenewals.length,
       completed: completed.length,
@@ -519,6 +531,7 @@ export default function RenewalsPage() {
       avgDealValue,
       successRate,
       topRep: topRep ? { name: topRep[0], count: topRep[1] } : null,
+      planBreakdown,
       // Store IDs for filtering
       completedIds: new Set(completed.map(r => r.id)),
       cancelledIds: new Set(cancelled.map(r => r.id)),
@@ -899,6 +912,22 @@ export default function RenewalsPage() {
               </div>
             )}
           </div>
+
+          {/* Plan/Package breakdown */}
+          {achievementSummary.planBreakdown.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-white/[0.06]">
+              <p className="text-[11px] text-muted-foreground mb-2.5 font-medium">📦 توزيع الباقات المنجزة</p>
+              <div className="flex flex-wrap gap-2">
+                {achievementSummary.planBreakdown.map(p => (
+                  <div key={p.plan} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.06]">
+                    <span className="text-xs font-bold text-cc-green">{p.count}</span>
+                    <span className="text-xs text-foreground">{p.plan}</span>
+                    <span className="text-[10px] text-muted-foreground">({formatMoneyFull(p.revenue)})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
