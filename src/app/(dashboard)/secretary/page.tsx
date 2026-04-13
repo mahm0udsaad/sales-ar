@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   BrainCircuit, Sun, Flame, Snowflake, ShieldAlert, CalendarCheck,
   Target, CheckSquare, Sparkles, TrendingUp, TrendingDown, Clock,
   AlertTriangle, ChevronDown, ChevronUp, RefreshCw, Loader2,
   Users, Banknote, BarChart3, Phone, ArrowLeft, ArrowRight,
 } from "lucide-react";
-import { fetchDeals, fetchRenewals, fetchEmployees, fetchRecentFollowUpNotes } from "@/lib/supabase/db";
+import { fetchDeals, fetchRenewals, fetchEmployees, fetchRecentFollowUpNotes, upsertSalesGuideSetting, fetchSalesGuideSettings } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
 import { formatMoneyFull } from "@/lib/utils/format";
 import { Button } from "@/components/ui/button";
@@ -103,54 +103,59 @@ export default function SecretaryPage() {
 
   const todayKey = new Date().toISOString().slice(0, 10);
 
-  // Tasks persisted in localStorage
-  const taskKey = `secretary_tasks_${todayKey}`;
-  const [tasks, setTasks] = useState<TaskItem[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const saved = localStorage.getItem(taskKey);
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+  // Tasks persisted in database (syncs across devices)
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [newTask, setNewTask] = useState("");
 
-  // Meetings persisted in localStorage
-  const meetingKey = `secretary_meetings_${todayKey}`;
-  const [meetings, setMeetings] = useState<MeetingItem[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const saved = localStorage.getItem(meetingKey);
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+  // Meetings persisted in database
+  const [meetings, setMeetings] = useState<MeetingItem[]>([]);
   const [newMeeting, setNewMeeting] = useState({ title: "", time: "", attendees: "" });
 
-  // Quick tasks (< 15 min) persisted in localStorage
-  const quickTaskKey = `secretary_quick_${todayKey}`;
-  const [quickTasks, setQuickTasks] = useState<QuickTask[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const saved = localStorage.getItem(quickTaskKey);
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
+  // Quick tasks (< 15 min) persisted in database
+  const [quickTasks, setQuickTasks] = useState<QuickTask[]>([]);
   const [newQuickTask, setNewQuickTask] = useState("");
 
+  // Track if initial load from DB is done to avoid saving empty state
+  const dbLoaded = useRef(false);
+
+  // Save helpers — debounced to avoid excessive writes
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveToDb = useCallback((key: string, value: unknown) => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      upsertSalesGuideSetting(key, { date: todayKey, items: value }).catch(console.error);
+    }, 500);
+  }, [todayKey]);
+
+  // Auto-save tasks to DB
   useEffect(() => {
-    if (tasks.length > 0) localStorage.setItem(taskKey, JSON.stringify(tasks));
-  }, [tasks, taskKey]);
+    if (dbLoaded.current) saveToDb("secretary_tasks", tasks);
+  }, [tasks, saveToDb]);
   useEffect(() => {
-    if (meetings.length > 0) localStorage.setItem(meetingKey, JSON.stringify(meetings));
-  }, [meetings, meetingKey]);
+    if (dbLoaded.current) saveToDb("secretary_meetings", meetings);
+  }, [meetings, saveToDb]);
   useEffect(() => {
-    if (quickTasks.length > 0) localStorage.setItem(quickTaskKey, JSON.stringify(quickTasks));
-  }, [quickTasks, quickTaskKey]);
+    if (dbLoaded.current) saveToDb("secretary_quick", quickTasks);
+  }, [quickTasks, saveToDb]);
 
   // Load data
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchDeals(), fetchRenewals(), fetchEmployees(), fetchRecentFollowUpNotes(50)])
-      .then(([d, r, e, n]) => { setDeals(d); setRenewals(r); setEmployees(e); setRecentNotes(n); })
+    Promise.all([fetchDeals(), fetchRenewals(), fetchEmployees(), fetchRecentFollowUpNotes(50), fetchSalesGuideSettings()])
+      .then(([d, r, e, n, settings]) => {
+        setDeals(d); setRenewals(r); setEmployees(e); setRecentNotes(n);
+        // Restore secretary tasks/meetings/quickTasks from database
+        const loadSetting = (key: string) => {
+          const row = settings.find((s: { setting_key: string }) => s.setting_key === key);
+          if (!row) return [];
+          const val = row.setting_value as { date?: string; items?: unknown[] };
+          return val?.date === todayKey && Array.isArray(val.items) ? val.items : [];
+        };
+        setTasks(loadSetting("secretary_tasks") as TaskItem[]);
+        setMeetings(loadSetting("secretary_meetings") as MeetingItem[]);
+        setQuickTasks(loadSetting("secretary_quick") as QuickTask[]);
+        dbLoaded.current = true;
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
