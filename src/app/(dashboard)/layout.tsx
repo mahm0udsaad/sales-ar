@@ -11,9 +11,9 @@ import { AIAlertsBanner } from "@/components/ai/ai-alerts-banner";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { OrgProvider } from "@/lib/org-context";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DEMO_TICKETS, DEMO_PROJECTS, DEMO_PARTNERSHIPS } from "@/lib/demo-data";
-import { fetchDeals, fetchSalesTargets, fetchSalesActivities, fetchTickets, fetchMentionNotifications, markMentionNotificationsRead } from "@/lib/supabase/db";
+import { fetchDeals, fetchSalesTargets, fetchSalesActivities, fetchTickets, fetchMentionNotifications, markMentionNotificationsRead, fetchRecentFollowUpNotes } from "@/lib/supabase/db";
 import type { AppNotification } from "@/types";
+import { CCThemeProvider } from "@/lib/theme-context";
 
 const PAGE_SLUG_MAP: Record<string, string> = {
   "/dashboard": "dashboard",
@@ -29,6 +29,8 @@ const PAGE_SLUG_MAP: Record<string, string> = {
   "/agent": "agent",
   "/users": "users",
   "/weekly": "weekly",
+  "/academy": "academy",
+  "/secretary": "secretary",
 };
 
 function MentionNotifLoader({ onLoad }: { onLoad: (n: AppNotification[]) => void }) {
@@ -43,7 +45,7 @@ function MentionNotifLoader({ onLoad }: { onLoad: (n: AppNotification[]) => void
           type: "crud_action" as const,
           icon: "💬",
           message: `${m.author_name} أشار إليك في متابعة "${m.entity_name}": ${m.note_text.slice(0, 60)}...`,
-          section: m.entity_type === "deal" ? "sales" : "renewals",
+          section: m.entity_type === "deal" ? "sales" : m.entity_type === "ticket" ? "support" : "renewals",
           timestamp: m.created_at,
           isRead: false,
         }));
@@ -92,64 +94,6 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function generateDemoNotifications(): AppNotification[] {
-  const now = new Date().toISOString();
-  const notifications: AppNotification[] = [];
-
-  // Urgent tickets (demo)
-  DEMO_TICKETS.filter((t) => t.priority === "عاجل" && t.status !== "محلول").forEach((t) => {
-    notifications.push({
-      id: `notif-ticket-${t.id}`,
-      type: "urgent_ticket",
-      icon: "🚨",
-      message: `تذكرة عاجلة: "${t.issue}" من ${t.client_name}`,
-      section: "support",
-      timestamp: now,
-      isRead: false,
-    });
-  });
-
-  // Overdue projects
-  DEMO_PROJECTS.filter((p) => p.status_tag === "متأخر").forEach((p) => {
-    notifications.push({
-      id: `notif-project-${p.id}`,
-      type: "overdue_project",
-      icon: "⏰",
-      message: `مشروع متأخر: "${p.name}" — تقدم ${p.progress}%`,
-      section: "development",
-      timestamp: now,
-      isRead: false,
-    });
-  });
-
-  // Near-complete projects (90%+)
-  DEMO_PROJECTS.filter((p) => p.progress >= 85 && p.status_tag !== "متأخر").forEach((p) => {
-    notifications.push({
-      id: `notif-near-${p.id}`,
-      type: "near_complete",
-      icon: "🎯",
-      message: `مشروع يقترب من الاكتمال: "${p.name}" — ${p.progress}%`,
-      section: "development",
-      timestamp: now,
-      isRead: true,
-    });
-  });
-
-  // Negotiating partnerships
-  DEMO_PARTNERSHIPS.filter((p) => p.status === "قيد التفاوض").forEach((p) => {
-    notifications.push({
-      id: `notif-partner-${p.id}`,
-      type: "negotiating",
-      icon: "◇",
-      message: `شراكة قيد التفاوض: ${p.name}`,
-      section: "partnerships",
-      timestamp: now,
-      isRead: true,
-    });
-  });
-
-  return notifications;
-}
 
 async function generateLiveNotifications(): Promise<AppNotification[]> {
   const now = new Date().toISOString();
@@ -236,6 +180,29 @@ async function generateLiveNotifications(): Promise<AppNotification[]> {
         });
     }
 
+    // Recent follow-up notes (last 24 hours)
+    try {
+      const recentNotes = await fetchRecentFollowUpNotes(30);
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      recentNotes
+        .filter((n) => new Date(n.created_at).getTime() > oneDayAgo)
+        .forEach((n) => {
+          const entityLabel = n.entity_type === "deal" ? "صفقة" : n.entity_type === "ticket" ? "تذكرة" : "تجديد";
+          const entityName = n.entity_name || "";
+          notifications.push({
+            id: `followup-${n.id}`,
+            type: "crud_action",
+            icon: "📝",
+            message: `${n.author_name} أضاف متابعة على ${entityLabel} "${entityName}": ${n.note.slice(0, 60)}${n.note.length > 60 ? "..." : ""}`,
+            section: n.entity_type === "deal" ? "sales" : n.entity_type === "ticket" ? "support" : "renewals",
+            timestamp: n.created_at,
+            isRead: false,
+          });
+        });
+    } catch {
+      // Silently fail
+    }
+
     // Unmet daily targets
     if (targets.status === "fulfilled" && activities.status === "fulfilled") {
       const todayStr = new Date().toISOString().split("T")[0];
@@ -278,17 +245,13 @@ export default function DashboardLayout({
   const router = useRouter();
   const [notifOpen, setNotifOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => generateDemoNotifications());
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
 
   // Load live notifications from DB
   useEffect(() => {
     generateLiveNotifications().then((live) => {
       if (live.length > 0) {
-        setNotifications((prev) => {
-          const existingIds = new Set(prev.map((n) => n.id));
-          const newOnes = live.filter((n) => !existingIds.has(n.id));
-          return [...newOnes, ...prev];
-        });
+        setNotifications(live);
       }
     });
   }, []);
@@ -307,6 +270,7 @@ export default function DashboardLayout({
   const isAgentPage = pathname === "/agent";
 
   return (
+    <CCThemeProvider>
     <OrgProvider>
     <AuthProvider>
     <TopbarProvider>
@@ -315,7 +279,7 @@ export default function DashboardLayout({
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
         {/* Content area — has margin on lg+ for sidebar, full-width on mobile/tablet */}
-        <div className="lg:mr-[260px] min-h-screen">
+        <div className="lg:mr-[276px] min-h-screen">
           <Topbar
             unreadCount={unreadCount}
             onBellClick={() => setNotifOpen((prev) => !prev)}
@@ -352,5 +316,6 @@ export default function DashboardLayout({
     </TopbarProvider>
     </AuthProvider>
     </OrgProvider>
+    </CCThemeProvider>
   );
 }
