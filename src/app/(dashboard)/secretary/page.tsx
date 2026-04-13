@@ -71,6 +71,20 @@ interface TaskItem {
   done: boolean;
 }
 
+interface MeetingItem {
+  id: string;
+  title: string;
+  time: string;
+  attendees: string;
+  done: boolean;
+}
+
+interface QuickTask {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
 export default function SecretaryPage() {
   const { user } = useAuth();
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -81,12 +95,14 @@ export default function SecretaryPage() {
   const [aiAnalysis, setAiAnalysis] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    briefing: true, hotCold: true, renewalHealth: true, priorities: true,
-    goal90: true, tasks: true,
+    briefing: true, meetings: true, hotCold: true, renewalHealth: true, priorities: true,
+    goal90: true, quickTasks: true, tasks: true,
   });
 
+  const todayKey = new Date().toISOString().slice(0, 10);
+
   // Tasks persisted in localStorage
-  const taskKey = `secretary_tasks_${new Date().toISOString().slice(0, 10)}`;
+  const taskKey = `secretary_tasks_${todayKey}`;
   const [tasks, setTasks] = useState<TaskItem[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -96,9 +112,37 @@ export default function SecretaryPage() {
   });
   const [newTask, setNewTask] = useState("");
 
+  // Meetings persisted in localStorage
+  const meetingKey = `secretary_meetings_${todayKey}`;
+  const [meetings, setMeetings] = useState<MeetingItem[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = localStorage.getItem(meetingKey);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [newMeeting, setNewMeeting] = useState({ title: "", time: "", attendees: "" });
+
+  // Quick tasks (< 15 min) persisted in localStorage
+  const quickTaskKey = `secretary_quick_${todayKey}`;
+  const [quickTasks, setQuickTasks] = useState<QuickTask[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = localStorage.getItem(quickTaskKey);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [newQuickTask, setNewQuickTask] = useState("");
+
   useEffect(() => {
     if (tasks.length > 0) localStorage.setItem(taskKey, JSON.stringify(tasks));
   }, [tasks, taskKey]);
+  useEffect(() => {
+    if (meetings.length > 0) localStorage.setItem(meetingKey, JSON.stringify(meetings));
+  }, [meetings, meetingKey]);
+  useEffect(() => {
+    if (quickTasks.length > 0) localStorage.setItem(quickTaskKey, JSON.stringify(quickTasks));
+  }, [quickTasks, quickTaskKey]);
 
   // Load data
   useEffect(() => {
@@ -227,6 +271,32 @@ export default function SecretaryPage() {
     setTasks(prev => prev.filter(t => t.id !== id));
   }
 
+  // Meeting management
+  function addMeeting() {
+    if (!newMeeting.title.trim() || !newMeeting.time.trim()) return;
+    setMeetings(prev => [...prev, { id: Date.now().toString(), title: newMeeting.title.trim(), time: newMeeting.time, attendees: newMeeting.attendees.trim(), done: false }]);
+    setNewMeeting({ title: "", time: "", attendees: "" });
+  }
+  function toggleMeeting(id: string) {
+    setMeetings(prev => prev.map(m => m.id === id ? { ...m, done: !m.done } : m));
+  }
+  function removeMeeting(id: string) {
+    setMeetings(prev => prev.filter(m => m.id !== id));
+  }
+
+  // Quick task management
+  function addQuickTask() {
+    if (!newQuickTask.trim()) return;
+    setQuickTasks(prev => [...prev, { id: Date.now().toString(), text: newQuickTask.trim(), done: false }]);
+    setNewQuickTask("");
+  }
+  function toggleQuickTask(id: string) {
+    setQuickTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  }
+  function removeQuickTask(id: string) {
+    setQuickTasks(prev => prev.filter(t => t.id !== id));
+  }
+
   // AI Analysis
   async function runAiAnalysis() {
     setAiLoading(true);
@@ -340,7 +410,74 @@ export default function SecretaryPage() {
         )}
       </Section>
 
-      {/* ─── 2. Hot & Cold Deals ─── */}
+      {/* ─── 2. Today's Meetings ─── */}
+      <Section
+        id="meetings"
+        title="اجتماعات اليوم"
+        icon={<CalendarCheck className="w-5 h-5 text-teal-400" />}
+        badge={meetings.length > 0 ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-400">{meetings.filter(m => m.done).length}/{meetings.length}</span> : undefined}
+        isOpen={expandedSections.meetings !== false} onToggle={toggleSection}
+      >
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              value={newMeeting.title}
+              onChange={e => setNewMeeting(prev => ({ ...prev, title: e.target.value }))}
+              onKeyDown={e => e.key === "Enter" && addMeeting()}
+              placeholder="عنوان الاجتماع..."
+              className="flex-1 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-foreground text-xs placeholder:text-muted-foreground focus:outline-none focus:border-teal-500/50"
+            />
+            <input
+              type="time"
+              value={newMeeting.time}
+              onChange={e => setNewMeeting(prev => ({ ...prev, time: e.target.value }))}
+              className="w-28 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-foreground text-xs focus:outline-none focus:border-teal-500/50"
+            />
+            <input
+              value={newMeeting.attendees}
+              onChange={e => setNewMeeting(prev => ({ ...prev, attendees: e.target.value }))}
+              onKeyDown={e => e.key === "Enter" && addMeeting()}
+              placeholder="الحضور (اختياري)..."
+              className="flex-1 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-foreground text-xs placeholder:text-muted-foreground focus:outline-none focus:border-teal-500/50"
+            />
+            <Button size="sm" onClick={addMeeting} disabled={!newMeeting.title.trim() || !newMeeting.time.trim()} className="bg-teal-600 hover:bg-teal-500 border-0">
+              إضافة
+            </Button>
+          </div>
+          {meetings.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">لا توجد اجتماعات مجدولة اليوم</p>
+          ) : (
+            <div className="space-y-1.5">
+              {[...meetings].sort((a, b) => a.time.localeCompare(b.time)).map(m => {
+                const now = new Date();
+                const [h, min] = m.time.split(":").map(Number);
+                const meetingTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, min);
+                const diffMin = Math.round((meetingTime.getTime() - now.getTime()) / 60000);
+                const isUpcoming = diffMin > 0 && diffMin <= 30;
+                const isPast = diffMin < -30;
+                return (
+                  <div key={m.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all ${m.done ? "bg-emerald-500/[0.04] border-emerald-500/15" : isUpcoming ? "bg-teal-500/[0.08] border-teal-500/30 ring-1 ring-teal-500/20" : isPast ? "bg-white/[0.01] border-white/[0.04] opacity-60" : "bg-white/[0.02] border-white/[0.06]"}`}>
+                    <button onClick={() => toggleMeeting(m.id)} className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${m.done ? "border-emerald-500 bg-emerald-500 text-white" : "border-muted-foreground/30 hover:border-teal-500/50"}`}>
+                      {m.done && <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-sm font-bold font-mono ${isUpcoming ? "text-teal-400" : m.done ? "text-muted-foreground" : "text-foreground"}`} dir="ltr">{m.time}</span>
+                      {isUpcoming && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-teal-500/20 text-teal-400 animate-pulse">خلال {diffMin} د</span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs font-medium ${m.done ? "line-through text-muted-foreground" : "text-foreground"}`}>{m.title}</p>
+                      {m.attendees && <p className="text-[10px] text-muted-foreground">{m.attendees}</p>}
+                    </div>
+                    <button onClick={() => removeMeeting(m.id)} className="text-muted-foreground hover:text-red-400 text-xs transition-colors shrink-0">✕</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </Section>
+
+      {/* ─── 3. Hot & Cold Deals ─── */}
       <Section
         id="hotCold"
         title="الصفقات الساخنة والباردة"
@@ -497,7 +634,56 @@ export default function SecretaryPage() {
         )}
       </Section>
 
-      {/* ─── 6. Interactive Tasks ─── */}
+      {/* ─── 7. Quick Tasks (< 15 min) ─── */}
+      <Section
+        id="quickTasks"
+        title="مهام سريعة (أقل من 15 دقيقة)"
+        icon={<Clock className="w-5 h-5 text-amber-400" />}
+        badge={quickTasks.length > 0 ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400">{quickTasks.filter(t => t.done).length}/{quickTasks.length}</span> : undefined}
+        isOpen={expandedSections.quickTasks !== false} onToggle={toggleSection}
+      >
+        <div className="space-y-3">
+          <p className="text-[10px] text-amber-400/70">مهام تحتاج إجراء فوري ولا تستغرق أكثر من 15 دقيقة — أنجزها الحين!</p>
+          <div className="flex gap-2">
+            <input
+              value={newQuickTask}
+              onChange={e => setNewQuickTask(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && addQuickTask()}
+              placeholder="رد على إيميل، اتصال سريع، مراجعة مستند..."
+              className="flex-1 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/[0.08] text-foreground text-xs placeholder:text-muted-foreground focus:outline-none focus:border-amber-500/50"
+            />
+            <Button size="sm" onClick={addQuickTask} disabled={!newQuickTask.trim()} className="bg-amber-600 hover:bg-amber-500 border-0 text-black">
+              إضافة
+            </Button>
+          </div>
+          {quickTasks.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">لا توجد مهام سريعة — أضف مهام تنجزها بسرعة</p>
+          ) : (
+            <div className="space-y-1.5">
+              {quickTasks.map(t => (
+                <div key={t.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all ${t.done ? "bg-emerald-500/[0.04] border-emerald-500/15" : "bg-amber-500/[0.03] border-amber-500/10"}`}>
+                  <button onClick={() => toggleQuickTask(t.id)} className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${t.done ? "border-emerald-500 bg-emerald-500 text-white" : "border-amber-500/40 hover:border-amber-500/70"}`}>
+                    {t.done && <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                  </button>
+                  <Clock className={`w-3.5 h-3.5 shrink-0 ${t.done ? "text-muted-foreground" : "text-amber-400/60"}`} />
+                  <span className={`flex-1 text-xs ${t.done ? "line-through text-muted-foreground" : "text-foreground"}`}>{t.text}</span>
+                  <button onClick={() => removeQuickTask(t.id)} className="text-muted-foreground hover:text-red-400 text-xs transition-colors">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+          {quickTasks.length > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-2 bg-white/[0.04] rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-l from-amber-400 to-amber-600 rounded-full transition-all" style={{ width: `${Math.round((quickTasks.filter(t => t.done).length / quickTasks.length) * 100)}%` }} />
+              </div>
+              {quickTasks.every(t => t.done) && <span className="text-[10px] text-emerald-400 font-bold">ممتاز!</span>}
+            </div>
+          )}
+        </div>
+      </Section>
+
+      {/* ─── 8. Interactive Tasks ─── */}
       <Section
         id="tasks"
         title="مهام اليوم"
