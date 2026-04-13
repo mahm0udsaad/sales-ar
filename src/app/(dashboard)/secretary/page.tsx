@@ -94,6 +94,8 @@ export default function SecretaryPage() {
   const [loading, setLoading] = useState(true);
   const [aiAnalysis, setAiAnalysis] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     briefing: true, meetings: true, hotCold: true, renewalHealth: true, priorities: true,
     goal90: true, quickTasks: true, tasks: true,
@@ -244,19 +246,38 @@ export default function SecretaryPage() {
     return { total, pct, remaining, daysLeft: Math.max(daysLeft, 0), closedDeals: closed.length };
   }, [deals, renewals]);
 
-  // Daily briefing stats
+  // Briefing stats — filtered by selected month
   const briefingStats = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
-    const thisMonth = new Date().getMonth() + 1;
-    const thisYear = new Date().getFullYear();
-    const monthDeals = deals.filter(d => d.month === thisMonth && d.year === thisYear);
+
+    // Monthly stats (based on selected filter)
+    const monthDeals = deals.filter(d => d.month === selectedMonth && d.year === selectedYear);
     const closedMonth = monthDeals.filter(d => d.stage === "مكتملة");
     const revenueMonth = closedMonth.reduce((s, d) => s + d.deal_value, 0);
     const pipeline = monthDeals.filter(d => d.stage !== "مكتملة" && d.stage !== "مرفوض مع سبب");
     const pipelineValue = pipeline.reduce((s, d) => s + d.deal_value, 0);
-    const pendingRenewals = renewals.filter(r => r.status !== "مكتمل" && r.status !== "ملغي بسبب").length;
-    return { closedMonth: closedMonth.length, revenueMonth, pipelineCount: pipeline.length, pipelineValue, pendingRenewals };
-  }, [deals, renewals]);
+
+    // Renewals for selected month
+    const monthRenewals = renewals.filter(r => {
+      const rd = new Date(r.renewal_date);
+      return rd.getMonth() + 1 === selectedMonth && rd.getFullYear() === selectedYear;
+    });
+    const pendingRenewals = monthRenewals.filter(r => r.status !== "مكتمل" && r.status !== "ملغي بسبب").length;
+    const completedRenewals = monthRenewals.filter(r => r.status === "مكتمل").length;
+    const renewalRevenue = monthRenewals.filter(r => r.status === "مكتمل").reduce((s, r) => s + r.plan_price, 0);
+
+    // Today's stats
+    const todayDeals = deals.filter(d => d.close_date === today || (d.created_at && d.created_at.startsWith(today)));
+    const todayClosed = todayDeals.filter(d => d.stage === "مكتملة");
+    const todayRevenue = todayClosed.reduce((s, d) => s + d.deal_value, 0);
+    const todayNew = deals.filter(d => d.created_at && d.created_at.startsWith(today)).length;
+
+    return {
+      closedMonth: closedMonth.length, revenueMonth, pipelineCount: pipeline.length, pipelineValue,
+      pendingRenewals, completedRenewals, renewalRevenue,
+      todayClosed: todayClosed.length, todayRevenue, todayNew,
+    };
+  }, [deals, renewals, selectedMonth, selectedYear]);
 
   // Task management
   function addTask() {
@@ -373,38 +394,90 @@ export default function SecretaryPage() {
         </Button>
       </div>
 
-      {/* ─── 1. Daily Briefing ─── */}
-      <Section id="briefing" title="الملخص اليومي" icon={<Sun className="w-5 h-5 text-amber-400" />} isOpen={expandedSections.briefing !== false} onToggle={toggleSection}>
+      {/* ─── 1. Briefing with Month Filter ─── */}
+      <Section id="briefing" title="الملخص والإحصائيات" icon={<Sun className="w-5 h-5 text-amber-400" />} isOpen={expandedSections.briefing !== false} onToggle={toggleSection}>
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
-              <TrendingUp className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
-              <p className="text-xl font-bold text-emerald-400">{briefingStats.closedMonth}</p>
-              <p className="text-[10px] text-muted-foreground">صفقة مكتملة</p>
+          <div className="space-y-4">
+            {/* Today's quick stats */}
+            <div>
+              <p className="text-xs font-bold text-amber-400 mb-2 flex items-center gap-1.5"><Sun className="w-3.5 h-3.5" /> إحصائيات اليوم</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+                  <p className="text-xl font-bold text-emerald-400">{briefingStats.todayClosed}</p>
+                  <p className="text-[10px] text-muted-foreground">مغلقة اليوم</p>
+                </div>
+                <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-center">
+                  <p className="text-xl font-bold text-cyan-400">{formatMoneyFull(briefingStats.todayRevenue)}</p>
+                  <p className="text-[10px] text-muted-foreground">إيرادات اليوم</p>
+                </div>
+                <div className="p-3 rounded-xl bg-violet-500/10 border border-violet-500/20 text-center">
+                  <p className="text-xl font-bold text-violet-400">{briefingStats.todayNew}</p>
+                  <p className="text-[10px] text-muted-foreground">صفقة جديدة اليوم</p>
+                </div>
+              </div>
             </div>
-            <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-center">
-              <Banknote className="w-4 h-4 text-cyan-400 mx-auto mb-1" />
-              <p className="text-xl font-bold text-cyan-400">{formatMoneyFull(briefingStats.revenueMonth)}</p>
-              <p className="text-[10px] text-muted-foreground">إيرادات الشهر</p>
+
+            {/* Month filter */}
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold text-cyan-400 flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> إحصائيات الشهر</p>
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedMonth}
+                  onChange={e => setSelectedMonth(Number(e.target.value))}
+                  className="px-2 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-foreground text-xs focus:outline-none focus:border-cyan-500/50"
+                >
+                  {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => (
+                    <option key={m} value={m}>{new Date(2000, m - 1).toLocaleDateString("ar-SA", { month: "long" })}</option>
+                  ))}
+                </select>
+                <select
+                  value={selectedYear}
+                  onChange={e => setSelectedYear(Number(e.target.value))}
+                  className="px-2 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-foreground text-xs focus:outline-none focus:border-cyan-500/50"
+                >
+                  {[2024, 2025, 2026].map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div className="p-3 rounded-xl bg-violet-500/10 border border-violet-500/20 text-center">
-              <BarChart3 className="w-4 h-4 text-violet-400 mx-auto mb-1" />
-              <p className="text-xl font-bold text-violet-400">{briefingStats.pipelineCount}</p>
-              <p className="text-[10px] text-muted-foreground">في خط الأنابيب</p>
-            </div>
-            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
-              <RefreshCw className="w-4 h-4 text-amber-400 mx-auto mb-1" />
-              <p className="text-xl font-bold text-amber-400">{briefingStats.pendingRenewals}</p>
-              <p className="text-[10px] text-muted-foreground">تجديد معلّق</p>
-            </div>
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-center">
-              <Users className="w-4 h-4 text-rose-400 mx-auto mb-1" />
-              <p className="text-xl font-bold text-rose-400">{employees.length}</p>
-              <p className="text-[10px] text-muted-foreground">فريق العمل</p>
+
+            {/* Monthly stats grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+                <TrendingUp className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
+                <p className="text-xl font-bold text-emerald-400">{briefingStats.closedMonth}</p>
+                <p className="text-[10px] text-muted-foreground">صفقة مكتملة</p>
+              </div>
+              <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-center">
+                <Banknote className="w-4 h-4 text-cyan-400 mx-auto mb-1" />
+                <p className="text-xl font-bold text-cyan-400">{formatMoneyFull(briefingStats.revenueMonth)}</p>
+                <p className="text-[10px] text-muted-foreground">إيرادات المبيعات</p>
+              </div>
+              <div className="p-3 rounded-xl bg-violet-500/10 border border-violet-500/20 text-center">
+                <BarChart3 className="w-4 h-4 text-violet-400 mx-auto mb-1" />
+                <p className="text-xl font-bold text-violet-400">{briefingStats.pipelineCount}</p>
+                <p className="text-[10px] text-muted-foreground">في خط الأنابيب</p>
+              </div>
+              <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-center">
+                <RefreshCw className="w-4 h-4 text-sky-400 mx-auto mb-1" />
+                <p className="text-xl font-bold text-sky-400">{briefingStats.completedRenewals}</p>
+                <p className="text-[10px] text-muted-foreground">تجديد مكتمل</p>
+              </div>
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center">
+                <AlertTriangle className="w-4 h-4 text-amber-400 mx-auto mb-1" />
+                <p className="text-xl font-bold text-amber-400">{briefingStats.pendingRenewals}</p>
+                <p className="text-[10px] text-muted-foreground">تجديد معلّق</p>
+              </div>
+              <div className="p-3 rounded-xl bg-lime-500/10 border border-lime-500/20 text-center">
+                <Banknote className="w-4 h-4 text-lime-400 mx-auto mb-1" />
+                <p className="text-xl font-bold text-lime-400">{formatMoneyFull(briefingStats.renewalRevenue)}</p>
+                <p className="text-[10px] text-muted-foreground">إيرادات التجديدات</p>
+              </div>
             </div>
           </div>
         )}
