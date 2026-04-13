@@ -356,8 +356,8 @@ export default function SecretaryPage() {
         goal_90_pct: goal90.pct,
         goal_90_remaining: goal90.remaining,
         employees_count: employees.length,
-        revenue_month: briefingStats.revenueMonth,
-        pipeline_value: briefingStats.pipelineValue,
+        revenue_month: briefingStats.totalRevenueMonth,
+        pipeline_value: briefingStats.pipelineCount,
       };
       const res = await fetch("/api/ai/chat", {
         method: "POST",

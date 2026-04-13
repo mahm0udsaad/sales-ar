@@ -97,9 +97,9 @@ export default function CompetitorsPage() {
   // Forms
   const emptyComp = { name: "", category: CATEGORIES[0], website: "", strengths: "", weaknesses: "", notes: "" };
   const [compForm, setCompForm] = useState(emptyComp);
-  const [planForm, setPlanForm] = useState({ name: "", price: 0, billing: "monthly" as const, features: "" });
+  const [planForm, setPlanForm] = useState<{ name: string; price: number; billing: "monthly" | "yearly" | "once"; features: string }>({ name: "", price: 0, billing: "monthly", features: "" });
   const [offerForm, setOfferForm] = useState({ title: "", description: "", start_date: "", end_date: "" });
-  const [updateForm, setUpdateForm] = useState({ title: "", description: "", date: new Date().toISOString().slice(0, 10), source: "", type: "feature" as const });
+  const [updateForm, setUpdateForm] = useState<{ title: string; description: string; date: string; source: string; type: "feature" | "pricing" | "partnership" | "other" }>({ title: "", description: "", date: new Date().toISOString().slice(0, 10), source: "", type: "feature" });
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(competitors));
