@@ -18,6 +18,30 @@ import type { Deal, Renewal, Employee } from "@/types";
 const GOAL_90DAY = 70000;
 const WEEKLY_TARGET = 17500;
 
+const URGENCY_STYLE = { high: "border-red-500/30 bg-red-500/[0.06]", medium: "border-amber-500/30 bg-amber-500/[0.06]", low: "border-blue-500/30 bg-blue-500/[0.06]" } as const;
+const URGENCY_TEXT = { high: "text-red-400", medium: "text-amber-400", low: "text-blue-400" } as const;
+const URGENCY_LABEL = { high: "عاجل", medium: "متوسط", low: "عادي" } as const;
+
+/* ─── Section Component (outside main to avoid re-mount on state change) ─── */
+function Section({ id, title, icon, children, badge, isOpen, onToggle }: {
+  id: string; title: string; icon: React.ReactNode; children: React.ReactNode;
+  badge?: React.ReactNode; isOpen: boolean; onToggle: (id: string) => void;
+}) {
+  return (
+    <div className="cc-card rounded-xl overflow-hidden">
+      <button onClick={() => onToggle(id)} className="w-full flex items-center justify-between p-4 hover:bg-white/[0.02] transition-colors">
+        <div className="flex items-center gap-2.5">
+          {icon}
+          <span className="text-sm font-bold text-foreground">{title}</span>
+          {badge}
+        </div>
+        {isOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+      </button>
+      {isOpen && <div className="px-4 pb-4 border-t border-border pt-4">{children}</div>}
+    </div>
+  );
+}
+
 /* ─── Helpers ─── */
 function daysAgo(dateStr: string) {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
@@ -258,30 +282,6 @@ export default function SecretaryPage() {
   }
 
   /* ═══════════════════════════════════════
-     SECTION COMPONENT
-  ═══════════════════════════════════════ */
-  function Section({ id, title, icon, children, badge }: { id: string; title: string; icon: React.ReactNode; children: React.ReactNode; badge?: React.ReactNode }) {
-    const isOpen = expandedSections[id] !== false;
-    return (
-      <div className="cc-card rounded-xl overflow-hidden">
-        <button onClick={() => toggleSection(id)} className="w-full flex items-center justify-between p-4 hover:bg-white/[0.02] transition-colors">
-          <div className="flex items-center gap-2.5">
-            {icon}
-            <span className="text-sm font-bold text-foreground">{title}</span>
-            {badge}
-          </div>
-          {isOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-        </button>
-        {isOpen && <div className="px-4 pb-4 border-t border-border pt-4">{children}</div>}
-      </div>
-    );
-  }
-
-  const urgencyStyle = { high: "border-red-500/30 bg-red-500/[0.06]", medium: "border-amber-500/30 bg-amber-500/[0.06]", low: "border-blue-500/30 bg-blue-500/[0.06]" };
-  const urgencyText = { high: "text-red-400", medium: "text-amber-400", low: "text-blue-400" };
-  const urgencyLabel = { high: "عاجل", medium: "متوسط", low: "عادي" };
-
-  /* ═══════════════════════════════════════
      RENDER
   ═══════════════════════════════════════ */
   return (
@@ -304,7 +304,7 @@ export default function SecretaryPage() {
       </div>
 
       {/* ─── 1. Daily Briefing ─── */}
-      <Section id="briefing" title="الملخص اليومي" icon={<Sun className="w-5 h-5 text-amber-400" />}>
+      <Section id="briefing" title="الملخص اليومي" icon={<Sun className="w-5 h-5 text-amber-400" />} isOpen={expandedSections.briefing !== false} onToggle={toggleSection}>
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
@@ -346,6 +346,7 @@ export default function SecretaryPage() {
         title="الصفقات الساخنة والباردة"
         icon={<Flame className="w-5 h-5 text-orange-400" />}
         badge={!loading ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400">{hotDeals.length} ساخنة · {coldDeals.length} باردة</span> : undefined}
+        isOpen={expandedSections.hotCold !== false} onToggle={toggleSection}
       >
         {loading ? <Skeleton className="h-32 rounded-xl" /> : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -393,6 +394,7 @@ export default function SecretaryPage() {
         title="صحة التجديدات"
         icon={<ShieldAlert className="w-5 h-5 text-sky-400" />}
         badge={!loading && renewalHealth.overdue.length > 0 ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400">{renewalHealth.overdue.length} متأخر</span> : undefined}
+        isOpen={expandedSections.renewalHealth !== false} onToggle={toggleSection}
       >
         {loading ? <Skeleton className="h-32 rounded-xl" /> : (
           <div className="space-y-4">
@@ -443,19 +445,20 @@ export default function SecretaryPage() {
         title="أولويات اليوم"
         icon={<Target className="w-5 h-5 text-red-400" />}
         badge={!loading ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-400">{priorities.filter(p => p.urgency === "high").length} عاجل</span> : undefined}
+        isOpen={expandedSections.priorities !== false} onToggle={toggleSection}
       >
         {loading ? <Skeleton className="h-40 rounded-xl" /> : priorities.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-6">لا توجد أولويات عاجلة — أداء ممتاز!</p>
         ) : (
           <div className="space-y-2">
             {priorities.map((p, i) => (
-              <div key={i} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${urgencyStyle[p.urgency]}`}>
+              <div key={i} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${URGENCY_STYLE[p.urgency]}`}>
                 <span className="text-base">{p.icon}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-foreground">{p.title}</p>
                   <p className="text-[10px] text-muted-foreground">{p.detail}</p>
                 </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${urgencyText[p.urgency]} bg-white/5`}>{urgencyLabel[p.urgency]}</span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${URGENCY_TEXT[p.urgency]} bg-white/5`}>{URGENCY_LABEL[p.urgency]}</span>
               </div>
             ))}
           </div>
@@ -463,7 +466,7 @@ export default function SecretaryPage() {
       </Section>
 
       {/* ─── 5. 90-Day Goal Tracker ─── */}
-      <Section id="goal90" title="تتبع هدف الـ 90 يوم" icon={<BarChart3 className="w-5 h-5 text-cyan-400" />}>
+      <Section id="goal90" title="تتبع هدف الـ 90 يوم" icon={<BarChart3 className="w-5 h-5 text-cyan-400" />} isOpen={expandedSections.goal90 !== false} onToggle={toggleSection}>
         {loading ? <Skeleton className="h-24 rounded-xl" /> : (
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -500,6 +503,7 @@ export default function SecretaryPage() {
         title="مهام اليوم"
         icon={<CheckSquare className="w-5 h-5 text-indigo-400" />}
         badge={tasks.length > 0 ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400">{tasks.filter(t => t.done).length}/{tasks.length}</span> : undefined}
+        isOpen={expandedSections.tasks !== false} onToggle={toggleSection}
       >
         <div className="space-y-3">
           <div className="flex gap-2">
