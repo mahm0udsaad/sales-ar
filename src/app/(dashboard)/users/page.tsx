@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
-import { Shield, Plus, Pencil, Trash2, ChevronDown } from "lucide-react";
+import { Shield, Plus, Pencil, Trash2, ChevronDown, Link2, Share2, MessageCircle, Mail, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,19 +24,13 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { NAV_ITEMS } from "@/components/layout/sidebar";
 
-// All available pages with Arabic labels
+// Derive pages from sidebar nav items automatically + extra hidden pages
 const ALL_PAGES = [
-  { slug: "dashboard", label: "نظرة عامة" },
-  { slug: "sales", label: "المبيعات" },
-  { slug: "renewals", label: "التجديدات" },
-  { slug: "satisfaction", label: "رضا العملاء" },
-  { slug: "support", label: "الدعم" },
-  { slug: "development", label: "التطويرات" },
-  { slug: "partnerships", label: "الشراكات" },
-  { slug: "team", label: "الفريق" },
-  { slug: "finance", label: "المالية" },
-  { slug: "upload", label: "رفع البيانات" },
+  ...NAV_ITEMS.map((item) => ({ slug: item.slug, label: item.label })),
+  // Pages not in sidebar but need permission control
+  { slug: "sales-guide", label: "دليل المبيعات" },
   { slug: "agent", label: "المساعد الذكي" },
 ];
 
@@ -84,6 +78,38 @@ export default function UsersPage() {
   // Expanded user (to show pages inline)
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
+  // Share menu
+  const [shareMenuId, setShareMenuId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const getLoginUrl = () => {
+    if (typeof window === "undefined") return "";
+    return `${window.location.origin}/login`;
+  };
+
+  const buildShareText = (u: UserProfile) => {
+    const url = getLoginUrl();
+    return `مرحباً ${u.name}،\n\nيمكنك الدخول إلى لوحة التحكم من الرابط التالي:\n${url}\n\nبيانات الدخول:\n📧 البريد: ${u.email}\n\nفي حال نسيت كلمة المرور تواصل مع المدير.`;
+  };
+
+  const shareWhatsApp = (u: UserProfile) => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(buildShareText(u))}`, "_blank");
+    setShareMenuId(null);
+  };
+
+  const shareEmail = (u: UserProfile) => {
+    const subject = `دعوة للدخول إلى لوحة التحكم`;
+    window.open(`mailto:${u.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(buildShareText(u))}`, "_blank");
+    setShareMenuId(null);
+  };
+
+  const copyLink = (u: UserProfile) => {
+    navigator.clipboard.writeText(buildShareText(u));
+    setCopiedId(u.id);
+    setTimeout(() => setCopiedId(null), 2000);
+    setShareMenuId(null);
+  };
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     const res = await fetch("/api/users");
@@ -127,6 +153,8 @@ export default function UsersPage() {
     };
 
     if (!editingUser) {
+      body.password = userPassword;
+    } else if (userPassword) {
       body.password = userPassword;
     }
 
@@ -174,7 +202,7 @@ export default function UsersPage() {
   if (!user?.isSuperAdmin) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-16">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -193,7 +221,7 @@ export default function UsersPage() {
       </div>
 
       {/* Users list */}
-      <div className="rounded-2xl border border-white/6 bg-white/[0.02] overflow-hidden">
+      <div className="rounded-2xl border border-border bg-white/[0.02] overflow-hidden">
         {loading ? (
           <div className="p-8 text-center text-muted-foreground text-sm">جاري التحميل...</div>
         ) : users.length === 0 ? (
@@ -209,7 +237,7 @@ export default function UsersPage() {
                     className="flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 hover:bg-white/[0.02] transition-colors cursor-pointer"
                     onClick={() => setExpandedUserId(isExpanded ? null : u.id)}
                   >
-                    <div className="w-9 h-9 rounded-xl bg-cyan-dim flex items-center justify-center text-cyan text-xs font-bold ring-1 ring-cyan/20 shrink-0">
+                    <div className="w-9 h-9 rounded-[14px] bg-cyan-dim flex items-center justify-center text-cyan text-xs font-bold ring-1 ring-cyan/20 shrink-0">
                       {u.name?.[0] || "?"}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -230,6 +258,44 @@ export default function UsersPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
+                      <div className="relative">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShareMenuId(shareMenuId === u.id ? null : u.id);
+                          }}
+                          title="مشاركة رابط الدخول"
+                        >
+                          {copiedId === u.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5 text-indigo-400" />}
+                        </Button>
+                        {shareMenuId === u.id && (
+                          <div className="absolute left-0 top-full mt-1 z-50 bg-card border border-border rounded-xl shadow-lg overflow-hidden min-w-[170px]" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => shareWhatsApp(u)}
+                              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground hover:bg-white/[0.06] transition-colors"
+                            >
+                              <MessageCircle className="w-4 h-4 text-emerald-400" />
+                              واتساب
+                            </button>
+                            <button
+                              onClick={() => shareEmail(u)}
+                              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground hover:bg-white/[0.06] transition-colors"
+                            >
+                              <Mail className="w-4 h-4 text-blue-400" />
+                              بريد إلكتروني
+                            </button>
+                            <button
+                              onClick={() => copyLink(u)}
+                              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground hover:bg-white/[0.06] transition-colors"
+                            >
+                              <Copy className="w-4 h-4 text-gray-400" />
+                              نسخ الرسالة
+                            </button>
+                          </div>
+                        )}
+                      </div>
                       <Button variant="ghost" size="icon-sm" onClick={(e) => { e.stopPropagation(); openDialog(u); }}>
                         <Pencil className="w-3.5 h-3.5" />
                       </Button>
@@ -252,8 +318,40 @@ export default function UsersPage() {
 
                   {/* Expanded: show page permissions */}
                   {isExpanded && (
-                    <div className="px-4 sm:px-5 pb-3 pt-0">
-                      <div className="rounded-xl bg-white/[0.02] border border-white/6 p-3">
+                    <div className="px-4 sm:px-5 pb-3 pt-0 space-y-2">
+                      {/* Login link */}
+                      <div className="rounded-[14px] bg-indigo-500/5 border border-indigo-500/15 p-3 flex items-center gap-3">
+                        <Link2 className="w-4 h-4 text-indigo-400 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] text-muted-foreground mb-0.5">رابط الدخول</p>
+                          <p className="text-xs text-indigo-300 truncate" dir="ltr">{getLoginUrl()}</p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => copyLink(u)}
+                            className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                            title="نسخ"
+                          >
+                            {copiedId === u.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                          <button
+                            onClick={() => shareWhatsApp(u)}
+                            className="p-1.5 rounded-lg hover:bg-emerald-500/10 text-gray-400 hover:text-emerald-400 transition-colors"
+                            title="واتساب"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => shareEmail(u)}
+                            className="p-1.5 rounded-lg hover:bg-blue-500/10 text-gray-400 hover:text-blue-400 transition-colors"
+                            title="إيميل"
+                          >
+                            <Mail className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="rounded-[14px] bg-white/[0.02] border border-border p-3">
                         <p className="text-[11px] text-muted-foreground mb-2">الصفحات المسموح بها:</p>
                         {u.is_super_admin ? (
                           <p className="text-xs text-cyan">كل الصفحات (مدير عام)</p>
@@ -312,18 +410,19 @@ export default function UsersPage() {
               />
             </div>
 
-            {!editingUser && (
-              <div className="space-y-1.5">
-                <Label>كلمة المرور</Label>
-                <Input
-                  type="password"
-                  dir="ltr"
-                  value={userPassword}
-                  onChange={(e) => setUserPassword(e.target.value)}
-                  placeholder="••••••••"
-                />
-              </div>
-            )}
+            <div className="space-y-1.5">
+              <Label>{editingUser ? "كلمة المرور الجديدة" : "كلمة المرور"}</Label>
+              <Input
+                type="password"
+                dir="ltr"
+                value={userPassword}
+                onChange={(e) => setUserPassword(e.target.value)}
+                placeholder={editingUser ? "اتركها فارغة إذا لا تريد التغيير" : "••••••••"}
+              />
+              {editingUser && (
+                <p className="text-[10px] text-muted-foreground">اتركها فارغة إذا لا تريد تغيير كلمة المرور</p>
+              )}
+            </div>
 
             <div className="space-y-1.5">
               <Label>المنظمة</Label>
@@ -351,10 +450,10 @@ export default function UsersPage() {
                     type="button"
                     onClick={() => togglePage(page.slug)}
                     className={cn(
-                      "rounded-xl border px-2.5 py-2 text-xs font-medium transition-all text-right",
+                      "rounded-[14px] border px-2.5 py-2 text-xs font-medium transition-all text-right",
                       userPages.includes(page.slug)
                         ? "bg-cyan/15 border-cyan/30 text-cyan"
-                        : "bg-white/[0.02] border-white/6 text-muted-foreground hover:bg-white/[0.04]"
+                        : "bg-white/[0.02] border-border text-muted-foreground hover:bg-white/[0.04]"
                     )}
                   >
                     {page.label}
@@ -367,7 +466,7 @@ export default function UsersPage() {
             </div>
 
             {formError && (
-              <p className="text-sm text-red-400 bg-red-500/10 rounded-xl px-3 py-2 border border-red-500/20">
+              <p className="text-sm text-red-400 bg-red-500/10 rounded-[14px] px-3 py-2 border border-red-500/20">
                 {formError}
               </p>
             )}

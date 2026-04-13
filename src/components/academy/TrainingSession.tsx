@@ -1,0 +1,575 @@
+"use client";
+
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport, type UIMessage } from "ai";
+import { useRef, useEffect, useState, useCallback } from "react";
+import { useAuth } from "@/lib/auth-context";
+import { createTrainingSession, completeTrainingSession, updateTrainingSessionMessageCount } from "@/lib/supabase/db";
+import {
+  GraduationCap,
+  Send,
+  RotateCcw,
+  ArrowRight,
+  Bot,
+  Target,
+  ShieldAlert,
+  Search,
+  Flame,
+  Presentation,
+  HandCoins,
+  Loader2,
+  Ban,
+  TrendingUp,
+  Phone,
+  MessageCircle,
+  BadgePercent,
+  Monitor,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+const TOPICS = [
+  {
+    key: "closing",
+    title: "إغلاق الصفقات",
+    desc: "تعلّم تقنيات إغلاق الصفقات بفعالية",
+    icon: Target,
+    color: "text-cyan",
+    bg: "bg-cyan/10 border-cyan/20 hover:bg-cyan/15",
+    gradient: "from-cyan/20 to-cyan/5",
+    platform: "all" as const,
+  },
+  {
+    key: "objections",
+    title: "التعامل مع الاعتراضات",
+    desc: "تدرّب على الرد على اعتراضات العملاء",
+    icon: ShieldAlert,
+    color: "text-amber",
+    bg: "bg-amber/10 border-amber/20 hover:bg-amber/15",
+    gradient: "from-amber/20 to-amber/5",
+    platform: "all" as const,
+  },
+  {
+    key: "discovery",
+    title: "اكتشاف احتياجات العميل",
+    desc: "أتقن فن طرح الأسئلة الذكية",
+    icon: Search,
+    color: "text-cc-green",
+    bg: "bg-cc-green/10 border-cc-green/20 hover:bg-cc-green/15",
+    gradient: "from-cc-green/20 to-cc-green/5",
+    platform: "all" as const,
+  },
+  {
+    key: "angry_customer",
+    title: "التعامل مع عميل غاضب",
+    desc: "تعلّم كيف تهدّئ العميل وتكسبه",
+    icon: Flame,
+    color: "text-cc-red",
+    bg: "bg-cc-red/10 border-cc-red/20 hover:bg-cc-red/15",
+    gradient: "from-cc-red/20 to-cc-red/5",
+    platform: "all" as const,
+  },
+  {
+    key: "presentation",
+    title: "عرض المنتج باحترافية",
+    desc: "قدّم عرضاً يقنع العميل من أول دقيقة",
+    icon: Presentation,
+    color: "text-cc-purple",
+    bg: "bg-cc-purple/10 border-cc-purple/20 hover:bg-cc-purple/15",
+    gradient: "from-cc-purple/20 to-cc-purple/5",
+    platform: "all" as const,
+  },
+  {
+    key: "negotiation",
+    title: "التفاوض على السعر",
+    desc: "دافع عن القيمة بدون خسارة العميل",
+    icon: HandCoins,
+    color: "text-cc-blue",
+    bg: "bg-cc-blue/10 border-cc-blue/20 hover:bg-cc-blue/15",
+    gradient: "from-cc-blue/20 to-cc-blue/5",
+    platform: "all" as const,
+  },
+  {
+    key: "renewal_no_use",
+    title: "تجديد: عميل لم يستخدم المنتج",
+    desc: "أقنع عميل يرفض التجديد لأنه ما استفاد",
+    icon: RotateCcw,
+    color: "text-orange-400",
+    bg: "bg-orange-400/10 border-orange-400/20 hover:bg-orange-400/15",
+    gradient: "from-orange-400/20 to-orange-400/5",
+    platform: "all" as const,
+  },
+  {
+    key: "renewal_competitor",
+    title: "تجديد: عميل تحوّل لمنافس",
+    desc: "استرجع عميل قرر الانتقال لمنافس",
+    icon: ShieldAlert,
+    color: "text-rose-400",
+    bg: "bg-rose-400/10 border-rose-400/20 hover:bg-rose-400/15",
+    gradient: "from-rose-400/20 to-rose-400/5",
+    platform: "all" as const,
+  },
+  {
+    key: "renewal_management",
+    title: "تجديد: الإدارة رفضت",
+    desc: "تعامل مع عميل يقول إدارته رفضت التجديد",
+    icon: Ban,
+    color: "text-slate-400",
+    bg: "bg-slate-400/10 border-slate-400/20 hover:bg-slate-400/15",
+    gradient: "from-slate-400/20 to-slate-400/5",
+    platform: "all" as const,
+  },
+  {
+    key: "upsell",
+    title: "ترقية العميل لباقة أعلى",
+    desc: "اقنع العميل بالترقية بدون ضغط",
+    icon: TrendingUp,
+    color: "text-emerald-400",
+    bg: "bg-emerald-400/10 border-emerald-400/20 hover:bg-emerald-400/15",
+    gradient: "from-emerald-400/20 to-emerald-400/5",
+    platform: "all" as const,
+  },
+  {
+    key: "cold_call",
+    title: "أول اتصال بارد",
+    desc: "اكسر الجليد مع عميل محتمل غير مهتم",
+    icon: Phone,
+    color: "text-sky-400",
+    bg: "bg-sky-400/10 border-sky-400/20 hover:bg-sky-400/15",
+    gradient: "from-sky-400/20 to-sky-400/5",
+    platform: "all" as const,
+  },
+  {
+    key: "followup",
+    title: "متابعة عميل صامت",
+    desc: "أعد إحياء محادثة مع عميل توقف عن الرد",
+    icon: MessageCircle,
+    color: "text-violet-400",
+    bg: "bg-violet-400/10 border-violet-400/20 hover:bg-violet-400/15",
+    gradient: "from-violet-400/20 to-violet-400/5",
+    platform: "all" as const,
+  },
+  {
+    key: "discounts",
+    title: "فن الخصومات والعروض",
+    desc: "نوّع العروض وخلّ العميل يحتار ويختار",
+    icon: BadgePercent,
+    color: "text-lime-400",
+    bg: "bg-lime-400/10 border-lime-400/20 hover:bg-lime-400/15",
+    gradient: "from-lime-400/20 to-lime-400/5",
+    platform: "all" as const,
+  },
+  {
+    key: "cashier_pos",
+    title: "نظام الكاشير (POS)",
+    desc: "أتقن بيع باقة الكاشير وشرح مميزاتها للعميل",
+    icon: Monitor,
+    color: "text-teal-400",
+    bg: "bg-teal-400/10 border-teal-400/20 hover:bg-teal-400/15",
+    gradient: "from-teal-400/20 to-teal-400/5",
+    platform: "menu" as const,
+  },
+  // ── موضوعات خاصة بمنصة الحجوزات ──
+  {
+    key: "res_booking_system",
+    title: "شرح نظام الحجوزات",
+    desc: "أتقن عرض مميزات نظام إدارة الحجوزات للعميل",
+    icon: Target,
+    color: "text-teal-400",
+    bg: "bg-teal-400/10 border-teal-400/20 hover:bg-teal-400/15",
+    gradient: "from-teal-400/20 to-teal-400/5",
+    platform: "reservations" as const,
+  },
+  {
+    key: "res_no_show",
+    title: "مشكلة عدم الحضور (No-Show)",
+    desc: "تعامل مع عميل يعاني من حجوزات وهمية وعدم حضور",
+    icon: Ban,
+    color: "text-rose-400",
+    bg: "bg-rose-400/10 border-rose-400/20 hover:bg-rose-400/15",
+    gradient: "from-rose-400/20 to-rose-400/5",
+    platform: "reservations" as const,
+  },
+  {
+    key: "res_paper_to_digital",
+    title: "التحول من الدفتر للنظام",
+    desc: "أقنع عميل يستخدم دفتر ورقي بالتحول لنظام إلكتروني",
+    icon: Monitor,
+    color: "text-cyan-400",
+    bg: "bg-cyan-400/10 border-cyan-400/20 hover:bg-cyan-400/15",
+    gradient: "from-cyan-400/20 to-cyan-400/5",
+    platform: "reservations" as const,
+  },
+];
+
+/* ─── Session Persistence ─── */
+const SESSION_KEY = "training_session";
+
+interface SavedSession {
+  topic: string;
+  platform: string;
+  messages: UIMessage[];
+  savedAt: number;
+}
+
+function saveSession(topic: string, platform: string, messages: UIMessage[]) {
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ topic, platform, messages, savedAt: Date.now() }));
+  } catch { /* quota exceeded — ignore */ }
+}
+
+function loadSession(): SavedSession | null {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as SavedSession;
+    // Expire after 24 hours
+    if (Date.now() - data.savedAt > 24 * 60 * 60 * 1000) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return data;
+  } catch { return null; }
+}
+
+function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+}
+
+function formatMessage(text: string) {
+  return text
+    .replace(/\[✅ ([^\]]+)\]/g, '<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-medium my-1">✅ $1</span>')
+    .replace(/\[📝 ([^\]]+)\]/g, '<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-cyan/10 border border-cyan/20 text-cyan text-[11px] font-medium my-1">📝 $1</span>')
+    .replace(/\[💡 ([^\]]+)\]/g, '<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber/10 border border-amber/20 text-amber text-[11px] font-medium my-1">💡 $1</span>')
+    .replace(/## 📋 تقييم الجلسة التدريبية/g, '<div class="mt-3 mb-2 px-3 py-2 rounded-lg bg-gradient-to-l from-cyan/10 to-cc-purple/10 border border-cyan/20"><span class="text-sm font-bold text-cyan">📋 تقييم الجلسة التدريبية</span></div>')
+    .replace(/## (.+)/g, '<h3 class="text-sm font-bold text-foreground mt-3 mb-1">$1</h3>')
+    .replace(/### (.+)/g, '<h4 class="text-xs font-bold text-foreground/80 mt-2 mb-1">$1</h4>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="font-bold text-foreground">$1</strong>')
+    .replace(/\n- /g, '\n<span class="text-cyan/70 mr-1">•</span> ')
+    .replace(/\n(\d+)\. /g, '\n<span class="text-cyan/70 font-bold mr-1">$1.</span> ')
+    .replace(/\n/g, "<br/>");
+}
+
+// ── Chat sub-component (remounted per topic via key) ──
+function ChatSession({ topic, platform, savedMessages, onReset }: { topic: string; platform: "menu" | "reservations"; savedMessages?: UIMessage[]; onReset: () => void }) {
+  const [input, setInput] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const topicInfo = TOPICS.find((t) => t.key === topic)!;
+  const platformLabel = platform === "reservations" ? "حجوزات (نظام إدارة الحجوزات)" : "Menus (قائمة الطلبات)";
+  const { activeOrgId: orgId, user: authUser } = useAuth();
+  const sessionIdRef = useRef<string | null>(null);
+  const loggedRef = useRef(false);
+
+  const { messages, sendMessage, status } = useChat({
+    messages: savedMessages,
+    transport: new DefaultChatTransport({
+      api: "/api/ai/training-session",
+      body: { topic, platform },
+    }),
+  });
+
+  const isLoading = status === "streaming" || status === "submitted";
+
+  // Log session start to DB (once)
+  useEffect(() => {
+    if (loggedRef.current || (savedMessages && savedMessages.length > 0)) return;
+    if (!orgId || !authUser) return;
+    loggedRef.current = true;
+    const userName = authUser.name || authUser.email || "مجهول";
+    createTrainingSession({ org_id: orgId, user_name: userName, topic_key: topic, topic_title: topicInfo.title, platform })
+      .then((id) => { sessionIdRef.current = id; })
+      .catch(console.error);
+  }, [orgId, authUser, topic, topicInfo.title, platform, savedMessages]);
+
+  // Save messages to localStorage + detect completion
+  const getMessageText = useCallback((msg: { content?: string; parts?: { type: string; text?: string }[] }): string => {
+    if ("content" in msg && typeof msg.content === "string") return msg.content;
+    return (
+      (msg.parts as { type: string; text: string }[] | undefined)
+        ?.filter((p) => p.type === "text")
+        .map((p) => p.text)
+        .join("") || ""
+    );
+  }, []);
+
+  useEffect(() => {
+    if (messages.length > 0 && status === "ready") {
+      saveSession(topic, platform, messages);
+      // Update message count and check for completion
+      if (sessionIdRef.current) {
+        const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant");
+        const text = lastAssistantMsg ? getMessageText(lastAssistantMsg) : "";
+        const isCompleted = text.includes("تقييم الجلسة التدريبية");
+        if (isCompleted) {
+          completeTrainingSession(sessionIdRef.current, messages.length).catch(console.error);
+        } else {
+          updateTrainingSessionMessageCount(sessionIdRef.current, messages.length).catch(console.error);
+        }
+      }
+    }
+  }, [messages, status, topic, platform, getMessageText]);
+
+  // Auto-send initial message on mount (only if no saved messages)
+  useEffect(() => {
+    if (!savedMessages || savedMessages.length === 0) {
+      sendMessage({
+        text: `مرحباً، أنا مندوب مبيعات في ${platformLabel}. أبي أتدرب على "${topicInfo.title}". ابدأ الجلسة.`,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const submitMessage = async (text: string) => {
+    if (!text.trim() || isLoading) return;
+    setInput("");
+    await sendMessage({ text: text.trim() });
+  };
+
+  return (
+    <div className="flex flex-col cc-card rounded-xl overflow-hidden" style={{ height: "calc(100vh - 7rem)" }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+        <div className="flex items-center gap-3">
+          <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-br", topicInfo.gradient)}>
+            <topicInfo.icon className={cn("w-5 h-5", topicInfo.color)} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-foreground">جلسة تدريبية: {topicInfo.title}</h3>
+            <p className="text-[10px] text-muted-foreground">مدرب ذكي — تفاعل كأنك مع عميل حقيقي</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => { clearSession(); onReset(); }} className="text-xs text-muted-foreground gap-1.5">
+            <RotateCcw className="w-3 h-3" />
+            موضوع آخر
+          </Button>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-5" ref={scrollRef}>
+        <div className="space-y-4 py-5">
+          {messages.map((msg) => {
+            const text = getMessageText(msg);
+            if (!text) return null;
+            return (
+              <div key={msg.id} className="flex gap-3">
+                <div
+                  className={cn(
+                    "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5",
+                    msg.role === "user"
+                      ? "bg-cyan/15"
+                      : `bg-gradient-to-br ${topicInfo.gradient}`
+                  )}
+                >
+                  {msg.role === "user" ? (
+                    <span className="text-xs font-bold text-cyan">أنت</span>
+                  ) : (
+                    <Bot className={cn("w-4 h-4", topicInfo.color)} />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold text-foreground">
+                      {msg.role === "user" ? "أنت (المندوب)" : "المدرب (العميل)"}
+                    </span>
+                  </div>
+                  {msg.role === "user" ? (
+                    <p className="text-sm text-foreground/90 leading-relaxed">{text}</p>
+                  ) : (
+                    <div
+                      className="text-sm text-foreground/90 leading-relaxed prose-sm"
+                      dangerouslySetInnerHTML={{ __html: formatMessage(text) }}
+                    />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Loading indicator */}
+          {isLoading && messages[messages.length - 1]?.role === "user" && (
+            <div className="flex gap-3">
+              <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br", topicInfo.gradient)}>
+                <Bot className={cn("w-4 h-4", topicInfo.color)} />
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03]">
+                <Loader2 className="w-3.5 h-3.5 text-muted-foreground animate-spin" />
+                <span className="text-xs text-muted-foreground">المدرب يكتب...</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Input */}
+      <div className="border-t border-border p-4">
+        <div className="flex items-end gap-3">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submitMessage(input);
+              }
+            }}
+            placeholder="اكتب ردك كمندوب مبيعات..."
+            rows={1}
+            className="flex-1 resize-none rounded-xl bg-white/[0.04] border border-border px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-cyan/30 focus:border-cyan/30"
+            style={{ minHeight: 44, maxHeight: 120 }}
+          />
+          <Button
+            onClick={() => submitMessage(input)}
+            disabled={!input.trim() || isLoading}
+            size="icon"
+            className="h-[44px] w-[44px] rounded-xl bg-cyan hover:bg-cyan/80 shrink-0"
+          >
+            <Send className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Component ──
+interface TrainingSessionProps {
+  onBack: () => void;
+  platform?: "menu" | "reservations";
+}
+
+export function TrainingSession({ onBack, platform = "menu" }: TrainingSessionProps) {
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const [resumeMessages, setResumeMessages] = useState<UIMessage[] | undefined>(undefined);
+  const [sessionCleared, setSessionCleared] = useState(false);
+  const filteredTopics = TOPICS.filter((t) => t.platform === "all" || t.platform === platform);
+
+  const saved = !sessionCleared && typeof window !== "undefined" ? loadSession() : null;
+  const hasSavedSession = saved && saved.platform === platform && saved.messages.length > 1;
+  const savedTopicInfo = hasSavedSession ? TOPICS.find((t) => t.key === saved.topic) : null;
+
+  const resetSession = () => {
+    setSelectedTopic(null);
+    setResumeMessages(undefined);
+  };
+
+  const resumeSavedSession = () => {
+    if (saved) {
+      setResumeMessages(saved.messages);
+      setSelectedTopic(saved.topic);
+    }
+  };
+
+  // ── Topic Selection Screen ──
+  if (!selectedTopic) {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-cyan/20 to-cc-purple/20 flex items-center justify-center">
+              <GraduationCap className="w-5 h-5 text-cyan" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">جلسة تدريبية</h2>
+              <p className="text-xs text-muted-foreground">اختر موضوع التدريب وابدأ محادثة تفاعلية مع المدرب الذكي</p>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onBack} className="text-xs text-muted-foreground gap-1">
+            <ArrowRight className="w-3.5 h-3.5" />
+            رجوع للأكاديمية
+          </Button>
+        </div>
+
+        {/* Resume saved session */}
+        {hasSavedSession && savedTopicInfo && (
+          <div className="cc-card rounded-[14px] p-4 border border-amber/20 bg-gradient-to-l from-amber/[0.06] to-transparent">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-br", savedTopicInfo.gradient)}>
+                  <savedTopicInfo.icon className={cn("w-4 h-4", savedTopicInfo.color)} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground">جلسة سابقة: {savedTopicInfo.title}</p>
+                  <p className="text-[10px] text-muted-foreground">{saved.messages.length} رسالة — {new Date(saved.savedAt).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={() => { clearSession(); setSessionCleared(true); }} className="text-xs gap-1">
+                  <RotateCcw className="w-3 h-3" />
+                  حذف
+                </Button>
+                <Button size="sm" onClick={resumeSavedSession} className="text-xs gap-1 bg-amber hover:bg-amber/80">
+                  <ArrowRight className="w-3 h-3 rotate-180" />
+                  استكمال الجلسة
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* How it works */}
+        <div className="cc-card rounded-[14px] p-5 border border-cyan/10 bg-gradient-to-l from-cyan/[0.03] to-transparent">
+          <h3 className="text-sm font-bold text-foreground mb-3">كيف تعمل الجلسة؟</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            {[
+              { step: "1", text: "اختر موضوع التدريب", icon: "🎯" },
+              { step: "2", text: "المدرب يلعب دور العميل", icon: "🎭" },
+              { step: "3", text: "تتفاعل كأنه موقف حقيقي", icon: "💬" },
+              { step: "4", text: "تحصل على تقييم وملاحظات", icon: "📋" },
+            ].map((s) => (
+              <div key={s.step} className="flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                <span className="text-lg">{s.icon}</span>
+                <div>
+                  <span className="text-[10px] text-cyan font-bold">خطوة {s.step}</span>
+                  <p className="text-xs text-foreground">{s.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Topics Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filteredTopics.map((topic) => {
+            const Icon = topic.icon;
+            return (
+              <button
+                key={topic.key}
+                onClick={() => setSelectedTopic(topic.key)}
+                className={cn(
+                  "flex items-start gap-3.5 p-4 rounded-[14px] border text-right transition-all hover:scale-[1.02]",
+                  topic.bg
+                )}
+              >
+                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br shrink-0", topic.gradient)}>
+                  <Icon className={cn("w-5 h-5", topic.color)} />
+                </div>
+                <div>
+                  <p className={cn("text-sm font-bold", topic.color)}>{topic.title}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{topic.desc}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Chat Session Screen (key forces remount per topic) ──
+  return <ChatSession key={`${selectedTopic}-${resumeMessages ? "resume" : "new"}`} topic={selectedTopic} platform={platform} savedMessages={resumeMessages} onReset={resetSession} />;
+}

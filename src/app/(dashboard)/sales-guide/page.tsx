@@ -84,6 +84,13 @@ import {
   PhoneCall,
   Star,
   Send,
+  Flame,
+  Clock,
+  Zap,
+  Award,
+  Medal,
+  Shield,
+  Timer,
 } from "lucide-react";
 
 /* ─── Color helpers ─── */
@@ -131,7 +138,70 @@ const EMPTY_PIP = {
   end_date: "",
   reason: "",
   target_percentage: 100,
+  weekly_goals: ["", "", "", ""],
+  improvement_actions: [] as string[],
+  evaluation_criteria: [] as string[],
+  followup_day: "",
+  consequence: "",
 };
+
+const IMPROVEMENT_ACTIONS = [
+  "تدريب مكثف على المنتج",
+  "مرافقة مدير المبيعات",
+  "مراجعة يومية للأداء",
+  "تدريب على مهارات التفاوض",
+  "تحسين إدارة الوقت",
+  "ورشة عمل خدمة العملاء",
+  "تدريب على الإغلاق",
+  "مراجعة سكربت المكالمات",
+];
+
+const EVALUATION_CRITERIA = [
+  { label: "عدد المكالمات اليومية", icon: "📞" },
+  { label: "عدد الصفقات المغلقة", icon: "🤝" },
+  { label: "قيمة المبيعات", icon: "💰" },
+  { label: "معدل التحويل", icon: "📊" },
+  { label: "عدد العملاء الجدد", icon: "👥" },
+  { label: "رضا العملاء", icon: "⭐" },
+  { label: "عدد التجديدات", icon: "🔄" },
+  { label: "الحضور والانضباط", icon: "⏰" },
+];
+
+const FOLLOWUP_DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"];
+
+/* ─── PIP Motivational helpers ─── */
+function getPipDaysLeft(endDate: string) {
+  const end = new Date(endDate);
+  const now = new Date();
+  const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  return diff;
+}
+
+function getPipMotivation(progress: number, daysLeft: number, week: number) {
+  if (progress >= 100) return { icon: "🏆", text: "أداء ممتاز! تجاوز الهدف", color: "text-cc-green", bg: "bg-cc-green/10 border-cc-green/30" };
+  if (progress >= 80) return { icon: "🔥", text: "أداء رائع! على وشك تحقيق الهدف", color: "text-cc-green", bg: "bg-cc-green/10 border-cc-green/20" };
+  if (progress >= 60) return { icon: "⚡", text: "تقدم جيد! استمر بالعمل", color: "text-cyan", bg: "bg-cyan/10 border-cyan/20" };
+  if (progress >= 40) return { icon: "💪", text: "بداية جيدة، تحتاج مزيد من الجهد", color: "text-amber", bg: "bg-amber/10 border-amber/20" };
+  if (daysLeft <= 7 && progress < 40) return { icon: "⏰", text: "تحذير! الوقت ينفد والتقدم بطيء", color: "text-cc-red", bg: "bg-cc-red/10 border-cc-red/20" };
+  if (week >= 3 && progress < 30) return { icon: "🚨", text: "خطر! يجب تسريع الأداء فوراً", color: "text-cc-red", bg: "bg-cc-red/10 border-cc-red/30" };
+  return { icon: "🎯", text: "ابدأ بقوة وحقق أهدافك", color: "text-muted-foreground", bg: "bg-white/[0.05] border-border" };
+}
+
+function getPipRank(progress: number) {
+  if (progress >= 100) return { rank: "بطل", icon: Trophy, color: "text-amber", medal: "🥇" };
+  if (progress >= 80) return { rank: "متميز", icon: Award, color: "text-cc-green", medal: "🥈" };
+  if (progress >= 60) return { rank: "مجتهد", icon: Medal, color: "text-cyan", medal: "🥉" };
+  if (progress >= 40) return { rank: "مبادر", icon: Shield, color: "text-cc-purple", medal: "" };
+  return { rank: "مبتدئ", icon: Target, color: "text-muted-foreground", medal: "" };
+}
+
+const MOTIVATIONAL_MSGS = [
+  "النجاح يبدأ بخطوة واحدة",
+  "كل يوم فرصة جديدة للتحسن",
+  "المثابرة مفتاح النجاح",
+  "التحدي يصنع الأبطال",
+  "اجعل هدفك أكبر من عذرك",
+];
 
 export default function SalesGuidePage() {
   const { user } = useAuth();
@@ -159,6 +229,8 @@ export default function SalesGuidePage() {
   const [activityForm, setActivityForm] = useState(EMPTY_ACTIVITY);
   const [pipDialog, setPipDialog] = useState(false);
   const [pipForm, setPipForm] = useState(EMPTY_PIP);
+  const [editingPip, setEditingPip] = useState<PipPlan | null>(null);
+  const [editPipForm, setEditPipForm] = useState(EMPTY_PIP);
   const [targetDialog, setTargetDialog] = useState(false);
   const [editingTarget, setEditingTarget] = useState<SalesTarget | null>(null);
   const [targetForm, setTargetForm] = useState({ target_value: 0, min_value: 0 });
@@ -338,6 +410,9 @@ export default function SalesGuidePage() {
     if (!pipForm.employee_name || !pipForm.end_date) return;
     setSaving(true);
     try {
+      const weeklyGoals = pipForm.weekly_goals
+        .map((g, i) => ({ week: i + 1, goal: g }))
+        .filter((g) => g.goal.trim());
       const created = await createPipPlan({
         employee_name: pipForm.employee_name,
         start_date: pipForm.start_date,
@@ -347,6 +422,11 @@ export default function SalesGuidePage() {
         target_percentage: pipForm.target_percentage,
         actual_percentage: 0,
         reason: pipForm.reason || undefined,
+        weekly_goals: weeklyGoals.length > 0 ? weeklyGoals : undefined,
+        improvement_actions: pipForm.improvement_actions.length > 0 ? pipForm.improvement_actions : undefined,
+        evaluation_criteria: pipForm.evaluation_criteria.length > 0 ? pipForm.evaluation_criteria : undefined,
+        followup_day: pipForm.followup_day || undefined,
+        consequence: pipForm.consequence || undefined,
       });
       setPipPlans((prev) => [created, ...prev]);
       setPipDialog(false);
@@ -359,6 +439,51 @@ export default function SalesGuidePage() {
   async function handleUpdatePipStatus(id: string, status: PipPlan["status"]) {
     const updated = await updatePipPlan(id, { status });
     setPipPlans((prev) => prev.map((p) => (p.id === id ? updated : p)));
+  }
+
+  function openEditPip(p: PipPlan) {
+    setEditingPip(p);
+    const goals = p.weekly_goals && p.weekly_goals.length > 0
+      ? [0, 1, 2, 3].map((i) => p.weekly_goals?.find((g) => g.week === i + 1)?.goal || "")
+      : ["", "", "", ""];
+    setEditPipForm({
+      employee_name: p.employee_name || "",
+      start_date: p.start_date,
+      end_date: p.end_date,
+      reason: p.reason || "",
+      target_percentage: p.target_percentage,
+      weekly_goals: goals,
+      improvement_actions: p.improvement_actions || [],
+      evaluation_criteria: p.evaluation_criteria || [],
+      followup_day: p.followup_day || "",
+      consequence: p.consequence || "",
+    });
+  }
+
+  async function handleEditPip() {
+    if (!editingPip) return;
+    setSaving(true);
+    try {
+      const weeklyGoals = editPipForm.weekly_goals
+        .map((g, i) => ({ week: i + 1, goal: g }))
+        .filter((g) => g.goal.trim());
+      const updated = await updatePipPlan(editingPip.id, {
+        employee_name: editPipForm.employee_name,
+        start_date: editPipForm.start_date,
+        end_date: editPipForm.end_date,
+        target_percentage: editPipForm.target_percentage,
+        reason: editPipForm.reason || undefined,
+        weekly_goals: weeklyGoals.length > 0 ? weeklyGoals : [],
+        improvement_actions: editPipForm.improvement_actions.length > 0 ? editPipForm.improvement_actions : [],
+        evaluation_criteria: editPipForm.evaluation_criteria.length > 0 ? editPipForm.evaluation_criteria : [],
+        followup_day: editPipForm.followup_day || undefined,
+        consequence: editPipForm.consequence || undefined,
+      });
+      setPipPlans((prev) => prev.map((p) => (p.id === editingPip.id ? updated : p)));
+      setEditingPip(null);
+    } finally {
+      setSaving(false);
+    }
   }
 
   function openEditTarget(target: SalesTarget) {
@@ -589,13 +714,11 @@ export default function SalesGuidePage() {
       {/* ─── Main Tabs ─── */}
       <Tabs defaultValue="activities" dir="rtl">
         <TabsList className="glass-surface rounded-2xl p-1.5 gap-1 flex-wrap">
-          <TabsTrigger value="activities" className="rounded-xl text-xs px-4 py-2">سجل النشاطات</TabsTrigger>
-          <TabsTrigger value="leaderboard" className="rounded-xl text-xs px-4 py-2">لوحة المتصدرين</TabsTrigger>
-          <TabsTrigger value="targets" className="rounded-xl text-xs px-4 py-2">الأهداف</TabsTrigger>
-          <TabsTrigger value="pip" className="rounded-xl text-xs px-4 py-2">خطط التحسين</TabsTrigger>
-          <TabsTrigger value="pipeline" className="rounded-xl text-xs px-4 py-2">دليل المراحل</TabsTrigger>
-          <TabsTrigger value="messages" className="rounded-xl text-xs px-4 py-2">رسائل الاستهداف</TabsTrigger>
-          <TabsTrigger value="scripts" className="rounded-xl text-xs px-4 py-2">سكربت المكالمات</TabsTrigger>
+          <TabsTrigger value="activities" className="rounded-[14px] text-xs px-4 py-2">سجل النشاطات</TabsTrigger>
+          <TabsTrigger value="leaderboard" className="rounded-[14px] text-xs px-4 py-2">لوحة المتصدرين</TabsTrigger>
+          <TabsTrigger value="targets" className="rounded-[14px] text-xs px-4 py-2">الأهداف</TabsTrigger>
+          <TabsTrigger value="pip" className="rounded-[14px] text-xs px-4 py-2">خطط التحسين</TabsTrigger>
+          <TabsTrigger value="pipeline" className="rounded-[14px] text-xs px-4 py-2">دليل المراحل</TabsTrigger>
         </TabsList>
 
         {/* ── Activities Tab ── */}
@@ -703,7 +826,7 @@ export default function SalesGuidePage() {
                   return (
                     <div
                       key={s.id}
-                      className="flex items-center gap-4 rounded-2xl p-4 border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+                      className="flex items-center gap-4 rounded-2xl p-4 border border-border bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
                     >
                       <div className="text-2xl font-extrabold text-muted-foreground w-8 text-center">
                         {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}
@@ -804,7 +927,7 @@ export default function SalesGuidePage() {
                   return (
                     <div
                       key={t.id}
-                      className="rounded-2xl p-4 border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+                      className="rounded-2xl p-4 border border-border bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-bold text-foreground">{t.label_ar || t.target_key}</span>
@@ -865,7 +988,66 @@ export default function SalesGuidePage() {
         </TabsContent>
 
         {/* ── PIP Plans Tab ── */}
-        <TabsContent value="pip" className="mt-4">
+        <TabsContent value="pip" className="mt-4 space-y-4">
+          {/* ── Competitive Leaderboard (when multiple plans) ── */}
+          {pipPlans.filter(p => p.status === "active").length > 1 && (() => {
+            const activeSorted = [...pipPlans]
+              .filter(p => p.status === "active")
+              .sort((a, b) => {
+                const pa = a.target_percentage > 0 ? (a.actual_percentage / a.target_percentage) * 100 : 0;
+                const pb = b.target_percentage > 0 ? (b.actual_percentage / b.target_percentage) * 100 : 0;
+                return pb - pa;
+              });
+            return (
+              <div className="glass-surface rounded-2xl p-4 sm:p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Trophy className="w-5 h-5 text-amber" />
+                  <h3 className="text-lg font-bold">لوحة المنافسة</h3>
+                  <span className="text-xs text-muted-foreground mr-auto">
+                    {MOTIVATIONAL_MSGS[Math.floor(Date.now() / 86400000) % MOTIVATIONAL_MSGS.length]}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {activeSorted.map((p, idx) => {
+                    const prog = p.target_percentage > 0 ? Math.round((p.actual_percentage / p.target_percentage) * 100) : 0;
+                    const rank = getPipRank(prog);
+                    const daysLeft = getPipDaysLeft(p.end_date);
+                    const RankIcon = rank.icon;
+                    return (
+                      <div key={p.id} className={`rounded-[14px] p-3 border transition-all ${
+                        idx === 0 ? "border-amber/30 bg-amber/5" : "border-border bg-white/[0.02]"
+                      }`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg">{idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}</span>
+                          <p className="font-bold text-sm flex-1">{p.employee_name}</p>
+                          <RankIcon className={`w-4 h-4 ${rank.color}`} />
+                        </div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="flex-1 h-2 bg-white/[0.05] rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                prog >= 80 ? "bg-cc-green" : prog >= 50 ? "bg-amber" : "bg-cc-red"
+                              }`}
+                              style={{ width: `${Math.min(100, prog)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-bold min-w-[36px] text-left">{prog}%</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                          <span className={rank.color}>{rank.medal} {rank.rank}</span>
+                          <span className="flex items-center gap-0.5">
+                            <Clock className="w-3 h-3" />
+                            {daysLeft > 0 ? `${daysLeft} يوم متبقي` : "انتهت المهلة"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="glass-surface rounded-2xl p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold">خطط تحسين الأداء (PIP)</h3>
@@ -887,38 +1069,76 @@ export default function SalesGuidePage() {
                   const progress = p.target_percentage > 0
                     ? Math.round((p.actual_percentage / p.target_percentage) * 100)
                     : 0;
+                  const daysLeft = getPipDaysLeft(p.end_date);
+                  const motivation = getPipMotivation(progress, daysLeft, p.current_week);
+                  const rank = getPipRank(progress);
+                  const RankIcon = rank.icon;
+                  const totalDays = Math.ceil((new Date(p.end_date).getTime() - new Date(p.start_date).getTime()) / (1000 * 60 * 60 * 24));
+                  const elapsedDays = totalDays - daysLeft;
+                  const timeProgress = totalDays > 0 ? Math.min(100, Math.round((elapsedDays / totalDays) * 100)) : 0;
+
                   return (
                     <div
                       key={p.id}
-                      className="rounded-2xl p-4 border border-white/6 bg-white/[0.02]"
+                      className="rounded-2xl p-4 border border-border bg-white/[0.02]"
                     >
+                      {/* Header with rank badge */}
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <p className="font-bold text-foreground">{p.employee_name}</p>
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                            progress >= 80 ? "bg-cc-green/15" : progress >= 60 ? "bg-cyan/15" : progress >= 40 ? "bg-amber/15" : "bg-white/[0.05]"
+                          }`}>
+                            <RankIcon className={`w-4 h-4 ${rank.color}`} />
+                          </div>
+                          <div>
+                            <p className="font-bold text-foreground">{p.employee_name}</p>
+                            <span className={`text-[10px] ${rank.color}`}>{rank.medal} {rank.rank}</span>
+                          </div>
                           <ColorBadge text={statusInfo.label} color={statusInfo.color} />
                         </div>
-                        {p.status === "active" && (
-                          <div className="flex gap-1.5">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleUpdatePipStatus(p.id, "completed")}
-                              className="text-cc-green text-xs"
-                            >
-                              اكتمل
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleUpdatePipStatus(p.id, "failed")}
-                              className="text-cc-red text-xs"
-                            >
-                              فشل
-                            </Button>
-                          </div>
-                        )}
+                        <div className="flex gap-1.5">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditPip(p)}
+                            className="text-muted-foreground text-xs"
+                          >
+                            <Pencil className="w-3.5 h-3.5 ml-1" /> تعديل
+                          </Button>
+                          {p.status === "active" && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUpdatePipStatus(p.id, "completed")}
+                                className="text-cc-green text-xs"
+                              >
+                                اكتمل
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUpdatePipStatus(p.id, "failed")}
+                                className="text-cc-red text-xs"
+                              >
+                                فشل
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-muted-foreground">
+
+                      {/* Motivational banner for active plans */}
+                      {p.status === "active" && (
+                        <div className={`rounded-lg px-3 py-2 mb-3 border text-xs flex items-center gap-2 ${motivation.bg}`}>
+                          <span className="text-base">{motivation.icon}</span>
+                          <span className={motivation.color}>{motivation.text}</span>
+                          {progress >= 80 && <Flame className="w-4 h-4 text-amber animate-pulse mr-auto" />}
+                        </div>
+                      )}
+
+                      {/* Stats grid with countdown */}
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs text-muted-foreground">
                         <div>
                           <span className="block text-[10px]">تاريخ البدء</span>
                           <span className="text-foreground">{formatDate(p.start_date)}</span>
@@ -933,23 +1153,152 @@ export default function SalesGuidePage() {
                         </div>
                         <div>
                           <span className="block text-[10px]">التقدم</span>
-                          <span className="text-foreground">{progress}%</span>
+                          <span className={`text-sm font-bold ${progress >= 80 ? "text-cc-green" : progress >= 50 ? "text-amber" : "text-cc-red"}`}>{progress}%</span>
                         </div>
+                        {p.status === "active" && (
+                          <div>
+                            <span className="block text-[10px]">الوقت المتبقي</span>
+                            <div className="flex items-center gap-1">
+                              <Timer className={`w-3.5 h-3.5 ${daysLeft <= 7 ? "text-cc-red animate-pulse" : "text-cyan"}`} />
+                              <span className={`font-bold ${daysLeft <= 7 ? "text-cc-red" : daysLeft <= 14 ? "text-amber" : "text-foreground"}`}>
+                                {daysLeft > 0 ? `${daysLeft} يوم` : "انتهت!"}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
+
+                      {/* Time progress bar */}
+                      {p.status === "active" && (
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                            <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> الوقت المنقضي</span>
+                            <span>{timeProgress}%</span>
+                          </div>
+                          <div className="w-full h-1 bg-white/[0.05] rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                timeProgress > 75 && progress < 50 ? "bg-cc-red" : "bg-white/20"
+                              }`}
+                              style={{ width: `${timeProgress}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       {p.reason && (
-                        <p className="mt-2 text-xs text-muted-foreground border-t border-white/6 pt-2">
+                        <p className="mt-2 text-xs text-muted-foreground border-t border-border pt-2">
                           السبب: {p.reason}
                         </p>
                       )}
-                      {/* Progress bar */}
-                      <div className="mt-3 w-full h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            progress >= 80 ? "bg-cc-green" : progress >= 50 ? "bg-amber" : "bg-cc-red"
-                          }`}
-                          style={{ width: `${Math.min(100, progress)}%` }}
-                        />
+
+                      {/* Performance progress bar */}
+                      <div className="mt-3">
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                          <span className="flex items-center gap-1"><Zap className="w-3 h-3" /> تقدم الأداء</span>
+                          <span>{progress}% من {p.target_percentage}%</span>
+                        </div>
+                        <div className="w-full h-2 bg-white/[0.05] rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              progress >= 80 ? "bg-cc-green" : progress >= 50 ? "bg-amber" : "bg-cc-red"
+                            }`}
+                            style={{ width: `${Math.min(100, progress)}%` }}
+                          />
+                        </div>
                       </div>
+
+                      {/* Speed comparison: time vs performance */}
+                      {p.status === "active" && timeProgress > 0 && (
+                        <div className="mt-2 flex items-center gap-2 text-[10px]">
+                          {progress >= timeProgress ? (
+                            <span className="flex items-center gap-1 text-cc-green">
+                              <TrendingUp className="w-3 h-3" />
+                              الأداء أسرع من الوقت بـ {progress - timeProgress}%
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-cc-red">
+                              <AlertTriangle className="w-3 h-3" />
+                              الأداء متأخر عن الوقت بـ {timeProgress - progress}%
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Enhanced PIP details */}
+                      {(p.weekly_goals?.length || p.improvement_actions?.length || p.evaluation_criteria?.length || p.followup_day || p.consequence) && (
+                        <div className="mt-3 border-t border-border pt-3 space-y-3">
+                          {/* Weekly goals */}
+                          {p.weekly_goals && p.weekly_goals.length > 0 && (
+                            <div>
+                              <p className="text-[10px] text-muted-foreground mb-1.5">الأهداف الأسبوعية</p>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                {p.weekly_goals.map((g) => (
+                                  <div
+                                    key={g.week}
+                                    className={`rounded-lg p-2 text-xs border ${
+                                      p.current_week === g.week
+                                        ? "border-cyan/30 bg-cyan/10 text-cyan"
+                                        : p.current_week > g.week
+                                        ? "border-cc-green/20 bg-cc-green/5 text-cc-green"
+                                        : "border-border bg-white/[0.02] text-muted-foreground"
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-[10px] opacity-70">أسبوع {g.week}</span>
+                                      {p.current_week > g.week && <span className="text-cc-green">✓</span>}
+                                      {p.current_week === g.week && <Flame className="w-3 h-3 text-amber" />}
+                                    </div>
+                                    {g.goal}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {/* Improvement actions & criteria */}
+                          <div className="flex flex-wrap gap-3">
+                            {p.improvement_actions && p.improvement_actions.length > 0 && (
+                              <div className="flex-1 min-w-[200px]">
+                                <p className="text-[10px] text-muted-foreground mb-1.5">إجراءات التحسين</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {p.improvement_actions.map((a) => (
+                                    <span key={a} className="px-2 py-0.5 rounded-md text-[11px] bg-cc-purple/10 text-cc-purple border border-cc-purple/20">
+                                      {a}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {p.evaluation_criteria && p.evaluation_criteria.length > 0 && (
+                              <div className="flex-1 min-w-[200px]">
+                                <p className="text-[10px] text-muted-foreground mb-1.5">معايير التقييم</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {p.evaluation_criteria.map((c) => (
+                                    <span key={c} className="px-2 py-0.5 rounded-md text-[11px] bg-cyan/10 text-cyan border border-cyan/20">
+                                      {c}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          {/* Followup & consequence */}
+                          <div className="flex flex-wrap gap-4 text-xs">
+                            {p.followup_day && (
+                              <div className="flex items-center gap-1 text-muted-foreground">
+                                <Calendar className="w-3 h-3" />
+                                <span>متابعة كل <span className="text-foreground font-medium">{p.followup_day}</span></span>
+                              </div>
+                            )}
+                            {p.consequence && (
+                              <div className="flex items-center gap-1 text-cc-red/80">
+                                <AlertTriangle className="w-3 h-3" />
+                                <span>{p.consequence}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -967,7 +1316,7 @@ export default function SalesGuidePage() {
               {pipelineStages.map((stage, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center gap-4 rounded-2xl p-4 border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+                  className="flex items-center gap-4 rounded-2xl p-4 border border-border bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
                 >
                   <div className="w-10 h-10 rounded-2xl bg-white/[0.05] flex items-center justify-center text-lg font-bold text-muted-foreground">
                     {idx + 1}
@@ -1011,7 +1360,7 @@ export default function SalesGuidePage() {
                 {activityPoints.map((ap, idx) => (
                   <div
                     key={ap.key}
-                    className="flex items-center justify-between rounded-xl p-3 border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+                    className="flex items-center justify-between rounded-[14px] p-3 border border-border bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
                   >
                     <span className="text-sm">
                       {ap.icon} {ap.label}
@@ -1045,7 +1394,7 @@ export default function SalesGuidePage() {
                 {scoreLevels.map((level, idx) => (
                   <div
                     key={level.value}
-                    className="flex items-center gap-2 rounded-xl p-3 border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+                    className="flex items-center gap-2 rounded-[14px] p-3 border border-border bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
                   >
                     <span className="text-lg">{level.emoji}</span>
                     <div>
@@ -1069,151 +1418,6 @@ export default function SalesGuidePage() {
           </div>
         </TabsContent>
 
-        {/* ── Messages & Scripts Tabs (shared renderer) ── */}
-        {(["messages", "scripts"] as const).map((tabKey) => {
-          const msgType = tabKey === "messages" ? "message" : "script";
-          const tabLabel = tabKey === "messages" ? "رسائل الاستهداف" : "سكربت المكالمات";
-          const tabIcon = tabKey === "messages" ? <MessageSquare className="w-5 h-5" /> : <PhoneCall className="w-5 h-5" />;
-          const filtered = messages.filter((m) => m.msg_type === msgType && (msgCategoryFilter === "all" || m.category === msgCategoryFilter));
-
-          return (
-            <TabsContent key={tabKey} value={tabKey} className="mt-4">
-              <div className="glass-surface rounded-2xl p-4 sm:p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    {tabIcon}
-                    <h3 className="text-lg font-bold">{tabLabel}</h3>
-                  </div>
-                  <Button size="sm" onClick={() => openAddMsg(msgType)} className="gap-1.5">
-                    <Plus className="w-4 h-4" /> إضافة
-                  </Button>
-                </div>
-
-                {/* Category filter */}
-                <div className="flex items-center gap-2 mb-4 flex-wrap">
-                  <button
-                    onClick={() => setMsgCategoryFilter("all")}
-                    className={`px-3 py-1.5 rounded-xl text-xs transition-all ${
-                      msgCategoryFilter === "all"
-                        ? "bg-cyan/15 text-cyan font-medium border border-cyan/30"
-                        : "text-muted-foreground hover:text-foreground border border-white/6"
-                    }`}
-                  >
-                    الكل
-                  </button>
-                  {MSG_CATEGORIES.map((cat) => (
-                    <button
-                      key={cat.value}
-                      onClick={() => setMsgCategoryFilter(cat.value)}
-                      className={`px-3 py-1.5 rounded-xl text-xs transition-all ${
-                        msgCategoryFilter === cat.value
-                          ? "bg-cyan/15 text-cyan font-medium border border-cyan/30"
-                          : "text-muted-foreground hover:text-foreground border border-white/6"
-                      }`}
-                    >
-                      {cat.icon} {cat.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Messages list */}
-                {filtered.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    {tabKey === "messages" ? <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-30" /> : <PhoneCall className="w-12 h-12 mx-auto mb-3 opacity-30" />}
-                    <p>لا توجد {tabLabel} بعد</p>
-                    <p className="text-sm mt-1">أضف أول {tabKey === "messages" ? "رسالة" : "سكربت"} لفريق المبيعات</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {filtered.map((m) => {
-                      const catInfo = MSG_CATEGORIES.find((c) => c.value === m.category);
-                      return (
-                        <div
-                          key={m.id}
-                          className="rounded-2xl p-4 border border-white/6 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-3 mb-2">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="font-bold text-foreground">{m.title}</h4>
-                              <ColorBadge
-                                text={`${catInfo?.icon || ""} ${catInfo?.label || m.category}`}
-                                color={m.category === "new_client" ? "green" : m.category === "renewal_client" ? "amber" : "purple"}
-                              />
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <Button variant="ghost" size="sm" onClick={() => openEditMsg(m)} className="w-7 h-7 p-0 text-muted-foreground hover:text-cyan">
-                                <Pencil className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => handleDeleteMsg(m.id)} className="w-7 h-7 p-0 text-muted-foreground hover:text-cc-red">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </div>
-                          </div>
-
-                          {/* Content */}
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed mb-3">{m.content}</p>
-
-                          {/* Rating & actions */}
-                          <div className="flex items-center justify-between border-t border-white/6 pt-3">
-                            <div className="flex items-center gap-3">
-                              {/* Stars display */}
-                              <div className="flex items-center gap-1">
-                                {[1, 2, 3, 4, 5].map((s) => (
-                                  <Star
-                                    key={s}
-                                    className={`w-4 h-4 ${s <= Math.round(m.avg_rating) ? "text-amber fill-amber" : "text-muted-foreground/30"}`}
-                                  />
-                                ))}
-                                <span className="text-xs text-muted-foreground mr-1">
-                                  {m.avg_rating > 0 ? m.avg_rating.toFixed(1) : "—"} ({m.ratings_count})
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button variant="ghost" size="sm" onClick={() => handleViewRatings(m.id)} className="text-xs text-muted-foreground gap-1">
-                                <MessageSquare className="w-3.5 h-3.5" /> التعليقات
-                              </Button>
-                              <Button variant="ghost" size="sm" onClick={() => openRating(m.id)} className="text-xs text-cyan gap-1">
-                                <Star className="w-3.5 h-3.5" /> تقييم
-                              </Button>
-                            </div>
-                          </div>
-
-                          {/* Inline ratings view */}
-                          {viewRatings?.msgId === m.id && viewRatings.ratings.length > 0 && (
-                            <div className="mt-3 border-t border-white/6 pt-3 space-y-2">
-                              {viewRatings.ratings.map((r) => (
-                                <div key={r.id} className="flex items-start gap-2 text-xs">
-                                  <div className="flex items-center gap-0.5 shrink-0">
-                                    {[1, 2, 3, 4, 5].map((s) => (
-                                      <Star key={s} className={`w-3 h-3 ${s <= r.rating ? "text-amber fill-amber" : "text-muted-foreground/20"}`} />
-                                    ))}
-                                  </div>
-                                  <div className="flex-1">
-                                    <span className="font-medium text-foreground">{r.rated_by || "مجهول"}</span>
-                                    {r.comment && <p className="text-muted-foreground mt-0.5">{r.comment}</p>}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {viewRatings?.msgId === m.id && viewRatings.ratings.length === 0 && (
-                            <p className="mt-3 border-t border-white/6 pt-3 text-xs text-muted-foreground text-center">لا توجد تعليقات بعد</p>
-                          )}
-
-                          {/* Created by */}
-                          {m.created_by && (
-                            <p className="text-[10px] text-muted-foreground/50 mt-2">بواسطة: {m.created_by}</p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-          );
-        })}
       </Tabs>
 
       {/* ─── Add Activity Dialog ─── */}
@@ -1342,12 +1546,13 @@ export default function SalesGuidePage() {
 
       {/* ─── Add PIP Dialog ─── */}
       <Dialog open={pipDialog} onOpenChange={setPipDialog}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-[560px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>إنشاء خطة تحسين أداء</DialogTitle>
             <DialogDescription>خطة مدتها 4 أسابيع لتحسين أداء الموظف</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="space-y-5 py-2">
+            {/* Employee & Dates */}
             <div>
               <Label>الموظف</Label>
               <Select
@@ -1382,14 +1587,32 @@ export default function SalesGuidePage() {
                 />
               </div>
             </div>
-            <div>
-              <Label>النسبة المستهدفة %</Label>
-              <Input
-                type="number"
-                value={pipForm.target_percentage}
-                onChange={(e) => setPipForm({ ...pipForm, target_percentage: Number(e.target.value) })}
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>النسبة المستهدفة %</Label>
+                <Input
+                  type="number"
+                  value={pipForm.target_percentage}
+                  onChange={(e) => setPipForm({ ...pipForm, target_percentage: Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label>يوم المتابعة الأسبوعي</Label>
+                <Select
+                  value={pipForm.followup_day}
+                  onValueChange={(v) => setPipForm({ ...pipForm, followup_day: v ?? "" })}
+                >
+                  <SelectTrigger><SelectValue placeholder="اختر اليوم..." /></SelectTrigger>
+                  <SelectContent>
+                    {FOLLOWUP_DAYS.map((d) => (
+                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            {/* Reason */}
             <div>
               <Label>سبب الخطة</Label>
               <Textarea
@@ -1399,11 +1622,279 @@ export default function SalesGuidePage() {
                 rows={2}
               />
             </div>
+
+            {/* Weekly Goals */}
+            <div>
+              <Label className="mb-2 block">أهداف أسبوعية</Label>
+              <div className="space-y-2">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground min-w-[60px]">أسبوع {i + 1}</span>
+                    <Input
+                      value={pipForm.weekly_goals[i]}
+                      onChange={(e) => {
+                        const goals = [...pipForm.weekly_goals];
+                        goals[i] = e.target.value;
+                        setPipForm({ ...pipForm, weekly_goals: goals });
+                      }}
+                      placeholder={
+                        i === 0 ? "مثال: 20 مكالمة يومياً"
+                          : i === 1 ? "مثال: 5 اجتماعات أسبوعياً"
+                          : i === 2 ? "مثال: إغلاق 3 صفقات"
+                          : "مثال: تحقيق 100% من الهدف"
+                      }
+                      className="text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Improvement Actions */}
+            <div>
+              <Label className="mb-2 block">إجراءات التحسين</Label>
+              <div className="flex flex-wrap gap-2">
+                {IMPROVEMENT_ACTIONS.map((action) => (
+                  <button
+                    key={action}
+                    type="button"
+                    onClick={() => {
+                      const actions = pipForm.improvement_actions.includes(action)
+                        ? pipForm.improvement_actions.filter((a) => a !== action)
+                        : [...pipForm.improvement_actions, action];
+                      setPipForm({ ...pipForm, improvement_actions: actions });
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                      pipForm.improvement_actions.includes(action)
+                        ? "bg-cc-purple/15 text-cc-purple border-cc-purple/30"
+                        : "bg-white/[0.05] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                    }`}
+                  >
+                    {action}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Evaluation Criteria */}
+            <div>
+              <Label className="mb-2 block">معايير التقييم (كيف يُقاس النجاح؟)</Label>
+              <div className="flex flex-wrap gap-2">
+                {EVALUATION_CRITERIA.map((c) => (
+                  <button
+                    key={c.label}
+                    type="button"
+                    onClick={() => {
+                      const criteria = pipForm.evaluation_criteria.includes(c.label)
+                        ? pipForm.evaluation_criteria.filter((x) => x !== c.label)
+                        : [...pipForm.evaluation_criteria, c.label];
+                      setPipForm({ ...pipForm, evaluation_criteria: criteria });
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                      pipForm.evaluation_criteria.includes(c.label)
+                        ? "bg-cyan/15 text-cyan border-cyan/30"
+                        : "bg-white/[0.05] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                    }`}
+                  >
+                    {c.icon} {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Consequence */}
+            <div>
+              <Label>النتيجة في حال عدم التحسن</Label>
+              <Textarea
+                value={pipForm.consequence}
+                onChange={(e) => setPipForm({ ...pipForm, consequence: e.target.value })}
+                placeholder="مثال: إنهاء العقد، تخفيض الراتب، نقل لقسم آخر..."
+                rows={2}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setPipDialog(false)}>إلغاء</Button>
             <Button onClick={handleCreatePip} disabled={saving || !pipForm.employee_name || !pipForm.end_date}>
               {saving ? "جارٍ الحفظ..." : "إنشاء الخطة"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Edit PIP Dialog ─── */}
+      <Dialog open={!!editingPip} onOpenChange={(open) => { if (!open) setEditingPip(null); }}>
+        <DialogContent className="sm:max-w-[560px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>تعديل خطة تحسين الأداء</DialogTitle>
+            <DialogDescription>تعديل بيانات خطة {editingPip?.employee_name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 py-2">
+            {/* Employee & Dates */}
+            <div>
+              <Label>الموظف</Label>
+              <Select
+                value={editPipForm.employee_name}
+                onValueChange={(v) => setEditPipForm({ ...editPipForm, employee_name: v ?? "" })}
+              >
+                <SelectTrigger><SelectValue placeholder="اختر الموظف..." /></SelectTrigger>
+                <SelectContent>
+                  {employees.map((e) => (
+                    <SelectItem key={e.id} value={e.name}>
+                      {e.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>تاريخ البدء</Label>
+                <Input
+                  type="date"
+                  value={editPipForm.start_date}
+                  onChange={(e) => setEditPipForm({ ...editPipForm, start_date: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>تاريخ الانتهاء</Label>
+                <Input
+                  type="date"
+                  value={editPipForm.end_date}
+                  onChange={(e) => setEditPipForm({ ...editPipForm, end_date: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>النسبة المستهدفة %</Label>
+                <Input
+                  type="number"
+                  value={editPipForm.target_percentage}
+                  onChange={(e) => setEditPipForm({ ...editPipForm, target_percentage: Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label>يوم المتابعة الأسبوعي</Label>
+                <Select
+                  value={editPipForm.followup_day}
+                  onValueChange={(v) => setEditPipForm({ ...editPipForm, followup_day: v ?? "" })}
+                >
+                  <SelectTrigger><SelectValue placeholder="اختر اليوم..." /></SelectTrigger>
+                  <SelectContent>
+                    {FOLLOWUP_DAYS.map((d) => (
+                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Reason */}
+            <div>
+              <Label>سبب الخطة</Label>
+              <Textarea
+                value={editPipForm.reason}
+                onChange={(e) => setEditPipForm({ ...editPipForm, reason: e.target.value })}
+                placeholder="سبب إنشاء خطة التحسين..."
+                rows={2}
+              />
+            </div>
+
+            {/* Weekly Goals */}
+            <div>
+              <Label className="mb-2 block">أهداف أسبوعية</Label>
+              <div className="space-y-2">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground min-w-[60px]">أسبوع {i + 1}</span>
+                    <Input
+                      value={editPipForm.weekly_goals[i]}
+                      onChange={(e) => {
+                        const goals = [...editPipForm.weekly_goals];
+                        goals[i] = e.target.value;
+                        setEditPipForm({ ...editPipForm, weekly_goals: goals });
+                      }}
+                      placeholder={
+                        i === 0 ? "مثال: 20 مكالمة يومياً"
+                          : i === 1 ? "مثال: 5 اجتماعات أسبوعياً"
+                          : i === 2 ? "مثال: إغلاق 3 صفقات"
+                          : "مثال: تحقيق 100% من الهدف"
+                      }
+                      className="text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Improvement Actions */}
+            <div>
+              <Label className="mb-2 block">إجراءات التحسين</Label>
+              <div className="flex flex-wrap gap-2">
+                {IMPROVEMENT_ACTIONS.map((action) => (
+                  <button
+                    key={action}
+                    type="button"
+                    onClick={() => {
+                      const actions = editPipForm.improvement_actions.includes(action)
+                        ? editPipForm.improvement_actions.filter((a) => a !== action)
+                        : [...editPipForm.improvement_actions, action];
+                      setEditPipForm({ ...editPipForm, improvement_actions: actions });
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                      editPipForm.improvement_actions.includes(action)
+                        ? "bg-cc-purple/15 text-cc-purple border-cc-purple/30"
+                        : "bg-white/[0.05] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                    }`}
+                  >
+                    {action}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Evaluation Criteria */}
+            <div>
+              <Label className="mb-2 block">معايير التقييم</Label>
+              <div className="flex flex-wrap gap-2">
+                {EVALUATION_CRITERIA.map((c) => (
+                  <button
+                    key={c.label}
+                    type="button"
+                    onClick={() => {
+                      const criteria = editPipForm.evaluation_criteria.includes(c.label)
+                        ? editPipForm.evaluation_criteria.filter((x) => x !== c.label)
+                        : [...editPipForm.evaluation_criteria, c.label];
+                      setEditPipForm({ ...editPipForm, evaluation_criteria: criteria });
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                      editPipForm.evaluation_criteria.includes(c.label)
+                        ? "bg-cyan/15 text-cyan border-cyan/30"
+                        : "bg-white/[0.05] text-muted-foreground border-white/[0.06] hover:border-white/[0.15]"
+                    }`}
+                  >
+                    {c.icon} {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Consequence */}
+            <div>
+              <Label>النتيجة في حال عدم التحسن</Label>
+              <Textarea
+                value={editPipForm.consequence}
+                onChange={(e) => setEditPipForm({ ...editPipForm, consequence: e.target.value })}
+                placeholder="مثال: إنهاء العقد، تخفيض الراتب، نقل لقسم آخر..."
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditingPip(null)}>إلغاء</Button>
+            <Button onClick={handleEditPip} disabled={saving || !editPipForm.employee_name || !editPipForm.end_date}>
+              {saving ? "جارٍ الحفظ..." : "حفظ التعديل"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1517,100 +2008,6 @@ export default function SalesGuidePage() {
             <Button variant="ghost" onClick={() => setPointDialog(false)}>إلغاء</Button>
             <Button onClick={handleUpdatePoint} disabled={saving}>
               {saving ? "جارٍ الحفظ..." : "حفظ التعديلات"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ─── Add/Edit Message Dialog ─── */}
-      <Dialog open={msgDialog} onOpenChange={setMsgDialog}>
-        <DialogContent className="sm:max-w-[520px]">
-          <DialogHeader>
-            <DialogTitle>{editingMsg ? "تعديل" : "إضافة"} {msgForm.msg_type === "message" ? "رسالة استهداف" : "سكربت مكالمة"}</DialogTitle>
-            <DialogDescription>
-              {editingMsg ? "تعديل المحتوى" : "أضف محتوى جديد لفريق المبيعات"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <Label>الفئة</Label>
-              <Select
-                value={msgForm.category}
-                onValueChange={(v) => setMsgForm({ ...msgForm, category: v as SalesMessage["category"] })}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {MSG_CATEGORIES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>{c.icon} {c.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>العنوان</Label>
-              <Input
-                value={msgForm.title}
-                onChange={(e) => setMsgForm({ ...msgForm, title: e.target.value })}
-                placeholder={msgForm.msg_type === "message" ? "عنوان الرسالة..." : "عنوان السكربت..."}
-              />
-            </div>
-            <div>
-              <Label>المحتوى</Label>
-              <Textarea
-                value={msgForm.content}
-                onChange={(e) => setMsgForm({ ...msgForm, content: e.target.value })}
-                placeholder={msgForm.msg_type === "message" ? "نص الرسالة..." : "نص السكربت..."}
-                rows={6}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setMsgDialog(false)}>إلغاء</Button>
-            <Button onClick={handleSaveMsg} disabled={saving || !msgForm.title.trim() || !msgForm.content.trim()}>
-              {saving ? "جارٍ الحفظ..." : "حفظ"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ─── Rating Dialog ─── */}
-      <Dialog open={ratingDialog} onOpenChange={setRatingDialog}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>تقييم وتعليق</DialogTitle>
-            <DialogDescription>قيّم هذا المحتوى وأضف تعليقك</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
-              <Label>التقييم</Label>
-              <div className="flex items-center gap-1 mt-2">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setRatingForm({ ...ratingForm, rating: s })}
-                    className="p-1 transition-transform hover:scale-110"
-                  >
-                    <Star className={`w-7 h-7 ${s <= ratingForm.rating ? "text-amber fill-amber" : "text-muted-foreground/30"}`} />
-                  </button>
-                ))}
-                <span className="text-sm font-bold text-amber mr-2">{ratingForm.rating}/5</span>
-              </div>
-            </div>
-            <div>
-              <Label>تعليق (اختياري)</Label>
-              <Textarea
-                value={ratingForm.comment}
-                onChange={(e) => setRatingForm({ ...ratingForm, comment: e.target.value })}
-                placeholder="أضف تعليقك على هذا الأسلوب..."
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setRatingDialog(false)}>إلغاء</Button>
-            <Button onClick={handleSubmitRating} disabled={saving} className="gap-1.5">
-              <Send className="w-4 h-4" />
-              {saving ? "جارٍ الإرسال..." : "إرسال التقييم"}
             </Button>
           </DialogFooter>
         </DialogContent>

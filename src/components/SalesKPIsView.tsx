@@ -9,9 +9,9 @@ import { formatMoney } from "@/lib/utils/format";
 
 /* ─── Design Tokens ─── */
 const T = {
-  bg: "#07090F", surface: "#0D1117", card: "#111827", border: "#1E2A3A",
+  bg: "var(--background)", surface: "var(--sidebar)", card: "var(--card)", border: "var(--border)",
   teal: "#00D4FF", green: "#10B981", red: "#EF4444", amber: "#F59E0B",
-  purple: "#8B5CF6", pink: "#EC4899", text: "#F1F5F9", mid: "#94A3B8", dim: "#475569",
+  purple: "#8B5CF6", pink: "#EC4899", text: "var(--foreground)", mid: "var(--muted-foreground)", dim: "#475569",
 };
 
 /* ─── Types ─── */

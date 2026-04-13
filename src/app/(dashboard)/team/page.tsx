@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { fetchEmployees, createEmployee, updateEmployee, deleteEmployee, fetchDeals, fetchTickets } from "@/lib/supabase/db";
+import { fetchEmployees, createEmployee, updateEmployee, deleteEmployee, fetchDeals, fetchTickets, fetchAllLearningProgress } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
 import { EMPLOYEE_STATUSES } from "@/lib/utils/constants";
 import { StatCard } from "@/components/ui/stat-card";
@@ -26,7 +26,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Employee, Deal, Ticket } from "@/types";
-import { Users, UserPlus, Pencil, Trash2, TrendingUp, Headphones, Calendar } from "lucide-react";
+import { Users, UserPlus, Pencil, Trash2, TrendingUp, Headphones, Calendar, GraduationCap, Award } from "lucide-react";
+import { getAcademyStats, TOTAL_LESSONS } from "@/components/academy/LearningAcademy";
 import { formatMoney } from "@/lib/utils/format";
 
 /* ---------- helpers ---------- */
@@ -50,6 +51,59 @@ function workloadTextColor(pct: number): string {
   return "text-cc-green";
 }
 
+/* ---------- performance levels ---------- */
+
+interface PerformanceLevel {
+  label: string;
+  color: string;
+  bgColor: string;
+  ringColor: string;
+  barColor: string;
+  min: number;
+}
+
+const LEVELS: PerformanceLevel[] = [
+  { label: "استثنائي", color: "text-cyan", bgColor: "bg-cyan/10", ringColor: "ring-cyan/30", barColor: "bg-cyan", min: 85 },
+  { label: "متميّز", color: "text-cc-green", bgColor: "bg-cc-green/10", ringColor: "ring-cc-green/30", barColor: "bg-cc-green", min: 70 },
+  { label: "جيد", color: "text-amber", bgColor: "bg-amber/10", ringColor: "ring-amber/30", barColor: "bg-amber", min: 50 },
+  { label: "يحتاج تطوير", color: "text-orange-400", bgColor: "bg-orange-400/10", ringColor: "ring-orange-400/30", barColor: "bg-orange-400", min: 30 },
+  { label: "ضعيف", color: "text-cc-red", bgColor: "bg-cc-red/10", ringColor: "ring-cc-red/30", barColor: "bg-cc-red", min: 0 },
+];
+
+function getLevel(score: number): PerformanceLevel {
+  return LEVELS.find((l) => score >= l.min) || LEVELS[LEVELS.length - 1];
+}
+
+function computeEmployeeScore(stats: { totalDeals: number; closedDeals: number; dealsValue: number; totalTickets: number; resolvedTickets: number }): number {
+  let score = 0;
+  const totalTasks = stats.totalDeals + stats.totalTickets;
+  const completedTasks = stats.closedDeals + stats.resolvedTickets;
+
+  if (totalTasks === 0) return 0;
+
+  // Completion rate (40 points max)
+  const completionRate = completedTasks / totalTasks;
+  score += completionRate * 40;
+
+  // Volume bonus (30 points max) - more tasks = higher score
+  const volumeScore = Math.min(1, totalTasks / 20) * 30;
+  score += volumeScore;
+
+  // Sales value bonus (20 points max)
+  if (stats.dealsValue > 0) {
+    const valueScore = Math.min(1, stats.dealsValue / 50000) * 20;
+    score += valueScore;
+  }
+
+  // Support resolution rate bonus (10 points max)
+  if (stats.totalTickets > 0) {
+    const resRate = stats.resolvedTickets / stats.totalTickets;
+    score += resRate * 10;
+  }
+
+  return Math.min(100, Math.round(score));
+}
+
 /* ---------- page ---------- */
 
 export default function TeamPage() {
@@ -62,6 +116,7 @@ export default function TeamPage() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [saving, setSaving] = useState(false);
   const [periodFilter, setPeriodFilter] = useState<"day" | "week" | "month" | "all">("all");
+  const [learningMap, setLearningMap] = useState<Record<string, string[]>>({});
 
   /* delete confirmation */
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -76,11 +131,14 @@ export default function TeamPage() {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchEmployees(), fetchDeals(), fetchTickets()])
-      .then(([e, d, t]) => {
+    Promise.all([fetchEmployees(), fetchDeals(), fetchTickets(), fetchAllLearningProgress()])
+      .then(([e, d, t, lp]) => {
         setEmployees(e);
         setDeals(d);
         setTickets(t);
+        const map: Record<string, string[]> = {};
+        lp.forEach((p) => { map[p.user_id] = p.completed_lessons; });
+        setLearningMap(map);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -274,7 +332,7 @@ export default function TeamPage() {
 
       {/* Period filter + Search */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1 bg-white/[0.03] rounded-xl p-1 border border-white/[0.06]">
+        <div className="flex items-center gap-1 bg-white/[0.05] rounded-[14px] p-1 border border-white/[0.06]">
           <Calendar className="w-4 h-4 text-muted-foreground mr-1.5 ml-1" />
           {([
             { key: "all" as const, label: "الكل" },
@@ -320,7 +378,7 @@ export default function TeamPage() {
             return (
               <div
                 key={emp.id}
-                className="cc-card rounded-xl p-5 space-y-4"
+                className="cc-card rounded-[14px] p-5 space-y-4"
               >
                 {/* Top: avatar + info */}
                 <div className="flex items-start gap-3">
@@ -340,6 +398,27 @@ export default function TeamPage() {
                     color={STATUS_COLOR[emp.status] || "blue"}
                   />
                 </div>
+
+                {/* Performance Level */}
+                {(() => {
+                  const score = computeEmployeeScore(stats);
+                  const level = getLevel(score);
+                  if (score === 0) return null;
+                  return (
+                    <div className={`rounded-lg ${level.bgColor} ring-1 ${level.ringColor} p-2.5`}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <Award className={`w-3.5 h-3.5 ${level.color}`} />
+                          <span className={`text-xs font-bold ${level.color}`}>{level.label}</span>
+                        </div>
+                        <span className={`text-lg font-extrabold ${level.color} font-mono`}>{score}</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                        <div className={`h-full ${level.barColor} rounded-full transition-all duration-700`} style={{ width: `${score}%` }} />
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Performance Stats */}
                 <div className="grid grid-cols-2 gap-2">
@@ -412,6 +491,27 @@ export default function TeamPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Academy Progress */}
+                {(() => {
+                  const progress = learningMap[emp.id] || [];
+                  const stats = getAcademyStats(progress);
+                  return (
+                    <div className="rounded-lg bg-white/[0.02] border border-white/[0.06] p-2.5">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-[10px] text-muted-foreground">تقدم الأكاديمية</span>
+                        <span className="mr-auto text-[10px] font-bold text-emerald-400">{stats.completed}/{stats.total}</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${stats.pct}%` }} />
+                      </div>
+                      {stats.lastLessonName && (
+                        <p className="text-[9px] text-muted-foreground mt-1.5">آخر درس: {stats.lastLessonName}</p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 pt-2 border-t border-border">
@@ -548,7 +648,7 @@ export default function TeamPage() {
 
 function TeamStatSkeleton() {
   return (
-    <div className="cc-card rounded-xl p-4 border-t-2 border-t-muted">
+    <div className="cc-card rounded-[14px] p-4 border-t-2 border-t-muted">
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <Skeleton className="h-7 w-10" />
@@ -562,7 +662,7 @@ function TeamStatSkeleton() {
 
 function TeamCardSkeleton() {
   return (
-    <div className="cc-card rounded-xl p-5 space-y-4">
+    <div className="cc-card rounded-[14px] p-5 space-y-4">
       <div className="flex items-start gap-3">
         <Skeleton className="w-11 h-11 rounded-full shrink-0" />
         <div className="flex-1 space-y-2">

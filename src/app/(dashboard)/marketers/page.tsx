@@ -266,7 +266,7 @@ export default function MarketersPage() {
       </div>
 
       {/* -------- Marketers Table -------- */}
-      <div className="cc-card rounded-xl overflow-x-auto">
+      <div className="cc-card rounded-[14px] overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -378,7 +378,7 @@ export default function MarketersPage() {
 
       {/* -------- Selected Marketer Deals Detail -------- */}
       {selectedMarketer && selectedDeals.length > 0 && (
-        <div className="cc-card rounded-xl p-4 space-y-3">
+        <div className="cc-card rounded-[14px] p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">
               صفقات {selectedMarketer}
@@ -445,7 +445,7 @@ export default function MarketersPage() {
 
       {/* -------- Commission Breakdown per Marketer -------- */}
       {!loading && marketers.length > 0 && (
-        <div className="cc-card rounded-xl p-4 space-y-3">
+        <div className="cc-card rounded-[14px] p-4 space-y-3">
           <h2 className="text-sm font-bold text-foreground">ملخص العمولات</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {marketers
@@ -598,7 +598,7 @@ export default function MarketersPage() {
 
 function SkeletonCard() {
   return (
-    <div className="cc-card rounded-xl p-4 border-t-2 border-t-muted">
+    <div className="cc-card rounded-[14px] p-4 border-t-2 border-t-muted">
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <Skeleton className="h-7 w-10" />

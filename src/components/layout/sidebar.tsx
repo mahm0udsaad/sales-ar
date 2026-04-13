@@ -32,7 +32,6 @@ import {
   GraduationCap,
   History,
   Flame,
-  BrainCircuit,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -64,7 +63,6 @@ export const NAV_ITEMS = [
   { label: "المالية", href: "/finance", slug: "finance", icon: Banknote, color: "lime" },
   { label: "رفع الملفات", href: "/upload", slug: "upload", icon: Upload, color: "slate" },
   { label: "إدارة المستخدمين", href: "/users", slug: "users", icon: Shield, color: "red" },
-  { label: "السكرتير التنفيذي", href: "/secretary", slug: "secretary", icon: BrainCircuit, color: "violet" },
   { label: "Maestro", href: "/maestro", slug: "maestro", icon: Flame, color: "amber" },
   { label: "المظهر", href: "/appearance", slug: "appearance", icon: Palette, color: "violet" },
 ];

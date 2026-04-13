@@ -1,6 +1,8 @@
 export interface Deal {
   id: string;
   org_id: string;
+  client_code?: string;
+  sales_type?: "office" | "support";
   client_name: string;
   client_phone?: string;
   deal_value: number;
@@ -16,6 +18,7 @@ export interface Deal {
   marketer_name?: string;
   loss_reason?: string;
   notes?: string;
+  last_contact?: string;
   month?: number;
   year?: number;
   created_at: string;
@@ -26,9 +29,13 @@ export interface Ticket {
   id: string;
   org_id: string;
   ticket_number?: number;
+  request_type?: "problem" | "service";
   client_name: string;
   client_phone?: string;
   issue: string;
+  issue_category?: string;
+  issue_subcategory?: string;
+  open_time?: string;
   priority: string;
   status: string;
   assigned_agent_id?: string;
@@ -120,10 +127,21 @@ export interface Project {
   name: string;
   team?: string;
   start_date?: string;
+  due_date?: string;
   progress: number;
   total_tasks: number;
   remaining_tasks: number;
   status_tag?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Package {
+  id: string;
+  org_id: string;
+  name: string;
+  original_price: number;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -158,6 +176,7 @@ export interface Review {
 export interface Renewal {
   id: string;
   org_id: string;
+  client_code?: string;
   customer_name: string;
   customer_phone?: string;
   plan_name: string;
@@ -196,6 +215,30 @@ export interface MonthlyExpense {
   expense_date: string;
   month: number;
   year: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MonthlyBudget {
+  id: string;
+  org_id: string;
+  category: string;
+  planned_amount: number;
+  month: number;
+  year: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StartupCost {
+  id: string;
+  org_id: string;
+  category: string;
+  item_name: string;
+  amount: number;
+  paid_date?: string;
+  notes?: string;
   created_at: string;
   updated_at: string;
 }
@@ -312,6 +355,11 @@ export interface PipPlan {
   target_percentage: number;
   actual_percentage: number;
   reason?: string;
+  weekly_goals?: { week: number; goal: string }[];
+  improvement_actions?: string[];
+  evaluation_criteria?: string[];
+  followup_day?: string;
+  consequence?: string;
   created_at: string;
   updated_at: string;
 }
@@ -350,6 +398,7 @@ export interface SalesMessage {
   org_id: string;
   category: "new_client" | "renewal_client" | "cashier_client";
   msg_type: "message" | "script";
+  product?: "menu" | "reservations";
   title: string;
   content: string;
   avg_rating: number;
@@ -382,10 +431,12 @@ export interface AppNotification {
 export interface FollowUpNote {
   id: string;
   org_id: string;
-  entity_type: "deal" | "renewal";
+  entity_type: "deal" | "renewal" | "ticket";
   entity_id: string;
   note: string;
   author_name: string;
+  edited_at?: string;
+  edited_by?: string;
   created_at: string;
 }
 
@@ -393,12 +444,210 @@ export interface MentionNotification {
   id: string;
   org_id: string;
   note_id: string;
-  entity_type: "deal" | "renewal";
+  entity_type: "deal" | "renewal" | "ticket";
   entity_id: string;
   entity_name: string;
   mentioned_name: string;
   author_name: string;
   note_text: string;
   is_read: boolean;
+  created_at: string;
+}
+
+export interface TargetClient {
+  id: string;
+  org_id: string;
+  client_name: string;
+  client_phone?: string;
+  plan?: string;
+  source?: string;
+  month: number;
+  year: number;
+  target_date?: string;
+  contact_status: "pending" | "contacted" | "no_answer" | "postponed";
+  satisfaction_result?: "very_satisfied" | "satisfied" | "neutral" | "needs_improvement" | "unsatisfied";
+  notes?: string;
+  assigned_rep?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PendingDeal {
+  id: string;
+  org_id: string;
+  sales_type: "office" | "support";
+  client_name: string;
+  client_phone?: string;
+  deal_value: number;
+  source?: string;
+  stage?: string;
+  plan?: string;
+  assigned_rep_name?: string;
+  notes?: string;
+  submitter_name?: string;
+  status: "pending" | "approved" | "rejected";
+  reviewed_at?: string;
+  reviewed_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmployeeTask {
+  id: string;
+  org_id: string;
+  title: string;
+  description?: string;
+  task_type: "general" | "call" | "meeting" | "followup" | "renewal" | "support";
+  priority: "low" | "medium" | "high" | "urgent";
+  status: "pending" | "in_progress" | "completed" | "cancelled";
+  assigned_to: string;
+  assigned_to_name: string;
+  assigned_by?: string;
+  assigned_by_name?: string;
+  due_date?: string;
+  due_time?: string;
+  start_date?: string;
+  completed_at?: string;
+  client_name?: string;
+  client_phone?: string;
+  entity_type?: "deal" | "renewal" | "ticket";
+  entity_id?: string;
+  notes?: string;
+  completion_notes?: string;
+  time_estimate?: number;
+  time_started_at?: string;
+  time_spent_minutes?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GiftOffer {
+  id: string;
+  org_id: string;
+  bundle_id?: string;
+  client_name: string;
+  client_phone?: string;
+  entity_type: "renewal" | "deal";
+  entity_id?: string;
+  gift_title: string;
+  gift_description?: string;
+  gift_type: "discount" | "free_month" | "upgrade" | "custom";
+  gift_value?: string;
+  gift_emoji?: string;
+  box_color?: string;
+  status: "pending" | "opened" | "accepted" | "rejected";
+  opened_at?: string;
+  accepted_at?: string;
+  rejected_at?: string;
+  created_by?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AcademyContent {
+  id: string;
+  org_id: string;
+  section: "menu" | "reservations";
+  title: string;
+  content: string;
+  sort_order: number;
+  is_published: boolean;
+  created_by?: string;
+  updated_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductFeature {
+  id: string;
+  org_id: string;
+  section: "menu" | "reservations";
+  category: string;
+  title: string;
+  description: string;
+  marketing_text: string;
+  icon: string;
+  sort_order: number;
+  created_by?: string;
+  updated_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TrainingKnowledge {
+  id: string;
+  org_id: string;
+  topic_key: string;
+  topic_title: string;
+  topic_prompt: string;
+  product_knowledge: string;
+  system_wrapper: string;
+  updated_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TrainingSessionLog {
+  id: string;
+  org_id: string;
+  user_name: string;
+  topic_key: string;
+  topic_title: string;
+  platform: string;
+  status: "started" | "completed";
+  message_count: number;
+  started_at: string;
+  completed_at?: string;
+}
+
+export interface LearningStage {
+  id: string;
+  org_id: string;
+  stage_number: number;
+  title: string;
+  icon: string;
+  color: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LearningLesson {
+  id: string;
+  org_id: string;
+  stage_id: string;
+  lesson_key: string;
+  title: string;
+  duration: string;
+  points: string[];
+  task?: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LearningQuiz {
+  id: string;
+  org_id: string;
+  lesson_id: string;
+  question: string;
+  options: string[];
+  correct_answer: number;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  org_id: string;
+  action: "create" | "update" | "delete";
+  section: string;
+  section_label: string;
+  entity_id?: string;
+  entity_title?: string;
+  user_name?: string;
+  details?: string;
   created_at: string;
 }

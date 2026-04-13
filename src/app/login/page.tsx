@@ -31,13 +31,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#07090F] flex items-center justify-center px-4" dir="rtl">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4" dir="rtl">
       {/* Background effects */}
       <div
         className="fixed inset-0 pointer-events-none"
         style={{
           backgroundImage:
-            "radial-gradient(circle at top right, rgba(0,212,255,0.12), transparent 24%), radial-gradient(circle at top left, rgba(139,92,246,0.08), transparent 22%)",
+            "radial-gradient(circle at top right, rgba(0,212,255,0.06), transparent 24%), radial-gradient(circle at top left, rgba(139,92,246,0.04), transparent 22%)",
         }}
       />
 
@@ -48,7 +48,7 @@ export default function LoginPage() {
             <span className="text-lg font-extrabold tracking-[0.2em] text-[#00D4FF]">CC</span>
           </div>
           <h1 className="text-2xl font-extrabold text-[#F1F5F9]">لوحة التحكم</h1>
-          <p className="text-sm text-[#94A3B8] mt-1">تسجيل الدخول إلى لوحة التحكم</p>
+          <p className="text-sm text-[#A0B1C5] mt-1">تسجيل الدخول إلى لوحة التحكم</p>
         </div>
 
         {/* Login card */}
@@ -56,30 +56,29 @@ export default function LoginPage() {
           onSubmit={handleSubmit}
           className="rounded-2xl p-6 space-y-5"
           style={{
-            backgroundColor: "#111827",
-            border: "1px solid rgba(0,212,255,0.2)",
-            boxShadow: "0 0 30px rgba(0,212,255,0.08), inset 0 1px 0 rgba(255,255,255,0.04)",
+            backgroundColor: "var(--card)",
+            border: "1px solid #283A52",
           }}
         >
           <div className="space-y-2">
-            <label className="text-xs text-[#94A3B8]">البريد الإلكتروني</label>
+            <label className="text-xs text-[#A0B1C5]">البريد الإلكتروني</label>
             <input
               type="email"
               name="email"
               required
-              className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm text-[#F1F5F9] placeholder:text-[#94A3B8]/50 focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/30 focus:border-[#00D4FF]/50 transition-colors"
+              className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm text-[#F1F5F9] placeholder:text-[#A0B1C5]/50 focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/30 focus:border-[#00D4FF]/50 transition-colors"
               placeholder="admin@example.com"
               dir="ltr"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs text-[#94A3B8]">كلمة المرور</label>
+            <label className="text-xs text-[#A0B1C5]">كلمة المرور</label>
             <input
               type="password"
               name="password"
               required
-              className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm text-[#F1F5F9] placeholder:text-[#94A3B8]/50 focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/30 focus:border-[#00D4FF]/50 transition-colors"
+              className="w-full rounded-xl bg-white/[0.04] border border-white/10 px-4 py-3 text-sm text-[#F1F5F9] placeholder:text-[#A0B1C5]/50 focus:outline-none focus:ring-2 focus:ring-[#00D4FF]/30 focus:border-[#00D4FF]/50 transition-colors"
               placeholder="••••••••"
               dir="ltr"
             />
@@ -100,7 +99,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-[10px] text-[#94A3B8]/50 mt-6">
+        <p className="text-center text-[10px] text-[#A0B1C5]/50 mt-6">
           لوحة التحكم &copy; {new Date().getFullYear()}
         </p>
       </div>

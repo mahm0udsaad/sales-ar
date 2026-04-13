@@ -12,7 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useTopbarControls } from "@/components/layout/topbar-context";
 import { formatMoney, formatDate } from "@/lib/utils/format";
-import { AlertCircle, ArrowUpLeft, Ticket as TicketIcon, TrendingUp, DollarSign, Users, Heart, FolderOpen } from "lucide-react";
+import { AlertCircle, ArrowUpLeft, Ticket as TicketIcon, TrendingUp, DollarSign, Users, Heart, FolderOpen, Award } from "lucide-react";
+import { StarEmployeeCard, Leaderboard } from "@/components/star-employee";
 
 const STAGE_COLORS: Record<string, string> = {
   "تواصل": "#10B981",
@@ -46,7 +47,7 @@ export default function DashboardPage() {
     projects: null,
     kpis: null,
   });
-  const { activeOrgId: orgId } = useAuth();
+  const { activeOrgId: orgId, user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
@@ -147,17 +148,97 @@ export default function DashboardPage() {
 
   const retryAll = () => void loadDashboardData({ silent: true });
 
+  // ── Personal Performance ──
+  const myName = user?.name?.trim();
+  const myPerf = (() => {
+    if (!myName || isLoading) return null;
+    const myDeals = deals.filter((d) => d.assigned_rep_name?.trim() === myName);
+    const myClosed = myDeals.filter((d) => d.stage === "مكتملة");
+    const myTickets = tickets.filter((t) => t.assigned_agent_name?.trim() === myName);
+    const myResolved = myTickets.filter((t) => t.status === "محلول");
+    const totalTasks = myDeals.length + myTickets.length;
+    if (totalTasks === 0) return null;
+
+    const completed = myClosed.length + myResolved.length;
+    const completionRate = completed / totalTasks;
+    let score = completionRate * 40;
+    score += Math.min(1, totalTasks / 20) * 30;
+    if (myClosed.length > 0) score += Math.min(1, myClosed.reduce((s, d) => s + d.deal_value, 0) / 50000) * 20;
+    if (myTickets.length > 0) score += (myResolved.length / myTickets.length) * 10;
+    score = Math.min(100, Math.round(score));
+
+    const levels = [
+      { label: "استثنائي", color: "text-cyan", bg: "bg-cyan/10", bar: "bg-cyan", ring: "border-cyan/20", min: 85 },
+      { label: "متميّز", color: "text-cc-green", bg: "bg-cc-green/10", bar: "bg-cc-green", ring: "border-cc-green/20", min: 70 },
+      { label: "جيد", color: "text-amber", bg: "bg-amber/10", bar: "bg-amber", ring: "border-amber/20", min: 50 },
+      { label: "يحتاج تطوير", color: "text-orange-400", bg: "bg-orange-400/10", bar: "bg-orange-400", ring: "border-orange-400/20", min: 30 },
+      { label: "ضعيف", color: "text-cc-red", bg: "bg-cc-red/10", bar: "bg-cc-red", ring: "border-cc-red/20", min: 0 },
+    ];
+    const level = levels.find((l) => score >= l.min) || levels[levels.length - 1];
+    return { score, level, closedDeals: myClosed.length, totalDeals: myDeals.length, dealsValue: myClosed.reduce((s, d) => s + d.deal_value, 0), resolvedTickets: myResolved.length, totalTickets: myTickets.length };
+  })();
+
   return (
     <div className="space-y-6">
+      {/* ── Personal Performance Card ── */}
+      {myPerf && (
+        <div className={`cc-card rounded-[14px] p-5 border ${myPerf.level.ring} ${myPerf.level.bg}`}>
+          <div className="flex items-center gap-3 mb-4">
+            <div className={`w-10 h-10 rounded-xl ${myPerf.level.bg} flex items-center justify-center`}>
+              <Award className={`w-5 h-5 ${myPerf.level.color}`} />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-foreground">مستوى أدائي</h3>
+              <p className="text-[11px] text-muted-foreground">تقييمك بناءً على إنجازاتك الحالية</p>
+            </div>
+            <div className="text-left">
+              <span className={`text-3xl font-extrabold ${myPerf.level.color} font-mono`}>{myPerf.score}</span>
+              <span className="text-xs text-muted-foreground">/100</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 mb-3">
+            <span className={`text-xs font-bold ${myPerf.level.color} px-2.5 py-1 rounded-full ${myPerf.level.bg}`}>
+              {myPerf.level.label}
+            </span>
+            <div className="flex-1 h-2 bg-white/[0.06] rounded-full overflow-hidden">
+              <div className={`h-full ${myPerf.level.bar} rounded-full transition-all duration-1000`} style={{ width: `${myPerf.score}%` }} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-lg bg-white/[0.04] p-2.5 text-center">
+              <p className="text-lg font-bold text-cc-green">{myPerf.closedDeals}<span className="text-xs text-muted-foreground">/{myPerf.totalDeals}</span></p>
+              <p className="text-[10px] text-muted-foreground">صفقات مغلقة</p>
+            </div>
+            <div className="rounded-lg bg-white/[0.04] p-2.5 text-center">
+              <p className="text-lg font-bold text-cyan">{formatMoney(myPerf.dealsValue)}</p>
+              <p className="text-[10px] text-muted-foreground">إيرادات محققة</p>
+            </div>
+            <div className="rounded-lg bg-white/[0.04] p-2.5 text-center">
+              <p className="text-lg font-bold text-cc-purple">{myPerf.resolvedTickets}<span className="text-xs text-muted-foreground">/{myPerf.totalTickets}</span></p>
+              <p className="text-[10px] text-muted-foreground">تذاكر محلولة</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Star Employee + Leaderboard ── */}
+      {!isLoading && deals.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <StarEmployeeCard deals={deals} />
+          <Leaderboard deals={deals} />
+        </div>
+      )}
+
       <section className="grid grid-cols-1 xl:grid-cols-[1.55fr_1fr] gap-4">
-        <div className="glass-surface relative overflow-hidden rounded-[20px] sm:rounded-[30px] p-4 sm:p-6">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(106,226,255,0.16),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(159,140,255,0.14),transparent_26%)]" />
+        <div className="glass-surface relative overflow-hidden rounded-[14px] p-4 sm:p-6">
           <div className="relative">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-cyan/15 bg-cyan-dim px-3 py-1 text-[11px] font-semibold text-cyan">
                 Overview Signal
               </span>
-              <span className="rounded-full border border-white/6 bg-white/[0.03] px-3 py-1 text-[11px] text-muted-foreground">
+              <span className="rounded-full border border-border bg-white/[0.04] px-3 py-1 text-[11px] text-muted-foreground">
                 القرار السريع يبدأ من هنا
               </span>
             </div>
@@ -172,7 +253,7 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <>
-                    <h1 className="mt-3 text-2xl sm:text-4xl font-extrabold tracking-tight text-foreground md:text-5xl">
+                    <h1 className="mt-3 text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground md:text-5xl font-mono">
                       {formatMoney(periodRevenue)}
                     </h1>
                     <p className="mt-3 max-w-xl text-sm leading-7 text-muted-foreground">
@@ -294,7 +375,7 @@ export default function DashboardPage() {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Deal Stages Donut */}
-        <div className="glass-surface rounded-[28px] p-5">
+        <div className="glass-surface rounded-[14px] p-5">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h3 className="text-base font-bold text-foreground">مراحل الصفقات</h3>
@@ -329,7 +410,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Revenue Growth Line */}
-        <div className="glass-surface rounded-[28px] p-5">
+        <div className="glass-surface rounded-[14px] p-5">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h3 className="text-base font-bold text-foreground">نمو الإيرادات</h3>
@@ -362,7 +443,7 @@ export default function DashboardPage() {
       {/* Bottom Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Active Projects */}
-        <div className="glass-surface rounded-[28px] p-5">
+        <div className="glass-surface rounded-[14px] p-5">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h3 className="text-base font-bold text-foreground">مشاريع قيد التنفيذ</h3>
@@ -392,7 +473,7 @@ export default function DashboardPage() {
               {projects.map((project, index) => (
                 <div
                   key={project.id}
-                  className="rounded-2xl border border-white/6 bg-white/[0.03] px-4 py-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-500"
+                  className="rounded-2xl border border-border bg-white/[0.04] px-4 py-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-500"
                   style={{ animationDelay: `${index * 80}ms` }}
                 >
                   <div className="flex-1 min-w-0">
@@ -410,7 +491,7 @@ export default function DashboardPage() {
                       />
                     </div>
                     <div className="flex items-center gap-2 mt-1.5">
-                      <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                      <div className="flex-1 h-1.5 bg-white/[0.10] rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full bg-cyan transition-all"
                           style={{ width: `${project.progress}%` }}
@@ -430,7 +511,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Deals */}
-        <div className="glass-surface rounded-[28px] p-5">
+        <div className="glass-surface rounded-[14px] p-5">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h3 className="text-base font-bold text-foreground">أحدث الصفقات</h3>
@@ -460,7 +541,7 @@ export default function DashboardPage() {
               {deals.slice(0, 4).map((deal, index) => (
                 <div
                   key={deal.id}
-                  className="flex items-center justify-between rounded-2xl border border-white/6 bg-white/[0.03] px-4 py-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-500"
+                  className="flex items-center justify-between rounded-2xl border border-border bg-white/[0.04] px-4 py-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-500"
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
                   <div className="flex-1 min-w-0">
@@ -497,9 +578,9 @@ function HeroMiniCard({
   helper: string;
 }) {
   return (
-    <div className="rounded-[22px] border border-white/6 bg-white/[0.04] px-4 py-4">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-      <p className="mt-2 text-2xl font-extrabold tracking-tight text-foreground">{value}</p>
+    <div className="rounded-[14px] border border-border bg-card px-4 py-4">
+      <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+      <p className="mt-2 text-[26px] font-extrabold tracking-tight text-foreground font-mono">{value}</p>
       <p className="mt-2 text-xs leading-6 text-muted-foreground">{helper}</p>
     </div>
   );
@@ -507,7 +588,7 @@ function HeroMiniCard({
 
 function HeroMiniSkeleton() {
   return (
-    <div className="rounded-[22px] border border-white/6 bg-white/[0.04] px-4 py-4">
+    <div className="rounded-[14px] border border-border bg-white/[0.04] px-4 py-4">
       <Skeleton className="h-3 w-20" />
       <Skeleton className="mt-3 h-8 w-14" />
       <Skeleton className="mt-3 h-3 w-full" />
@@ -518,7 +599,7 @@ function HeroMiniSkeleton() {
 
 function KpiSkeleton() {
   return (
-    <div className="glass-surface rounded-[24px] p-4">
+    <div className="glass-surface rounded-[14px] p-4">
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <Skeleton className="h-3 w-20" />

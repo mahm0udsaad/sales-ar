@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Employee, FollowUpNote } from "@/types";
-import { fetchFollowUpNotes, createFollowUpNote, fetchEmployees, createMentionNotification } from "@/lib/supabase/db";
+import { fetchFollowUpNotes, createFollowUpNote, updateFollowUpNote, deleteFollowUpNote, fetchEmployees, createMentionNotification } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
 import {
   Dialog,
@@ -11,10 +11,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { MessageSquarePlus, Send, Clock, AtSign } from "lucide-react";
+import { MessageSquarePlus, Send, Clock, AtSign, Pencil, Trash2, Check, X } from "lucide-react";
 
 interface FollowUpLogProps {
-  entityType: "deal" | "renewal";
+  entityType: "deal" | "renewal" | "ticket";
   entityId: string;
   entityName: string;
 }
@@ -26,6 +26,14 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const { user } = useAuth();
+
+  /* Edit state */
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
+  /* Delete confirm state */
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   /* Employees for @mention */
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -54,8 +62,7 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
   const insertMention = useCallback((name: string) => {
     const textarea = textareaRef.current;
     if (!textarea || mentionStart === -1) return;
-    // Replace from @ position to current cursor with @name
-    const before = newNote.slice(0, mentionStart); // everything before @
+    const before = newNote.slice(0, mentionStart);
     const cursor = textarea.selectionStart;
     const after = newNote.slice(cursor);
     const inserted = before + `@${name} ` + after;
@@ -65,7 +72,7 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
     setMentionStart(-1);
     setTimeout(() => {
       textarea.focus();
-      const pos = before.length + name.length + 2; // @ + name + space
+      const pos = before.length + name.length + 2;
       textarea.setSelectionRange(pos, pos);
     }, 0);
   }, [newNote, mentionStart]);
@@ -77,11 +84,9 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
     const cursor = e.target.selectionStart;
     const before = val.slice(0, cursor);
 
-    // Find the last @ that isn't followed by a completed mention
     const atIdx = before.lastIndexOf("@");
     if (atIdx !== -1 && (atIdx === 0 || before[atIdx - 1] === " " || before[atIdx - 1] === "\n")) {
       const query = before.slice(atIdx + 1);
-      // Only show dropdown if no newline after @
       if (!query.includes("\n")) {
         setMentionStart(atIdx);
         setMentionFilter(query);
@@ -112,7 +117,6 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
     if (e.key === "Enter" && e.ctrlKey) handleAdd();
   }
 
-  /* Extract mentioned employee names from text by matching against known employees */
   function extractMentions(text: string): string[] {
     const mentioned: string[] = [];
     for (const emp of employees) {
@@ -131,7 +135,6 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
       const created = await createFollowUpNote(entityType, entityId, newNote.trim(), authorName);
       setNotes((prev) => [created, ...prev]);
 
-      /* Send mention notifications */
       const mentionedNames = extractMentions(newNote);
       for (const name of mentionedNames) {
         createMentionNotification(created.id, entityType, entityId, entityName, name, authorName, newNote.trim()).catch(console.error);
@@ -145,6 +148,34 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
     }
   }
 
+  /* Edit handler */
+  async function handleEditSave(noteId: string) {
+    if (!editText.trim()) return;
+    setEditSaving(true);
+    try {
+      const editorName = user?.name || user?.email || "مستخدم";
+      const updated = await updateFollowUpNote(noteId, editText.trim(), editorName);
+      setNotes((prev) => prev.map((n) => (n.id === noteId ? updated : n)));
+      setEditingId(null);
+      setEditText("");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  /* Delete handler */
+  async function handleDelete(noteId: string) {
+    try {
+      await deleteFollowUpNote(noteId);
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      setDeletingId(null);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   function formatDateTime(iso: string) {
     const d = new Date(iso);
     return d.toLocaleDateString("ar-SA", { day: "numeric", month: "short", year: "numeric" }) +
@@ -152,10 +183,8 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
       d.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
   }
 
-  /* Render note text with highlighted mentions */
   function renderNoteText(text: string) {
     if (employees.length === 0) return text;
-    // Build regex from employee names sorted by length (longest first to avoid partial matches)
     const names = employees.map((e) => e.name).sort((a, b) => b.length - a.length);
     const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
     const regex = new RegExp(`(@(?:${escaped.join("|")}))`, "g");
@@ -202,7 +231,7 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
                 />
                 {/* Mention suggestions dropdown */}
                 {showMentions && filteredEmployees.length > 0 && (
-                  <div className="absolute bottom-full mb-1 right-0 w-full bg-card border border-border rounded-lg shadow-lg z-50 max-h-[200px] overflow-y-auto">
+                  <div className="absolute top-full mt-1 right-0 w-full min-w-[280px] bg-card border border-border rounded-lg shadow-lg z-50 max-h-[200px] overflow-y-auto">
                     {filteredEmployees.map((emp, idx) => (
                       <button
                         key={emp.id}
@@ -214,8 +243,8 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
                         <div className="w-7 h-7 rounded-full bg-amber/15 text-amber flex items-center justify-center text-xs font-bold flex-shrink-0">
                           {emp.name.charAt(0)}
                         </div>
-                        <span className="font-medium">{emp.name}</span>
-                        {emp.role && <span className="text-[10px] text-muted-foreground mr-auto">{emp.role}</span>}
+                        <span className="font-medium whitespace-nowrap">{emp.name}</span>
+                        {emp.role && <span className="text-[10px] text-muted-foreground mr-auto whitespace-nowrap">{emp.role}</span>}
                       </button>
                     ))}
                   </div>
@@ -268,15 +297,92 @@ export function FollowUpLogButton({ entityType, entityId, entityName }: FollowUp
               <div className="text-center text-muted-foreground text-sm py-8">لا توجد ملاحظات بعد</div>
             ) : (
               notes.map((n) => (
-                <div key={n.id} className="p-3 rounded-lg border border-border/50 bg-card/50">
+                <div key={n.id} className="p-3 rounded-lg border border-border/50 bg-card/50 group">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold text-cyan">{n.author_name}</span>
-                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <Clock className="w-3 h-3" />
-                      {formatDateTime(n.created_at)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-cyan">{n.author_name}</span>
+                      {n.edited_at && (
+                        <span className="text-[10px] text-amber/70">(معدّل بواسطة {n.edited_by})</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {/* Edit & Delete buttons - visible on hover */}
+                      {editingId !== n.id && deletingId !== n.id && (
+                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => { setEditingId(n.id); setEditText(n.note); setDeletingId(null); }}
+                            className="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-amber transition-colors"
+                            title="تعديل"
+                          >
+                            <Pencil className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => { setDeletingId(n.id); setEditingId(null); }}
+                            className="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-red-400 transition-colors"
+                            title="حذف"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <Clock className="w-3 h-3" />
+                        {formatDateTime(n.created_at)}
+                      </span>
+                    </div>
                   </div>
-                  <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{renderNoteText(n.note)}</p>
+
+                  {/* Delete confirmation */}
+                  {deletingId === n.id ? (
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-red-500/10 border border-red-500/20">
+                      <span className="text-sm text-red-400">هل تريد حذف هذا التعليق؟</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleDelete(n.id)}
+                          className="px-2 py-1 rounded text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                        >
+                          حذف
+                        </button>
+                        <button
+                          onClick={() => setDeletingId(null)}
+                          className="px-2 py-1 rounded text-xs bg-white/5 text-gray-400 hover:bg-white/10 transition-colors"
+                        >
+                          إلغاء
+                        </button>
+                      </div>
+                    </div>
+                  ) : editingId === n.id ? (
+                    /* Edit mode */
+                    <div className="space-y-2">
+                      <textarea
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        className="w-full min-h-[60px] rounded-lg border border-amber/30 bg-card p-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-amber resize-none"
+                        dir="rtl"
+                        autoFocus
+                      />
+                      <div className="flex items-center gap-1.5 justify-end">
+                        <button
+                          onClick={() => handleEditSave(n.id)}
+                          disabled={!editText.trim() || editSaving}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded text-xs bg-amber/15 text-amber hover:bg-amber/25 disabled:opacity-40 transition-colors"
+                        >
+                          <Check className="w-3 h-3" />
+                          {editSaving ? "..." : "حفظ"}
+                        </button>
+                        <button
+                          onClick={() => { setEditingId(null); setEditText(""); }}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded text-xs bg-white/5 text-gray-400 hover:bg-white/10 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                          إلغاء
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Normal display */
+                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{renderNoteText(n.note)}</p>
+                  )}
                 </div>
               ))
             )}

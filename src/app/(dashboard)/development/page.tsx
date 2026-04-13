@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { fetchProjects, createProject, updateProject } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
-import { PROJECT_STATUSES } from "@/lib/utils/constants";
+// PROJECT_STATUSES removed - status is now auto-computed
 import { formatDate, formatPercent } from "@/lib/utils/format";
 import { StatCard } from "@/components/ui/stat-card";
 import { ColorBadge } from "@/components/ui/color-badge";
@@ -19,13 +19,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { Project } from "@/types";
 import {
   Code,
@@ -64,6 +57,19 @@ function progressBarColor(pct: number): string {
   return "bg-cc-red";
 }
 
+function computeStatus(progress: number, remaining: number, dueDate?: string): string {
+  if (progress >= 100 || remaining <= 0) return "مكتمل";
+  if (!dueDate) return "في الموعد";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate);
+  due.setHours(0, 0, 0, 0);
+  if (due < today) return "متأخر";
+  const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays <= 3 && progress < 90) return "يكتمل قريباً";
+  return "في الموعد";
+}
+
 /* ---------- page ---------- */
 
 export default function DevelopmentPage() {
@@ -78,14 +84,20 @@ export default function DevelopmentPage() {
   const [formName, setFormName] = useState("");
   const [formTeam, setFormTeam] = useState("");
   const [formDate, setFormDate] = useState("");
+  const [formDueDate, setFormDueDate] = useState("");
   const [formTotalTasks, setFormTotalTasks] = useState("");
   const [formRemainingTasks, setFormRemainingTasks] = useState("");
-  const [formStatus, setFormStatus] = useState<string>("في الموعد");
 
   useEffect(() => {
     setLoading(true);
     fetchProjects()
-      .then(setProjects)
+      .then((data) => {
+        const updated = data.map((p) => ({
+          ...p,
+          status_tag: computeStatus(p.progress, p.remaining_tasks, p.due_date),
+        }));
+        setProjects(updated);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [orgId]);
@@ -106,9 +118,9 @@ export default function DevelopmentPage() {
     setFormName("");
     setFormTeam("");
     setFormDate("");
+    setFormDueDate("");
     setFormTotalTasks("");
     setFormRemainingTasks("");
-    setFormStatus("في الموعد");
     setModalOpen(true);
   };
 
@@ -117,9 +129,9 @@ export default function DevelopmentPage() {
     setFormName(proj.name);
     setFormTeam(proj.team || "");
     setFormDate(proj.start_date || "");
+    setFormDueDate(proj.due_date || "");
     setFormTotalTasks(String(proj.total_tasks));
     setFormRemainingTasks(String(proj.remaining_tasks));
-    setFormStatus(proj.status_tag || "في الموعد");
     setModalOpen(true);
   };
 
@@ -131,16 +143,18 @@ export default function DevelopmentPage() {
       const remaining = parseInt(formRemainingTasks) || 0;
       const completed = Math.max(0, total - remaining);
       const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+      const autoStatus = computeStatus(progress, remaining, formDueDate || undefined);
 
       if (editingProject) {
         const updated = await updateProject(editingProject.id, {
           name: formName,
           team: formTeam,
           start_date: formDate || undefined,
+          due_date: formDueDate || undefined,
           total_tasks: total,
           remaining_tasks: remaining,
           progress,
-          status_tag: formStatus,
+          status_tag: autoStatus,
         });
         setProjects((prev) =>
           prev.map((p) => (p.id === editingProject.id ? updated : p))
@@ -150,10 +164,11 @@ export default function DevelopmentPage() {
           name: formName,
           team: formTeam,
           start_date: formDate || undefined,
+          due_date: formDueDate || undefined,
           total_tasks: total,
           remaining_tasks: remaining,
           progress,
-          status_tag: formStatus,
+          status_tag: autoStatus,
         });
         setProjects((prev) => [...prev, created]);
       }
@@ -245,7 +260,7 @@ export default function DevelopmentPage() {
             return (
               <div
                 key={proj.id}
-                className={`cc-card rounded-xl border-t-2 ${borderColor} p-5 space-y-4`}
+                className={`cc-card rounded-[14px] border-t-2 ${borderColor} p-5 space-y-4`}
               >
                 {/* Name + status */}
                 <div className="flex items-start justify-between gap-2">
@@ -267,7 +282,13 @@ export default function DevelopmentPage() {
                   {proj.start_date && (
                     <div className="flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5" />
-                      <span>{formatDate(proj.start_date)}</span>
+                      <span>البداية: {formatDate(proj.start_date)}</span>
+                    </div>
+                  )}
+                  {proj.due_date && (
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>الاستحقاق: {formatDate(proj.due_date)}</span>
                     </div>
                   )}
                 </div>
@@ -360,13 +381,23 @@ export default function DevelopmentPage() {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label>تاريخ البداية</Label>
-              <Input
-                type="date"
-                value={formDate}
-                onChange={(e) => setFormDate(e.target.value)}
-              />
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>تاريخ البداية</Label>
+                <Input
+                  type="date"
+                  value={formDate}
+                  onChange={(e) => setFormDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>تاريخ الاستحقاق</Label>
+                <Input
+                  type="date"
+                  value={formDueDate}
+                  onChange={(e) => setFormDueDate(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -392,18 +423,9 @@ export default function DevelopmentPage() {
 
             <div className="space-y-1.5">
               <Label>الحالة</Label>
-              <Select value={formStatus} onValueChange={(v) => v && setFormStatus(v)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PROJECT_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <p className="text-sm text-muted-foreground px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10">
+                يتم تحديدها تلقائياً بناءً على التقدم وتاريخ الاستحقاق
+              </p>
             </div>
           </div>
 
@@ -423,7 +445,7 @@ export default function DevelopmentPage() {
 
 function ProjectStatSkeleton() {
   return (
-    <div className="cc-card rounded-xl p-4 border-t-2 border-t-muted">
+    <div className="cc-card rounded-[14px] p-4 border-t-2 border-t-muted">
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <Skeleton className="h-7 w-10" />
@@ -437,7 +459,7 @@ function ProjectStatSkeleton() {
 
 function ProjectCardSkeleton() {
   return (
-    <div className="cc-card rounded-xl border-t-2 border-t-muted p-5 space-y-4">
+    <div className="cc-card rounded-[14px] border-t-2 border-t-muted p-5 space-y-4">
       <div className="flex items-start justify-between gap-2">
         <Skeleton className="h-4 w-32" />
         <Skeleton className="h-5 w-16 rounded-full" />

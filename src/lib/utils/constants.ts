@@ -1,8 +1,36 @@
-export const STAGES = ["تواصل", "تفاوض", "تجهيز", "انتظار الدفع", "مكتملة", "تاجيل", "اعادة الاتصال في وقت اخر", "تجريبي", "مرفوض مع سبب"] as const;
-export const SOURCES = ["حملة اعلانية", "تسويق بالعمولة", "جديد لعميل حالي", "فرع جديد لعميل حالي", "من طرف عميل", "من الدعم", "من ارقام عشوائية", "محول من الدعم", "تسجيل من الويب", "من المبيعات", "اخرى"] as const;
+export const STAGES = ["تواصل", "قيد التواصل", "عميل جديد", "تفاوض", "تجهيز", "انتظار الدفع", "مكتملة", "تاجيل", "اعادة الاتصال في وقت اخر", "تجريبي", "كنسل التجربة", "مرفوض مع سبب", "استهداف خاطئ", "تم إرسال العرض"] as const;
+export const SOURCES = ["حملة اعلانية", "تسويق بالعمولة", "جديد لعميل حالي", "فرع جديد لعميل حالي", "من طرف عميل", "من الدعم", "من ارقام عشوائية", "محول من الدعم", "تسجيل من الويب", "من المبيعات", "استهداف", "تجديد", "ترقية", "اخرى"] as const;
 export const PLANS = ["الاساسية", "VIP", "بلس", "الكاشير", "الذهبية"] as const;
 export const PRIORITIES = ["عاجل", "مرتفع", "عادي"] as const;
 export const TICKET_STATUSES = ["مفتوح", "قيد الحل", "محلول", "متأخر"] as const;
+export const REQUEST_TYPES = [
+  { value: "problem", label: "مشكلة", icon: "🔴", color: "cc-red" },
+  { value: "service", label: "خدمة", icon: "🔵", color: "cc-blue" },
+] as const;
+
+export const PROBLEM_CATEGORIES: Record<string, { label: string; icon: string; subcategories: string[] }> = {
+  "تقنية": { label: "تقنية", icon: "🔧", subcategories: ["بطء النظام", "خطأ في الصفحة", "مشكلة في التطبيق", "مشكلة في الطباعة", "مشكلة في التكامل", "انقطاع الخدمة", "أخرى تقنية"] },
+  "حساب": { label: "حساب العميل", icon: "👤", subcategories: ["مشكلة تسجيل دخول", "إعادة تعيين كلمة المرور", "تحديث البيانات", "إغلاق الحساب", "أخرى حساب"] },
+  "فوترة": { label: "الفوترة والدفع", icon: "💳", subcategories: ["خطأ في الفاتورة", "مشكلة في الدفع", "طلب استرداد", "تحديث خطة", "أخرى فوترة"] },
+  "تدريب": { label: "تدريب واستخدام", icon: "📚", subcategories: ["طريقة الاستخدام", "طلب تدريب", "شرح ميزة", "أخرى تدريب"] },
+  "تجديد": { label: "التجديد", icon: "🔄", subcategories: ["تأخر التجديد", "تغيير الباقة", "إلغاء الاشتراك", "أخرى تجديد"] },
+  "أخرى": { label: "أخرى", icon: "📋", subcategories: ["اقتراح", "شكوى", "استفسار عام", "أخرى"] },
+};
+
+export const SERVICE_CATEGORIES: Record<string, { label: string; icon: string; subcategories: string[] }> = {
+  "تعديل منتج": { label: "تعديل منتج", icon: "✏️", subcategories: ["تعديل اسم المنتج", "تعديل السعر", "تعديل الوصف", "تعديل الصورة", "تعديل التصنيف", "أخرى تعديل"] },
+  "إضافة منتجات": { label: "إضافة منتجات", icon: "➕", subcategories: ["إضافة منتج جديد", "إضافة تصنيف جديد", "إضافة خيارات إضافية", "نسخ منتجات", "أخرى إضافة"] },
+  "حذف منتج": { label: "حذف منتج", icon: "🗑️", subcategories: ["حذف منتج واحد", "حذف تصنيف كامل", "إخفاء منتج مؤقتاً", "أخرى حذف"] },
+  "تحديث القائمة": { label: "تحديث القائمة", icon: "📋", subcategories: ["ترتيب المنتجات", "تحديث الأسعار بالجملة", "تفعيل/إيقاف منتجات", "أخرى قائمة"] },
+  "تصميم": { label: "طلب تصميم", icon: "🎨", subcategories: ["تصميم بانر", "تصميم شعار", "تصميم قائمة", "تعديل ألوان", "أخرى تصميم"] },
+  "إعدادات": { label: "إعدادات النظام", icon: "⚙️", subcategories: ["إعدادات الدفع", "إعدادات التوصيل", "إعدادات الفروع", "إعدادات الطابعة", "أخرى إعدادات"] },
+  "أخرى خدمة": { label: "أخرى", icon: "📝", subcategories: ["طلب تقرير", "طلب تدريب", "طلب خاص", "أخرى"] },
+};
+
+export const TICKET_CATEGORIES: Record<string, { label: string; icon: string; subcategories: string[] }> = {
+  ...PROBLEM_CATEGORIES,
+  ...SERVICE_CATEGORIES,
+};
 export const EMPLOYEE_STATUSES = ["نشط", "مشغول", "متاح", "إجازة"] as const;
 export const PARTNERSHIP_TYPES = ["استراتيجية", "تقنية", "تجارية", "تسويقية"] as const;
 export const PARTNERSHIP_STATUSES = ["شراكة نشطة", "قيد التفاوض", "شراكة مؤجلة", "شراكة مُوقفة"] as const;
@@ -32,7 +60,7 @@ export const RENEWAL_STATUS_COLORS: Record<string, string> = {
 };
 export const RENEWAL_CANCEL_REASONS = [
   "ارتفاع السعر", "قلة الاستخدام", "التحوّل لمنافس",
-  "نقص ميزات", "مشكلات تقنية", "اغلاق المحل", "أخرى",
+  "نقص ميزات", "مشكلات تقنية", "اغلاق المحل", "مو حاب يجدد بدون سبب", "الادارة رفضت", "أخرى",
 ] as const;
 
 export const MONTHS_AR = [
@@ -42,6 +70,8 @@ export const MONTHS_AR = [
 
 export const STAGE_COLORS: Record<string, string> = {
   "تواصل": "cc-green",
+  "قيد التواصل": "cyan",
+  "عميل جديد": "cc-blue",
   "تفاوض": "cc-purple",
   "تجهيز": "cyan",
   "انتظار الدفع": "amber",
@@ -49,7 +79,10 @@ export const STAGE_COLORS: Record<string, string> = {
   "تاجيل": "cc-blue",
   "اعادة الاتصال في وقت اخر": "amber",
   "تجريبي": "cc-purple",
+  "كنسل التجربة": "cc-red",
   "مرفوض مع سبب": "cc-red",
+  "استهداف خاطئ": "cc-red",
+  "تم إرسال العرض": "cc-purple",
 };
 
 export const PRIORITY_COLORS: Record<string, string> = {
@@ -76,6 +109,9 @@ export const SOURCE_COLORS: Record<string, string> = {
   "محول من الدعم": "amber",
   "تسجيل من الويب": "cc-green",
   "من المبيعات": "pink",
+  "استهداف": "cc-blue",
+  "تجديد": "sky",
+  "ترقية": "cc-purple",
   "اخرى": "muted-foreground",
 };
 
