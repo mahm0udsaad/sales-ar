@@ -42,6 +42,7 @@ import { countPendingDeals } from "@/lib/supabase/db";
 export const NAV_ITEMS = [
   { label: "نظرة عامة", href: "/dashboard", slug: "dashboard", icon: LayoutDashboard, color: "cyan" },
   { label: "التحديثات الأخيرة", href: "/recent-updates", slug: "recent-updates", icon: History, color: "cyan" },
+  { label: "السكرتير التنفيذي", href: "/secretary", slug: "secretary", icon: BrainCircuit, color: "violet" },
   { label: "قائمة الطلبات", href: "/requests", slug: "requests", icon: Inbox, color: "violet" },
   { label: "مبيعات المكتب", href: "/sales", slug: "sales", icon: TrendingUp, color: "emerald" },
   { label: "مبيعات الدعم", href: "/support-sales", slug: "support-sales", icon: TrendingUp, color: "orange" },
@@ -65,7 +66,6 @@ export const NAV_ITEMS = [
   { label: "المالية", href: "/finance", slug: "finance", icon: Banknote, color: "lime" },
   { label: "رفع الملفات", href: "/upload", slug: "upload", icon: Upload, color: "slate" },
   { label: "إدارة المستخدمين", href: "/users", slug: "users", icon: Shield, color: "red" },
-  { label: "السكرتير التنفيذي", href: "/secretary", slug: "secretary", icon: BrainCircuit, color: "violet" },
   { label: "مراقبة المنافسين", href: "/competitors", slug: "competitors", icon: Radar, color: "rose" },
   { label: "Maestro", href: "/maestro", slug: "maestro", icon: Flame, color: "amber" },
   { label: "المظهر", href: "/appearance", slug: "appearance", icon: Palette, color: "violet" },
