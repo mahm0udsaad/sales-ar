@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import Link from "next/link";
 import {
   BrainCircuit, Sun, Flame, Snowflake, ShieldAlert, CalendarCheck,
   Target, CheckSquare, Sparkles, TrendingUp, TrendingDown, Clock,
   AlertTriangle, ChevronDown, ChevronUp, RefreshCw, Loader2,
   Users, Banknote, BarChart3, Phone, ArrowLeft, ArrowRight,
+  MessageCircle, Bell, ExternalLink, Zap, CloudSun, Thermometer,
 } from "lucide-react";
 import { fetchDeals, fetchRenewals, fetchEmployees, fetchRecentFollowUpNotes, upsertSalesGuideSetting, fetchSalesGuideSettings } from "@/lib/supabase/db";
 import { useAuth } from "@/lib/auth-context";
@@ -54,6 +56,227 @@ function getGreeting() {
   if (h < 12) return "صباح الخير";
   if (h < 17) return "مساء الخير";
   return "مساء النور";
+}
+
+/* ─── Deal Temperature Scoring ─── */
+const STAGE_WEIGHTS: Record<string, number> = {
+  "انتظار الدفع": 90,
+  "تجهيز": 78,
+  "تفاوض": 72,
+  "تم إرسال العرض": 62,
+  "تجريبي": 58,
+  "عميل جديد": 52,
+  "قيد التواصل": 42,
+  "تواصل": 35,
+  "اعادة الاتصال في وقت اخر": 25,
+  "تاجيل": 20,
+  "كنسل التجربة": 10,
+  "استهداف خاطئ": 5,
+};
+
+const NEXT_STEP_HINT: Record<string, string> = {
+  "تواصل": "إجراء أول اتصال وتأهيل العميل",
+  "قيد التواصل": "متابعة المحادثة وتحديد الاحتياج",
+  "عميل جديد": "تأهيل الحاجة وتحديد الخطة المناسبة",
+  "تم إرسال العرض": "متابعة رد العميل على العرض",
+  "تفاوض": "إغلاق السعر أو تعديل العرض",
+  "انتظار الدفع": "متابعة التحويل وإرسال التذكير",
+  "تجهيز": "تسليم الخدمة وتأكيد التشغيل",
+  "تجريبي": "متابعة تجربة العميل خلال 48 ساعة",
+  "تاجيل": "إعادة جدولة الاتصال حسب الموعد",
+  "اعادة الاتصال في وقت اخر": "تحديد موعد محدد للاتصال",
+};
+
+type DealTier = "hot" | "warm" | "cold" | "stale";
+
+interface DealIntel {
+  score: number;
+  tier: DealTier;
+  lastActivityDate: string;
+  daysSinceActivity: number;
+  nextStep: string;
+  hasNoNextStep: boolean;
+  needsAttention: boolean;
+  attentionReason?: string;
+}
+
+function computeDealIntel(d: Deal, lastNoteDate?: string): DealIntel {
+  const stageWeight = STAGE_WEIGHTS[d.stage] ?? 20;
+  let score = stageWeight;
+
+  // Value weight (max +20)
+  if (d.deal_value >= 30000) score += 20;
+  else if (d.deal_value >= 10000) score += 15;
+  else if (d.deal_value >= 5000) score += 10;
+  else if (d.deal_value >= 1000) score += 5;
+
+  // Recency
+  const lastActivity = lastNoteDate || d.last_contact || d.updated_at || d.created_at;
+  const daysSinceActivity = daysAgo(lastActivity);
+  if (daysSinceActivity <= 2) score += 15;
+  else if (daysSinceActivity <= 5) score += 8;
+  else if (daysSinceActivity <= 10) score += 0;
+  else if (daysSinceActivity <= 20) score -= 15;
+  else score -= 30;
+
+  // Staleness penalty (cycle days)
+  if (d.cycle_days > 30) score -= 20;
+  else if (d.cycle_days > 14) score -= 10;
+
+  // Determine tier
+  let tier: DealTier;
+  if (d.stage === "انتظار الدفع" || score >= 90) tier = "hot";
+  else if (score >= 60) tier = "warm";
+  else if (daysSinceActivity > 14 || d.cycle_days > 21) tier = "stale";
+  else tier = "cold";
+
+  const nextStep = NEXT_STEP_HINT[d.stage] || "تحديد الخطوة القادمة";
+  const hasNoNextStep = !d.notes || d.notes.trim().length < 5;
+
+  // Needs owner attention?
+  let needsAttention = false;
+  let attentionReason: string | undefined;
+  if (d.stage === "انتظار الدفع" && daysSinceActivity >= 3) {
+    needsAttention = true;
+    attentionReason = `بانتظار الدفع منذ ${daysSinceActivity} أيام`;
+  } else if (d.deal_value >= 10000 && daysSinceActivity >= 5 && tier !== "hot") {
+    needsAttention = true;
+    attentionReason = `قيمة عالية بلا تفاعل ${daysSinceActivity} يوم`;
+  } else if (tier === "warm" && daysSinceActivity >= 7) {
+    needsAttention = true;
+    attentionReason = `صفقة دافئة تُنسى — ${daysSinceActivity} يوم بلا تواصل`;
+  }
+
+  return { score, tier, lastActivityDate: lastActivity, daysSinceActivity, nextStep, hasNoNextStep, needsAttention, attentionReason };
+}
+
+function sanitizePhone(phone?: string): string {
+  if (!phone) return "";
+  let p = phone.replace(/[^\d+]/g, "");
+  if (p.startsWith("00")) p = "+" + p.slice(2);
+  if (p.startsWith("05") || p.startsWith("5")) p = "+966" + p.replace(/^0/, "");
+  return p;
+}
+
+function whatsappLink(phone: string, msg: string): string {
+  const p = sanitizePhone(phone).replace(/^\+/, "");
+  return `https://wa.me/${p}?text=${encodeURIComponent(msg)}`;
+}
+
+function whatsappMessageForStage(stage: string, clientName: string): string {
+  switch (stage) {
+    case "انتظار الدفع":
+      return `مرحبًا ${clientName}، نود التأكد من استلامكم لتفاصيل الدفع. هل هناك ما يمكننا مساعدتكم به لإتمام العملية؟`;
+    case "تفاوض":
+      return `مرحبًا ${clientName}، نتابع معكم بخصوص عرضنا. هل لديكم أي استفسارات حتى نصل لاتفاق يناسبكم؟`;
+    case "تم إرسال العرض":
+      return `مرحبًا ${clientName}، تأكيد وصول العرض — هل اطلعتم عليه ولديكم ملاحظات؟`;
+    default:
+      return `مرحبًا ${clientName}، نتابع معكم بخصوص طلبكم مع RESTAVO. كيف يمكننا خدمتكم؟`;
+  }
+}
+
+/* ─── DealRow: compact deal card with quick actions ─── */
+const VARIANT_STYLES: Record<"hot" | "warm" | "cold" | "attention", { border: string; bg: string; text: string; valueText: string }> = {
+  hot: { border: "border-orange-500/25", bg: "bg-orange-500/[0.06]", text: "text-orange-300", valueText: "text-orange-400" },
+  warm: { border: "border-amber-400/25", bg: "bg-amber-500/[0.05]", text: "text-amber-200", valueText: "text-amber-300" },
+  cold: { border: "border-blue-500/20", bg: "bg-blue-500/[0.05]", text: "text-blue-300", valueText: "text-blue-400" },
+  attention: { border: "border-red-500/30", bg: "bg-red-500/[0.06]", text: "text-red-300", valueText: "text-red-400" },
+};
+
+function DealRow({
+  deal: d,
+  intel,
+  variant,
+  onRemind,
+}: {
+  deal: Deal;
+  intel: DealIntel;
+  variant: "hot" | "warm" | "cold" | "attention";
+  onRemind: (d: Deal) => void;
+}) {
+  const s = VARIANT_STYLES[variant];
+  const phone = sanitizePhone(d.client_phone);
+  const lastActivityLabel = intel.daysSinceActivity === 0
+    ? "اليوم"
+    : intel.daysSinceActivity === 1
+    ? "أمس"
+    : `قبل ${intel.daysSinceActivity} يوم`;
+
+  const staleColor = intel.daysSinceActivity > 14 ? "text-red-400" : intel.daysSinceActivity > 7 ? "text-amber-400" : "text-muted-foreground";
+
+  return (
+    <div className={`rounded-lg ${s.bg} border ${s.border} px-3 py-2.5`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-xs font-bold text-foreground truncate">{d.client_name}</p>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/[0.05] text-muted-foreground">{d.stage}</span>
+            {variant === "attention" && intel.attentionReason && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-300">{intel.attentionReason}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            <span className="text-[10px] text-muted-foreground">{d.assigned_rep_name || "بلا مسؤول"}</span>
+            <span className="text-[10px] text-muted-foreground">•</span>
+            <span className={`text-[10px] ${staleColor} flex items-center gap-0.5`}>
+              <Clock className="w-2.5 h-2.5" /> آخر تفاعل {lastActivityLabel}
+            </span>
+            <span className="text-[10px] text-muted-foreground">•</span>
+            <span className="text-[10px] text-muted-foreground">{d.cycle_days} يوم بالأنبوب</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            <span className="text-cyan-400/80">الخطوة القادمة:</span> {intel.nextStep}
+            {intel.hasNoNextStep && <span className="ml-1 text-red-400/90">⚠ بدون ملاحظة</span>}
+          </p>
+        </div>
+        <div className="text-left shrink-0">
+          <p className={`text-sm font-bold ${s.valueText}`}>{formatMoneyFull(d.deal_value)}</p>
+          <p className="text-[9px] text-muted-foreground mt-0.5">درجة {intel.score}</p>
+        </div>
+      </div>
+
+      {/* Quick action buttons */}
+      <div className="flex items-center gap-1 mt-2 pt-2 border-t border-white/[0.04]">
+        {phone ? (
+          <a
+            href={`tel:${phone}`}
+            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 transition-colors"
+            title="اتصل"
+          >
+            <Phone className="w-3 h-3" /> اتصل
+          </a>
+        ) : (
+          <span className="text-[10px] px-2 py-1 rounded-md bg-white/[0.03] text-muted-foreground/60 border border-white/[0.04]">بلا رقم</span>
+        )}
+        {phone && (
+          <a
+            href={whatsappLink(phone, whatsappMessageForStage(d.stage, d.client_name))}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-md bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 transition-colors"
+            title="واتساب"
+          >
+            <MessageCircle className="w-3 h-3" /> واتساب
+          </a>
+        )}
+        <button
+          onClick={() => onRemind(d)}
+          className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-md bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 transition-colors"
+          title="أضف مهمة متابعة غداً"
+        >
+          <Bell className="w-3 h-3" /> ذكّرني
+        </button>
+        <Link
+          href="/sales"
+          className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-md bg-white/[0.04] hover:bg-white/[0.08] text-muted-foreground border border-white/[0.06] transition-colors mr-auto"
+          title="افتح في المبيعات"
+        >
+          <ExternalLink className="w-3 h-3" /> فتح
+        </Link>
+      </div>
+    </div>
+  );
 }
 
 /* ─── Types ─── */
@@ -168,17 +391,54 @@ export default function SecretaryPage() {
      COMPUTED DATA
   ═══════════════════════════════════════ */
 
-  // Hot deals (close to closing)
-  const hotDeals = useMemo(() =>
-    deals.filter(d => d.stage === "انتظار الدفع" || (d.stage === "تفاوض" && d.deal_value >= 500))
-      .sort((a, b) => b.deal_value - a.deal_value).slice(0, 5),
-  [deals]);
+  // ── Deal Intelligence: score every active deal, classify, and enrich with last-activity/next-step ──
+  const dealsWithIntel = useMemo(() => {
+    // Build last-note lookup (most recent note per deal)
+    const lastNoteByDeal = new Map<string, string>();
+    for (const n of recentNotes) {
+      if (n.entity_type !== "deal") continue;
+      const prev = lastNoteByDeal.get(n.entity_id);
+      if (!prev || new Date(n.created_at) > new Date(prev)) {
+        lastNoteByDeal.set(n.entity_id, n.created_at);
+      }
+    }
+    return deals
+      .filter(d => d.stage !== "مكتملة" && d.stage !== "مرفوض مع سبب" && d.stage !== "استهداف خاطئ" && d.stage !== "كنسل التجربة")
+      .map(d => ({ deal: d, intel: computeDealIntel(d, lastNoteByDeal.get(d.id)) }));
+  }, [deals, recentNotes]);
 
-  // Cold deals (stale > 14 days)
-  const coldDeals = useMemo(() =>
-    deals.filter(d => d.stage !== "مكتملة" && d.stage !== "مرفوض مع سبب" && d.cycle_days > 14)
-      .sort((a, b) => b.cycle_days - a.cycle_days).slice(0, 5),
-  [deals]);
+  const hotDeals = useMemo(
+    () => dealsWithIntel.filter(x => x.intel.tier === "hot").sort((a, b) => b.intel.score - a.intel.score),
+    [dealsWithIntel]
+  );
+  const warmDeals = useMemo(
+    () => dealsWithIntel.filter(x => x.intel.tier === "warm").sort((a, b) => b.intel.score - a.intel.score),
+    [dealsWithIntel]
+  );
+  const coldDeals = useMemo(
+    () => dealsWithIntel
+      .filter(x => x.intel.tier === "cold" || x.intel.tier === "stale")
+      .sort((a, b) => b.deal.cycle_days - a.deal.cycle_days),
+    [dealsWithIntel]
+  );
+  const ownerAttention = useMemo(
+    () => dealsWithIntel
+      .filter(x => x.intel.needsAttention)
+      .sort((a, b) => b.deal.deal_value - a.deal.deal_value),
+    [dealsWithIntel]
+  );
+
+  // Rep escalation: reps with 3+ stale/cold deals
+  const repEscalation = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const x of dealsWithIntel) {
+      if (x.intel.tier === "stale" || x.intel.tier === "cold") {
+        const k = x.deal.assigned_rep_name || "بلا مسؤول";
+        map.set(k, (map.get(k) || 0) + 1);
+      }
+    }
+    return Array.from(map.entries()).filter(([, n]) => n >= 3).sort((a, b) => b[1] - a[1]);
+  }, [dealsWithIntel]);
 
   // Renewal health
   const renewalHealth = useMemo(() => {
@@ -211,12 +471,12 @@ export default function SecretaryPage() {
     });
 
     // Hot deals waiting payment
-    hotDeals.filter(d => d.stage === "انتظار الدفع").forEach(d => {
+    hotDeals.filter(x => x.deal.stage === "انتظار الدفع").forEach(({ deal: d }) => {
       p.push({ icon: "💰", title: `بانتظار الدفع: ${d.client_name}`, detail: `${formatMoneyFull(d.deal_value)}`, urgency: "high", section: "sales" });
     });
 
     // Cold deals
-    coldDeals.slice(0, 3).forEach(d => {
+    coldDeals.slice(0, 3).forEach(({ deal: d }) => {
       p.push({ icon: "❄️", title: `صفقة راكدة: ${d.client_name}`, detail: `${d.cycle_days} يوم — مرحلة ${d.stage}`, urgency: "medium", section: "sales" });
     });
 
@@ -304,6 +564,15 @@ export default function SecretaryPage() {
     setTasks(prev => [...prev, { id: Date.now().toString(), text: newTask.trim(), done: false }]);
     setNewTask("");
   }
+  function remindTomorrow(deal: Deal) {
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString("ar-SA-u-ca-gregory", { day: "numeric", month: "short" });
+    const text = `📞 متابعة ${deal.client_name} (${deal.stage}) — ${tomorrow}`;
+    setTasks(prev => {
+      if (prev.some(t => t.text === text)) return prev;
+      return [...prev, { id: `r-${deal.id}-${Date.now()}`, text, done: false }];
+    });
+    setExpandedSections(prev => ({ ...prev, tasks: true }));
+  }
   function toggleTask(id: string) {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
   }
@@ -348,6 +617,8 @@ export default function SecretaryPage() {
         deals_pipeline: deals.filter(d => d.stage !== "مكتملة" && d.stage !== "مرفوض مع سبب").length,
         cold_deals: coldDeals.length,
         hot_deals: hotDeals.length,
+        warm_deals: warmDeals.length,
+        needs_attention: ownerAttention.length,
         renewals_total: renewals.length,
         renewals_completed: renewalHealth.completed,
         renewals_cancelled: renewalHealth.cancelled,
@@ -603,47 +874,90 @@ export default function SecretaryPage() {
         </div>
       </Section>
 
-      {/* ─── 3. Hot & Cold Deals ─── */}
+      {/* ─── 3. Deal Temperature — Hot / Warm / Cold ─── */}
       <Section
         id="hotCold"
         title="الصفقات الساخنة والباردة"
-        icon={<Flame className="w-5 h-5 text-orange-400" />}
-        badge={!loading ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400">{hotDeals.length} ساخنة · {coldDeals.length} باردة</span> : undefined}
+        icon={<Thermometer className="w-5 h-5 text-orange-400" />}
+        badge={!loading ? (
+          <span className="flex items-center gap-1">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400">🔥 {hotDeals.length}</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300">🌤 {warmDeals.length}</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400">❄️ {coldDeals.length}</span>
+          </span>
+        ) : undefined}
         isOpen={expandedSections.hotCold !== false} onToggle={toggleSection}
       >
         {loading ? <Skeleton className="h-32 rounded-xl" /> : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Hot */}
-            <div>
-              <p className="text-xs font-bold text-orange-400 mb-2 flex items-center gap-1.5"><Flame className="w-3.5 h-3.5" /> صفقات ساخنة (قريبة من الإغلاق)</p>
-              {hotDeals.length === 0 ? <p className="text-xs text-muted-foreground">لا توجد صفقات ساخنة</p> : (
+          <div className="space-y-5">
+            {/* Owner Attention Banner */}
+            {(ownerAttention.length > 0 || repEscalation.length > 0) && (
+              <div className="rounded-xl bg-gradient-to-l from-red-500/10 to-orange-500/5 border border-red-500/25 p-3">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <Zap className="w-4 h-4 text-red-400" />
+                  <p className="text-xs font-bold text-red-400">يحتاج تدخّلك الآن</p>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-300">{ownerAttention.length + repEscalation.length}</span>
+                </div>
                 <div className="space-y-1.5">
-                  {hotDeals.map(d => (
-                    <div key={d.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-orange-500/[0.06] border border-orange-500/15">
-                      <div>
-                        <p className="text-xs font-medium text-foreground">{d.client_name}</p>
-                        <p className="text-[10px] text-muted-foreground">{d.stage} · {d.assigned_rep_name || "—"}</p>
-                      </div>
-                      <span className="text-xs font-bold text-orange-400">{formatMoneyFull(d.deal_value)}</span>
+                  {ownerAttention.slice(0, 5).map(({ deal: d, intel }) => (
+                    <DealRow key={`att-${d.id}`} deal={d} intel={intel} variant="attention" onRemind={remindTomorrow} />
+                  ))}
+                  {repEscalation.map(([rep, count]) => (
+                    <div key={`esc-${rep}`} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-red-500/[0.05] border border-red-500/15">
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                      <p className="text-[11px] text-foreground flex-1">
+                        <span className="font-bold">{rep}</span> يحمل <span className="font-bold text-red-400">{count}</span> صفقات راكدة — يستحق تصعيد
+                      </p>
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Hot */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-orange-400 flex items-center gap-1.5"><Flame className="w-3.5 h-3.5" /> ساخنة — قريبة من الإغلاق</p>
+                <span className="text-[10px] text-muted-foreground">{hotDeals.length}</span>
+              </div>
+              {hotDeals.length === 0 ? <p className="text-[11px] text-muted-foreground px-2">لا توجد صفقات ساخنة حالياً</p> : (
+                <div className="space-y-1.5">
+                  {hotDeals.slice(0, 5).map(({ deal: d, intel }) => (
+                    <DealRow key={d.id} deal={d} intel={intel} variant="hot" onRemind={remindTomorrow} />
+                  ))}
+                  {hotDeals.length > 5 && <p className="text-[10px] text-muted-foreground text-center pt-1">و {hotDeals.length - 5} أخرى — <Link href="/sales" className="text-orange-400 hover:underline">عرض الكل</Link></p>}
+                </div>
               )}
             </div>
-            {/* Cold */}
+
+            {/* Warm — the forgotten high-ROI tier */}
             <div>
-              <p className="text-xs font-bold text-blue-400 mb-2 flex items-center gap-1.5"><Snowflake className="w-3.5 h-3.5" /> صفقات باردة (راكدة)</p>
-              {coldDeals.length === 0 ? <p className="text-xs text-muted-foreground">لا توجد صفقات راكدة</p> : (
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-amber-300 flex items-center gap-1.5"><CloudSun className="w-3.5 h-3.5" /> دافئة — منسية وقابلة للإحياء</p>
+                <span className="text-[10px] text-muted-foreground">{warmDeals.length}</span>
+              </div>
+              {warmDeals.length === 0 ? <p className="text-[11px] text-muted-foreground px-2">لا توجد صفقات دافئة</p> : (
                 <div className="space-y-1.5">
-                  {coldDeals.map(d => (
-                    <div key={d.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-blue-500/[0.06] border border-blue-500/15">
-                      <div>
-                        <p className="text-xs font-medium text-foreground">{d.client_name}</p>
-                        <p className="text-[10px] text-muted-foreground">{d.stage} · {d.assigned_rep_name || "—"}</p>
-                      </div>
-                      <span className="text-xs font-bold text-blue-400">{d.cycle_days} يوم</span>
-                    </div>
+                  {warmDeals.slice(0, 5).map(({ deal: d, intel }) => (
+                    <DealRow key={d.id} deal={d} intel={intel} variant="warm" onRemind={remindTomorrow} />
                   ))}
+                  {warmDeals.length > 5 && <p className="text-[10px] text-muted-foreground text-center pt-1">و {warmDeals.length - 5} أخرى — <Link href="/sales" className="text-amber-300 hover:underline">عرض الكل</Link></p>}
+                </div>
+              )}
+            </div>
+
+            {/* Cold / Stale */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-blue-400 flex items-center gap-1.5"><Snowflake className="w-3.5 h-3.5" /> باردة / راكدة</p>
+                <span className="text-[10px] text-muted-foreground">{coldDeals.length}</span>
+              </div>
+              {coldDeals.length === 0 ? <p className="text-[11px] text-muted-foreground px-2">لا توجد صفقات راكدة</p> : (
+                <div className="space-y-1.5">
+                  {coldDeals.slice(0, 5).map(({ deal: d, intel }) => (
+                    <DealRow key={d.id} deal={d} intel={intel} variant="cold" onRemind={remindTomorrow} />
+                  ))}
+                  {coldDeals.length > 5 && <p className="text-[10px] text-muted-foreground text-center pt-1">و {coldDeals.length - 5} أخرى — <Link href="/sales" className="text-blue-400 hover:underline">عرض الكل</Link></p>}
                 </div>
               )}
             </div>
