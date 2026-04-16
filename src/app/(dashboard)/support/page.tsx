@@ -255,7 +255,7 @@ export default function SupportPage() {
   const agentOnlyTickets = agentFilter ? tickets.filter((t) => t.assigned_agent_name === agentFilter) : tickets;
   const achievementItems = useMemo(() => agentOnlyTickets.map(t => ({
     id: t.id,
-    updated_at: t.updated_at,
+    updated_at: t.open_date || t.created_at,
     value: 0,
     isCompleted: t.status === "محلول",
     isCancelled: false,
@@ -269,7 +269,7 @@ export default function SupportPage() {
     ? typeFilteredTickets.filter((t) => t.issue_category === categoryFilter)
     : typeFilteredTickets;
   const baseFilteredTickets = achieveFilter
-    ? categoryFilteredTickets.filter(t => achieveFilterIds.has(t.id))
+    ? agentOnlyTickets.filter(t => achieveFilterIds.has(t.id))
     : cardFilter
       ? cardFilter === "عاجل"
         ? categoryFilteredTickets.filter((t) => t.priority === "عاجل")
