@@ -16,11 +16,15 @@ interface LastSaleInfo {
 
 const ALL_TYPES: SaleType[] = ["office", "support", "renewal"];
 
-function sectionsFromPath(pathname: string): SaleType[] | null {
+type BannerMode = SaleType[] | "hidden" | null;
+
+function sectionsFromPath(pathname: string): BannerMode {
   if (pathname.startsWith("/support-sales")) return ["support"];
   if (pathname.startsWith("/sales")) return ["office"];
   if (pathname.startsWith("/renewals")) return ["renewal"];
   if (pathname.startsWith("/secretary")) return ALL_TYPES;
+  // Pages where the banner should not appear
+  if (pathname.startsWith("/support")) return "hidden";
   return null;
 }
 
@@ -99,6 +103,8 @@ export function LastSaleBanner() {
 
   useEffect(() => {
     setSales([]);
+
+    if (sections === "hidden") return;
 
     const requested = sections ?? ALL_TYPES;
     const needDeals = requested.includes("office") || requested.includes("support");
