@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import type { Deal, Marketer, Package, Employee, EmployeeTask } from "@/types";
 import { fetchDeals, createDeal, updateDeal, deleteDeal, fetchMarketers, createFollowUpNote, fetchRecentFollowUpNotes, fetchPackages, fetchQuoteCommitments, addQuoteCommitment, removeQuoteCommitment, fetchEmployees, fetchEmployeeTasks, createEmployeeTask, createRenewal } from "@/lib/supabase/db";
@@ -585,6 +585,63 @@ export function SalesSection({ salesType }: SalesPageProps) {
       }))
       .sort((a, b) => b.value - a.value);
   })();
+
+  // Averages for relative comparisons in recommendations
+  const avgWinRate = repPerformance.length > 0 ? Math.round(repPerformance.reduce((s, r) => s + r.winRate, 0) / repPerformance.length) : 0;
+  const avgCycle = repPerformance.length > 0 ? Math.round(repPerformance.reduce((s, r) => s + r.avgCycle, 0) / repPerformance.length) : 0;
+
+  function getRepTips(rep: typeof repPerformance[number]): { text: string; color: string }[] {
+    const tips: { text: string; color: string }[] = [];
+
+    // Win rate
+    if (rep.winRate < 20 && rep.deals >= 5) {
+      tips.push({ text: "معدل إغلاق منخفض جداً — تحسين تأهيل العملاء قبل التفاوض", color: "text-red-400 bg-red-500/10 border-red-500/20" });
+    } else if (rep.winRate < avgWinRate && rep.winRate < 35 && rep.deals >= 5) {
+      tips.push({ text: "معدل الإغلاق أقل من متوسط الفريق — التركيز على متابعة الصفقات المفتوحة", color: "text-amber-400 bg-amber-500/10 border-amber-500/20" });
+    } else if (rep.winRate >= 50 && rep.deals >= 10) {
+      tips.push({ text: "إغلاق ممتاز — يمكن رفع المستهدف أو تولّي عملاء أكثر", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" });
+    }
+
+    // Discounts
+    if (rep.fullPriceRate < 40 && (rep.fullPrice + rep.discounted) >= 3) {
+      tips.push({ text: "أكثر من 60% من الصفقات بخصم — التدريب على البيع بالسعر الكامل", color: "text-amber-400 bg-amber-500/10 border-amber-500/20" });
+    } else if (rep.fullPriceRate >= 80 && (rep.fullPrice + rep.discounted) >= 3) {
+      tips.push({ text: "ممتاز في البيع بالسعر الكامل", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" });
+    }
+
+    // Cycle time
+    if (rep.avgCycle > avgCycle * 1.5 && rep.avgCycle > 10) {
+      tips.push({ text: `دورة بيع طويلة (${rep.avgCycle} يوم مقابل ${avgCycle} متوسط) — تسريع المتابعة`, color: "text-amber-400 bg-amber-500/10 border-amber-500/20" });
+    } else if (rep.avgCycle > 0 && rep.avgCycle < avgCycle * 0.7 && rep.closed >= 5) {
+      tips.push({ text: "دورة بيع سريعة — نقطة قوة واضحة", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" });
+    }
+
+    // Plan mix — mostly basic
+    const totalPlans = Object.values(rep.plans).reduce((s, n) => s + n, 0);
+    const basicCount = rep.plans["الاساسية"] || 0;
+    const vipCount = (rep.plans["VIP"] || 0) + (rep.plans["VIP Plus"] || 0) + (rep.plans["الذهبية"] || 0);
+    if (totalPlans >= 5 && basicCount / totalPlans > 0.6) {
+      tips.push({ text: "أغلب الباقات أساسية — التركيز على بيع VIP والذهبية لرفع متوسط الإيراد", color: "text-cyan bg-cyan/10 border-cyan/20" });
+    } else if (totalPlans >= 5 && vipCount / totalPlans > 0.4) {
+      tips.push({ text: "تنوّع ممتاز في الباقات المتقدمة", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" });
+    }
+
+    // Volume
+    if (rep.deals < 10 && rep.deals > 0) {
+      tips.push({ text: "عدد صفقات منخفض — زيادة التواصل اليومي واستقطاب عملاء جدد", color: "text-amber-400 bg-amber-500/10 border-amber-500/20" });
+    }
+
+    // Star performer
+    if (rep.winRate >= 40 && rep.fullPriceRate >= 60 && rep.deals >= 20) {
+      tips.push({ text: "أداء متميز — يُنصح بتدريب الفريق على أساليبه", color: "text-violet-400 bg-violet-500/10 border-violet-500/20" });
+    }
+
+    if (tips.length === 0) {
+      tips.push({ text: "أداء جيد — استمر بنفس الوتيرة", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" });
+    }
+
+    return tips;
+  }
 
   /* Lost deals analysis — from real deals with stage "مرفوض مع سبب" */
   const lostDeals = repFilteredDeals.filter((d) => d.stage === "مرفوض مع سبب");
@@ -1598,7 +1655,8 @@ export function SalesSection({ salesType }: SalesPageProps) {
                   const rateColor = rep.winRate >= 30 ? "bg-amber" : rep.winRate > 0 ? "bg-cc-red" : "bg-muted-foreground/30";
 
                   return (
-                    <tr key={rep.name} className="border-b border-border/50 hover:bg-white/[0.02] transition-colors">
+                    <React.Fragment key={rep.name}>
+                    <tr className="border-b border-border/50 hover:bg-white/[0.02] transition-colors">
                       <td className="py-3.5 px-5">
                         <div className="flex items-center gap-3">
                           <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ring-1 ring-white/10 ${avatarColor}`}>
@@ -1647,6 +1705,20 @@ export function SalesSection({ salesType }: SalesPageProps) {
                       <td className="py-3.5 px-4 text-right font-bold text-cyan">{formatMoney(rep.value)}</td>
                       <td className="py-3.5 px-4 text-center text-lg">{medal}</td>
                     </tr>
+                    {/* Recommendations row */}
+                    <tr className="border-b border-border/30">
+                      <td colSpan={11} className="px-5 py-2 pb-3">
+                        <div className="flex flex-wrap gap-1.5 items-center">
+                          <span className="text-[10px] text-muted-foreground/70 ml-1">توصيات:</span>
+                          {getRepTips(rep).map((tip, i) => (
+                            <span key={i} className={`text-[10px] px-2 py-0.5 rounded-full border ${tip.color}`}>
+                              {tip.text}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                    </React.Fragment>
                   );
                 })}
               </tbody>
