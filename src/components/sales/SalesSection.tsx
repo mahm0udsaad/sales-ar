@@ -529,6 +529,21 @@ export function SalesSection({ salesType }: SalesPageProps) {
     return null;
   };
 
+  // Normalize plan name variants to canonical names
+  const normalizePlanName = (plan: string): string => {
+    const n = plan.toLowerCase().trim().replace(/^ال/, "");
+    if (n === "اساسية" || n === "أساسية" || n === "الاساسية" || n === "الأساسية" || n === "اساسيه" || n === "أساسيه") return "الاساسية";
+    if (n === "vip" || n === "في آي بي" || n === "في اي بي") return "VIP";
+    if (n === "vip plus" || n === "vip بلس") return "VIP Plus";
+    if (n === "ذهبية" || n === "ذهبيه" || n === "الذهبية") return "الذهبية";
+    if (n === "بلس" || n === "البلس" || n === "plus") return "بلس";
+    if (n === "كاشير" || n === "الكاشير") return "الكاشير";
+    if (n === "تصاميم" || n === "تصميم") return "تصاميم";
+    if (n === "ترقية" || n === "ترقيه") return "ترقية";
+    // Return original if no match
+    return plan.trim();
+  };
+
   const repPerformance = (() => {
     const repMap: Record<string, { deals: number; closed: number; value: number; cycleDays: number; plans: Record<string, number>; fullPrice: number; discounted: number; discountTotal: number }> = {};
     repFilteredDeals.forEach((d) => {
@@ -549,7 +564,10 @@ export function SalesSection({ salesType }: SalesPageProps) {
           }
         }
       }
-      if (d.plan) repMap[rep].plans[d.plan] = (repMap[rep].plans[d.plan] || 0) + 1;
+      if (d.plan) {
+        const normalizedPlan = normalizePlanName(d.plan);
+        repMap[rep].plans[normalizedPlan] = (repMap[rep].plans[normalizedPlan] || 0) + 1;
+      }
     });
     return Object.entries(repMap)
       .map(([name, data]) => ({
