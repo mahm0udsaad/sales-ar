@@ -1,14 +1,24 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { Trophy, Clock } from "lucide-react";
 import { fetchDeals, fetchRenewals } from "@/lib/supabase/db";
+
+type SaleType = "office" | "support" | "renewal";
 
 interface LastSaleInfo {
   clientName: string;
   value: number;
-  type: "office" | "support" | "renewal";
+  type: SaleType;
   date: string;
+}
+
+function sectionFromPath(pathname: string): SaleType | null {
+  if (pathname.startsWith("/support-sales")) return "support";
+  if (pathname.startsWith("/sales")) return "office";
+  if (pathname.startsWith("/renewals")) return "renewal";
+  return null;
 }
 
 function formatElapsed(dateStr: string): string {
@@ -41,11 +51,21 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 export function LastSaleBanner() {
+  const pathname = usePathname();
+  const section = sectionFromPath(pathname);
   const [sale, setSale] = useState<LastSaleInfo | null>(null);
   const [elapsed, setElapsed] = useState("");
 
   useEffect(() => {
-    Promise.all([fetchDeals(), fetchRenewals()])
+    setSale(null);
+
+    const needDeals = section === null || section === "office" || section === "support";
+    const needRenewals = section === null || section === "renewal";
+
+    Promise.all([
+      needDeals ? fetchDeals(section === "office" || section === "support" ? section : undefined) : Promise.resolve([]),
+      needRenewals ? fetchRenewals() : Promise.resolve([]),
+    ])
       .then(([deals, renewals]) => {
         let latest: LastSaleInfo | null = null;
         let latestTime = 0;
@@ -53,13 +73,15 @@ export function LastSaleBanner() {
         // Closed deals
         for (const d of deals) {
           if (d.stage !== "مكتملة") continue;
+          const dealType: SaleType = d.sales_type === "support" ? "support" : "office";
+          if (section && section !== dealType) continue;
           const t = new Date(d.close_date || d.updated_at || d.created_at).getTime();
           if (t > latestTime) {
             latestTime = t;
             latest = {
               clientName: d.client_name,
               value: d.deal_value,
-              type: d.sales_type === "support" ? "support" : "office",
+              type: dealType,
               date: d.close_date || d.updated_at || d.created_at,
             };
           }
@@ -86,7 +108,7 @@ export function LastSaleBanner() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [section]);
 
   // Live tick every minute
   useEffect(() => {
